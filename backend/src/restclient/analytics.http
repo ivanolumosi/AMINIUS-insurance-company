@@ -1,0 +1,131 @@
+# ### 1. Create Activity Log
+# POST http://localhost:5000/api/analytics/activity-log
+# Content-Type: application/json
+
+# {
+#   "agentId": "{{agentId}}",
+#   "activityType": "LOGIN",
+#   "entityType": "Agent",
+#   "entityId": "11111111-1111-1111-1111-111111111111",
+#   "description": "Agent logged in successfully",
+#   "additionalData": "{ \"ip\": \"192.168.0.10\" }"
+# }
+
+# ### 2. Get Activity Logs by Agent
+# GET http://localhost:5000/api/analytics/activity-log/{{agentId}}?limit=20
+
+# ### 3. Get Activity Logs by Date Range
+# GET http://localhost:5000/api/analytics/activity-log/{{agentId}}/range?startDate=2025-08-01&endDate=2025-08-08
+
+
+# ### 4. Get Dashboard Statistics
+# POST http://localhost:5000/api/analytics/dashboard/statistics
+# Content-Type: application/json
+
+# {
+#   "agentId": "{{agentId}}",
+#   "statDate": "2025-08-08"
+# }
+
+# ### 5. Update Dashboard Statistics
+# PUT http://localhost:5000/api/analytics/dashboard/statistics/{{agentId}}
+# Content-Type: application/json
+
+# {
+#   "statDate": "2025-08-08",
+#   "totalClients": 120,
+#   "totalProspects": 45,
+#   "activePolicies": 87,
+#   "todayAppointments": 5,
+#   "weekAppointments": 12,
+#   "monthAppointments": 50,
+#   "completedAppointments": 40,
+#   "pendingReminders": 6,
+#   "todayBirthdays": 2,
+#   "expiringPolicies": 3
+# }
+
+
+# ### 6. Get Performance Metrics
+# POST http://localhost:5000/api/analytics/performance/metrics
+# Content-Type: application/json
+
+# {
+#   "agentId": "{{agentId}}",
+#   "startDate": "2025-08-01",
+#   "endDate": "2025-08-08"
+# }
+
+# ### 7. Update Performance Metrics
+# PUT http://localhost:5000/api/analytics/performance/metrics/{{agentId}}
+# Content-Type: application/json
+
+# {
+#   "metricDate": "2025-08-08",
+#   "newClientsAdded": 5,
+#   "prospectsConverted": 3,
+#   "appointmentsCompleted": 8,
+#   "policiesSold": 4,
+#   "remindersCompleted": 6,
+#   "messagesSet": 15,
+#   "clientInteractions": 25
+# }
+
+
+# ### 8. Create Task Summary
+# POST http://localhost:5000/api/analytics/tasks
+# Content-Type: application/json
+
+# {
+#   "agentId": "{{agentId}}",
+#   "taskDate": "2025-08-08",
+#   "taskType": "Follow-Up",
+#   "taskDescription": "Call client about renewal",
+#   "priority": "High",
+#   "clientId": "22222222-2222-2222-2222-222222222222",
+#   "appointmentId": "33333333-3333-3333-3333-333333333333",
+#   "dueTime": "14:00:00"
+# }
+
+# ### 9. Get Task Summary (Optional date filter)
+# GET http://localhost:5000/api/analytics/tasks/{{agentId}}?taskDate=2025-08-08
+
+# ### 10. Update Task Status
+# PUT http://localhost:5000/api/analytics/tasks/{{taskId}}/status
+# Content-Type: application/json
+
+# {
+#   "status": "Completed",
+#   "completedDate": "2025-08-08T15:30:00Z"
+# }
+
+
+# ### 11. Generate Monthly Report
+# POST http://localhost:5000/api/analytics/monthly-report
+# Content-Type: application/json
+
+# {
+#   "agentId": "{{agentId}}",
+#   "reportMonth": "2025-08-01"
+# }
+
+# ### 12. Get Monthly Reports
+# GET http://localhost:5000/api/analytics/monthly-report/{{agentId}}?startMonth=2025-07-01&endMonth=2025-08-01
+
+
+# ### 13. Get Cached Dashboard View
+# GET http://localhost:5000/api/analytics/cache/{{agentId}}/MyView?cacheDate=2025-08-08
+
+# ### 14. Set Cached Dashboard View
+# POST http://localhost:5000/api/analytics/cache
+# Content-Type: application/json
+
+# {
+#   "agentId": "{{agentId}}",
+#   "viewName": "MyView",
+#   "cacheData": "{ \"data\": [1,2,3] }",
+#   "expirationHours": 2
+# }
+
+# ### 15. Clear Expired Cache
+# DELETE http://localhost:5000/api/analytics/cache/expired

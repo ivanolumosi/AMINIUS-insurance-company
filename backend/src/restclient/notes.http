@@ -1,0 +1,19 @@
+# ### Get Daily Notes
+# GET http://localhost:3000/api/notes/{{agentId}}/2025-08-08
+
+# ### Save Daily Notes
+# POST http://localhost:3000/api/notes/730080DD-742C-4934-8974-30AC3495E468/2025-08-08
+# Content-Type: application/json
+
+# {
+#   "notes": "Meeting with insurance client, discussed policy upgrade."
+# }
+
+# ### Get All Notes in Date Range
+# GET http://localhost:3000/api/notes/730080DD-742C-4934-8974-30AC3495E468?StartDate=2025-08-01&EndDate=2025-08-31
+
+# ### Search Notes
+# GET http://localhost:3000/api/notes/{{agentId}}/search?searchTerm=insurance
+
+# ### Delete Notes
+# DELETE http://localhost:3000/api/notes/{{agentId}}/2025-08-08

@@ -1,0 +1,73 @@
+# ### Create Reminder
+# POST http://localhost:3000/api/reminders/{{agentId}}
+# Content-Type: application/json
+
+# {
+#   "ReminderType": "Call",
+#   "Title": "Follow up with client",
+#   "Description": "Call about renewal",
+#   "ReminderDate": "2025-08-15",
+#   "Priority": "High"
+# }
+
+# ### Get All Reminders
+# GET http://localhost:3000/api/reminders/{{agentId}}?PageSize=10&PageNumber=1
+
+# ### Get Reminder by ID
+# GET http://localhost:3000/api/reminders/{{agentId}}/{{reminderId}}
+
+# ### Update Reminder
+# PUT http://localhost:3000/api/reminders/{{agentId}}/{{reminderId}}
+# Content-Type: application/json
+
+# {
+#   "Title": "Updated Title",
+#   "Priority": "Low"
+# }
+
+# ### Delete Reminder
+# DELETE http://localhost:3000/api/reminders/{{agentId}}/{{reminderId}}
+
+# ### Complete Reminder
+# POST http://localhost:3000/api/reminders/{{agentId}}/{{reminderId}}/complete
+# Content-Type: application/json
+
+# {
+#   "notes": "Task done"
+# }
+
+# ### Get Today's Reminders
+# GET http://localhost:3000/api/reminders/{{agentId}}/today
+
+# ### Get Upcoming Reminders
+# GET http://localhost:3000/api/reminders/{{agentId}}/upcoming?daysAhead=5
+
+# ### Get Completed Reminders
+# GET http://localhost:3000/api/reminders/{{agentId}}/completed?startDate=2025-08-01&endDate=2025-08-31
+
+# ### Get Birthday Reminders
+# GET http://localhost:3000/api/reminders/{{agentId}}/birthdays
+
+# ### Get Policy Expiry Reminders
+# GET http://localhost:3000/api/reminders/{{agentId}}/policy-expiries?daysAhead=15
+
+# ### Get Reminder Settings
+# GET http://localhost:3000/api/reminders/{{agentId}}/settings
+
+# ### Update Reminder Settings
+# PUT http://localhost:3000/api/reminders/{{agentId}}/settings
+# Content-Type: application/json
+
+# {
+#   "ReminderType": "Birthday",
+#   "IsEnabled": true,
+#   "DaysBefore": 3,
+#   "TimeOfDay": "09:00:00",
+#   "RepeatDaily": false
+# }
+
+# ### Get Reminder Statistics
+# GET http://localhost:3000/api/reminders/{{agentId}}/stats
+
+# ### Validate Phone
+# GET http://localhost:3000/api/reminders/{{agentId}}/validate-phone?phoneNumber=0712345678&countryCode=+254

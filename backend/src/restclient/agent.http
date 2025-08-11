@@ -1,0 +1,90 @@
+### 1. Upsert Agent Profile (Create or Update)
+POST http://localhost:3000/api/agent
+Content-Type: application/json
+
+{
+  "agentId": null,
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "phone": "0753425367",
+  "passwordHash": "hashedpass123",
+  "avatar": "https://example.com/avatar.jpg"
+}
+
+### 2. Get Agent Profile
+GET http://localhost:3000/api/agent/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD
+
+### 3. Update Agent Settings
+PUT http://localhost:3000/api/agent/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD/settings
+Content-Type: application/json
+
+{
+  "DarkMode": true,
+  "EmailNotifications": true,
+  "SmsNotifications": false,
+  "WhatsappNotifications": true,
+  "PushNotifications": true,
+  "SoundEnabled": false
+}
+
+### 4. Authenticate Agent
+POST http://localhost:3000/api/agent/authenticate
+Content-Type: application/json
+
+{
+  "email": "john@example.com"
+}
+
+### 5. Login Agent
+POST http://localhost:3000/api/agent/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "plaintextpassword"
+}
+
+### 6. Register Agent
+POST http://localhost:3000/api/agent/register
+Content-Type: application/json
+
+{
+  "FirstName": "Stephen",
+  "LastName": "Mutwiwi",
+  "Email": "stephen@example.com",
+  "Phone": "0746743837",
+  "PasswordHash": "SecurePass1234",
+  "Avatar": "https://example.com/avatar2.jpg"
+}
+
+### 7. Change Agent Password
+POST http://localhost:3000/api/agent/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD/change-password
+Content-Type: application/json
+
+{
+  "oldPasswordHash": "oldhashedpassword",
+  "newPasswordHash": "newhashedpassword"
+}
+
+### 8. Request Password Reset
+POST http://localhost:3000/api/agent/password-reset/request
+Content-Type: application/json
+
+{
+  "email": "john@example.com"
+}
+
+### 9. Reset Agent Password
+POST http://localhost:3000/api/agent/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD/password-reset
+Content-Type: application/json
+
+{
+  "newPasswordHash": "newhashedpassword"
+}
+
+### 10. Get Insurance Companies
+GET http://localhost:3000/api/insurance-companies
+
+### 11. Get Policy Types
+GET http://localhost:3000/api/policy-types

@@ -1,0 +1,124 @@
+# ### Validate Email
+# GET http://localhost:3000/api/utility/validate/email?email=test@example.com
+
+# ### Validate National ID
+# GET http://localhost:3000/api/utility/validate/national-id?nationalId=12345678
+
+# ### Validate Date
+# GET http://localhost:3000/api/utility/validate/date?dateValue=2025-01-01&minDate=2020-01-01&maxDate=2030-01-01
+
+# ### Validate Time Range
+# GET http://localhost:3000/api/utility/validate/time-range?startTime=08:00:00&endTime=17:00:00
+
+# ### Check Data Integrity
+# GET http://localhost:3000/api/utility/{AGENT_ID}/data-integrity
+
+# ### Format Phone Number
+# GET http://localhost:3000/api/utility/format/phone?phoneNumber=0712345678&countryCode=+254
+
+# ### Get Greeting
+# GET http://localhost:3000/api/utility/greeting
+
+# ### Parse Template
+# POST http://localhost:3000/api/utility/template/parse
+# Content-Type: application/json
+
+# {
+#   "template": "Hello {{ClientName}}, your policy {{PolicyType}} expires on {{ExpiryDate}}.",
+#   "data": {
+#     "ClientName": "John Doe",
+#     "PolicyType": "Life Insurance",
+#     "ExpiryDate": "2025-12-31"
+#   }
+# }
+
+# ### Generate Random Password
+# GET http://localhost:3000/api/utility/password/random?length=16
+
+# ### Calculate Age
+# GET http://localhost:3000/api/utility/calculate/age?dateOfBirth=1990-05-20
+
+# ### Days Until Expiry
+# GET http://localhost:3000/api/utility/calculate/days-until-expiry?expiryDate=2025-12-31
+
+# ### Format Client Name
+# GET http://localhost:3000/api/utility/format/client-name?firstName=John&surname=Doe&lastName=Smith
+
+# ### Format Currency
+# GET http://localhost:3000/api/utility/format/currency?amount=1500.75
+
+# ### Get Status Color
+# GET http://localhost:3000/api/utility/color/status?status=Active
+
+# ### Get Priority Color
+# GET http://localhost:3000/api/utility/color/priority?priority=High
+
+# ### Get Appointment Type Icon
+# GET http://localhost:3000/api/utility/icon/appointment-type?type=Meeting
+
+# ### Send Email Notification
+# POST http://localhost:3000/api/utility/{AGENT_ID}/notifications/email
+# Content-Type: application/json
+
+# {
+#   "toEmail": "client@example.com",
+#   "subject": "Policy Update",
+#   "body": "Your policy has been updated."
+# }
+
+# ### Send SMS Notification
+# POST http://localhost:3000/api/utility/{AGENT_ID}/notifications/sms
+# Content-Type: application/json
+
+# {
+#   "phoneNumber": "+254712345678",
+#   "message": "Reminder: Appointment tomorrow."
+# }
+
+# ### Send WhatsApp Notification
+# POST http://localhost:3000/api/utility/{AGENT_ID}/notifications/whatsapp
+# Content-Type: application/json
+
+# {
+#   "phoneNumber": "+254712345678",
+#   "message": "WhatsApp message test."
+# }
+
+# ### Send Push Notification
+# POST http://localhost:3000/api/utility/{AGENT_ID}/notifications/push
+# Content-Type: application/json
+
+# {
+#   "title": "System Alert",
+#   "body": "Backup completed successfully."
+# }
+
+# ### Schedule Notification
+# POST http://localhost:3000/api/utility/{AGENT_ID}/notifications/schedule
+# Content-Type: application/json
+
+# {
+#   "scheduledTime": "2025-08-09T10:00:00",
+#   "notificationType": "Email",
+#   "recipient": "client@example.com",
+#   "body": "Scheduled email body",
+#   "subject": "Scheduled Email"
+# }
+
+# ### Cancel Scheduled Notification
+# DELETE http://localhost:3000/api/utility/{AGENT_ID}/notifications/{NOTIFICATION_ID}
+
+# ### Process Scheduled Notifications
+# GET http://localhost:3000/api/utility/notifications/process
+
+# ### Get Notification History
+# GET http://localhost:3000/api/utility/{AGENT_ID}/notifications/history?pageSize=10&pageNumber=1
+
+# ### Update Notification Status
+# PUT http://localhost:3000/api/utility/notifications/{NOTIFICATION_ID}/status
+# Content-Type: application/json
+
+# {
+#   "status": "Sent",
+#   "errorMessage": null
+# }

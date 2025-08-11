@@ -1,0 +1,27 @@
+### Global Search
+GET http://localhost:3000/api/search/{AGENT_ID}/global?searchTerm=life insurance
+Content-Type: application/json
+
+### Search Clients
+GET http://localhost:3000/api/search/{AGENT_ID}/clients?searchTerm=john
+Content-Type: application/json
+
+### Search Appointments
+GET http://localhost:3000/api/search/{AGENT_ID}/appointments?searchTerm=review
+Content-Type: application/json
+
+### Search Policies
+GET http://localhost:3000/api/search/{AGENT_ID}/policies?searchTerm=auto
+Content-Type: application/json
+
+### Search Reminders
+GET http://localhost:3000/api/search/{AGENT_ID}/reminders?searchTerm=follow-up
+Content-Type: application/json
+
+### Get Search Suggestions
+GET http://localhost:3000/api/search/{AGENT_ID}/suggestions?searchTerm=health&maxResults=5
+Content-Type: application/json
+
+### Get Search History
+GET http://localhost:3000/api/search/{AGENT_ID}/history?maxResults=10
+Content-Type: application/json

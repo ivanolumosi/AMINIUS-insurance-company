@@ -1,0 +1,97 @@
+ALTER TABLE AgentNotificationPreferences DROP CONSTRAINT FK__AgentNoti__Agent__01D345B0;
+ALTER TABLE ReminderSettings DROP CONSTRAINT FK__ReminderS__Agent__04E4BC85;
+ALTER TABLE SystemPreferences DROP CONSTRAINT FK__SystemPre__Agent__0880433F;
+ALTER TABLE BackupSettings DROP CONSTRAINT FK__BackupSet__Agent__14E61A24;
+ALTER TABLE MessageTemplates DROP CONSTRAINT FK__MessageTe__Agent__1C873BEC;
+ALTER TABLE ActivityLog DROP CONSTRAINT FK__ActivityL__Agent__214BF109;
+ALTER TABLE Appointments DROP CONSTRAINT FK__Appointme__Agent__2BFE89A6;
+ALTER TABLE DashboardStatistics DROP CONSTRAINT FK__Dashboard__Agent__318258D2;
+ALTER TABLE PolicyCatalog DROP CONSTRAINT FK__PolicyCat__Agent__32AB8735;
+ALTER TABLE PolicyTemplates DROP CONSTRAINT FK__PolicyTem__Agent__395884C4;
+ALTER TABLE PerformanceMetrics DROP CONSTRAINT FK__Performan__Agent__3DE82FB7;
+ALTER TABLE TaskSummary DROP CONSTRAINT FK__TaskSumma__Agent__467D75B8;
+ALTER TABLE AgentSettings DROP CONSTRAINT FK__AgentSett__Agent__46E78A0C;
+ALTER TABLE Reminders DROP CONSTRAINT FK__Reminders__Agent__56E8E7AB;
+ALTER TABLE MonthlyReports DROP CONSTRAINT FK__MonthlyRe__Agent__59904A2C;
+ALTER TABLE Clients DROP CONSTRAINT FK__Clients__AgentId__59FA5E80;
+ALTER TABLE DashboardViewsCache DROP CONSTRAINT FK__Dashboard__Agent__5F492382;
+ALTER TABLE AutomatedMessages DROP CONSTRAINT FK__Automated__Agent__607251E5;
+ALTER TABLE DailyNotes DROP CONSTRAINT FK__DailyNote__Agent__6DCC4D03;
+
+
+
+ALTER TABLE AgentNotificationPreferences 
+ADD CONSTRAINT FK_AgentNotificationPreferences_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE ReminderSettings 
+ADD CONSTRAINT FK_ReminderSettings_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE SystemPreferences 
+ADD CONSTRAINT FK_SystemPreferences_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE BackupSettings 
+ADD CONSTRAINT FK_BackupSettings_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE MessageTemplates 
+ADD CONSTRAINT FK_MessageTemplates_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE ActivityLog 
+ADD CONSTRAINT FK_ActivityLog_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE Appointments 
+ADD CONSTRAINT FK_Appointments_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE DashboardStatistics 
+ADD CONSTRAINT FK_DashboardStatistics_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE PolicyCatalog 
+ADD CONSTRAINT FK_PolicyCatalog_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE PolicyTemplates 
+ADD CONSTRAINT FK_PolicyTemplates_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE PerformanceMetrics 
+ADD CONSTRAINT FK_PerformanceMetrics_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE TaskSummary 
+ADD CONSTRAINT FK_TaskSummary_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE AgentSettings 
+ADD CONSTRAINT FK_AgentSettings_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE Reminders 
+ADD CONSTRAINT FK_Reminders_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE MonthlyReports 
+ADD CONSTRAINT FK_MonthlyReports_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE Clients 
+ADD CONSTRAINT FK_Clients_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE DashboardViewsCache 
+ADD CONSTRAINT FK_DashboardViewsCache_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE AutomatedMessages 
+ADD CONSTRAINT FK_AutomatedMessages_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;
+
+ALTER TABLE DailyNotes 
+ADD CONSTRAINT FK_DailyNotes_Agent 
+FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE;

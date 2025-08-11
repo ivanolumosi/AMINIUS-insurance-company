@@ -1,0 +1,73 @@
+@baseUrl = http://localhost:3000/api/appointments
+
+### 1. Create Appointment
+POST {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468
+Content-Type: application/json
+
+{
+  "clientId": "33333333-3333-3333-3333-333333333333",
+  "title": "Policy Renewal Meeting",
+  "description": "Discuss renewal options",
+  "appointmentDate": "2025-08-10",
+  "startTime": "10:00:00",
+  "endTime": "11:00:00",
+  "location": "Office",
+  "type": "Meeting",
+  "priority": "High",
+  "notes": "Bring policy documents",
+  "reminderSet": true
+}
+
+### 2. Update Appointment
+PUT {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
+Content-Type: application/json
+
+{
+  "title": "Updated Meeting Title",
+  "priority": "Medium"
+}
+
+### 3. Get Appointment By ID
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
+
+### 4. Delete Appointment
+DELETE {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
+
+### 5. Get All Appointments (filters optional)
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468?pageSize=10&pageNumber=1
+
+### 6. Get Today’s Appointments
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/today
+
+### 7. Get Appointments For Specific Date
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/date?appointmentDate=2025-08-10
+
+### 8. Get Week View
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/week?weekStartDate=2025-08-04
+
+### 9. Get Calendar View
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/calendar?month=8&year=2025
+
+### 10. Search Appointments
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/search?searchTerm=Policy
+
+### 11. Update Appointment Status
+PUT {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222/status
+Content-Type: application/json
+
+{
+  "status": "Completed"
+}
+
+### 12. Get Appointment Statistics
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/statistics
+
+### 13. Check Time Conflicts
+POST {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/check-conflicts
+Content-Type: application/json
+
+{
+  "appointmentDate": "2025-08-10",
+  "startTime": "10:30:00",
+  "endTime": "11:30:00"
+}

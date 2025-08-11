@@ -1,0 +1,323 @@
+
+-- -- Global Search
+-- CREATE OR ALTER PROCEDURE sp_GlobalSearch
+--     @AgentId UNIQUEIDENTIFIER,
+--     @SearchTerm NVARCHAR(500)
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
+    
+--     -- Search Clients
+--     SELECT 
+--         'Client' AS EntityType,
+--         ClientId AS EntityId,
+--         FirstName + ' ' + Surname AS Title,
+--         Email AS Subtitle,
+--         PhoneNumber AS Detail1,
+--         Address AS Detail2,
+--         CASE WHEN IsClient = 1 THEN 'Client' ELSE 'Prospect' END AS Status
+--     FROM Clients
+--     WHERE AgentId = @AgentId 
+--         AND IsActive = 1
+--         AND (
+--             FirstName LIKE '%' + @SearchTerm + '%' OR
+--             Surname LIKE '%' + @SearchTerm + '%' OR
+--             LastName LIKE '%' + @SearchTerm + '%' OR
+--             Email LIKE '%' + @SearchTerm + '%' OR
+--             PhoneNumber LIKE '%' + @SearchTerm + '%' OR
+--             NationalId LIKE '%' + @SearchTerm + '%'
+--         )
+    
+--     UNION ALL
+    
+--     -- Search Appointments
+--     SELECT 
+--         'Appointment' AS EntityType,
+--         AppointmentId AS EntityId,
+--         Title,
+--         ClientName AS Subtitle,
+--         CAST(AppointmentDate AS NVARCHAR) AS Detail1,
+--         Location AS Detail2,
+--         Status
+--     FROM Appointments a
+--     INNER JOIN Clients c ON a.ClientId = c.ClientId
+--     WHERE c.AgentId = @AgentId 
+--         AND a.IsActive = 1
+--         AND (
+--             a.Title LIKE '%' + @SearchTerm + '%' OR
+--             a.ClientName LIKE '%' + @SearchTerm + '%' OR
+--             a.Description LIKE '%' + @SearchTerm + '%' OR
+--             a.Location LIKE '%' + @SearchTerm + '%'
+--         )
+    
+--     UNION ALL
+    
+--     -- Search Policies
+--     SELECT 
+--         'Policy' AS EntityType,
+--         PolicyCatalogId AS EntityId,
+--         PolicyName AS Title,
+--         PolicyType AS Subtitle,
+--         CompanyName AS Detail1,
+--         '' AS Detail2,
+--         CASE WHEN IsActive = 1 THEN 'Active' ELSE 'Inactive' END AS Status
+--     FROM PolicyCatalog
+--     WHERE AgentId = @AgentId
+--         AND (
+--             PolicyName LIKE '%' + @SearchTerm + '%' OR
+--             PolicyType LIKE '%' + @SearchTerm + '%' OR
+--             CompanyName LIKE '%' + @SearchTerm + '%' OR
+--             Notes LIKE '%' + @SearchTerm + '%'
+--         )
+    
+--     UNION ALL
+    
+--     -- Search Reminders
+--     SELECT 
+--         'Reminder' AS EntityType,
+--         ReminderId AS EntityId,
+--         Title,
+--         ClientName AS Subtitle,
+--         CAST(ReminderDate AS NVARCHAR) AS Detail1,
+--         ReminderType AS Detail2,
+--         Status
+--     FROM Reminders
+--     WHERE AgentId = @AgentId
+--         AND (
+--             Title LIKE '%' + @SearchTerm + '%' OR
+--             ClientName LIKE '%' + @SearchTerm + '%' OR
+--             Description LIKE '%' + @SearchTerm + '%' OR
+--             ReminderType LIKE '%' + @SearchTerm + '%'
+--         )
+--     ORDER BY EntityType, Title;
+-- END;
+-- GO
+
+-- -- Search Clients
+-- CREATE OR ALTER PROCEDURE sp_SearchClients
+--     @AgentId UNIQUEIDENTIFIER,
+--     @SearchTerm NVARCHAR(500)
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
+    
+--     SELECT 
+--         ClientId,
+--         FirstName,
+--         Surname,
+--         LastName,
+--         PhoneNumber,
+--         Email,
+--         Address,
+--         NationalId,
+--         DateOfBirth,
+--         IsClient,
+--         InsuranceType,
+--         Notes,
+--         CreatedDate,
+--         ModifiedDate,
+--         CASE WHEN IsClient = 1 THEN 'Client' ELSE 'Prospect' END AS ClientType
+--     FROM Clients
+--     WHERE AgentId = @AgentId 
+--         AND IsActive = 1
+--         AND (
+--             FirstName LIKE '%' + @SearchTerm + '%' OR
+--             Surname LIKE '%' + @SearchTerm + '%' OR
+--             LastName LIKE '%' + @SearchTerm + '%' OR
+--             Email LIKE '%' + @SearchTerm + '%' OR
+--             PhoneNumber LIKE '%' + @SearchTerm + '%' OR
+--             NationalId LIKE '%' + @SearchTerm + '%' OR
+--             Address LIKE '%' + @SearchTerm + '%' OR
+--             InsuranceType LIKE '%' + @SearchTerm + '%'
+--         )
+--     ORDER BY IsClient DESC, FirstName, Surname;
+-- END;
+-- GO
+
+-- -- Search Appointments
+-- CREATE OR ALTER PROCEDURE sp_SearchAppointments
+--     @AgentId UNIQUEIDENTIFIER,
+--     @SearchTerm NVARCHAR(500)
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
+    
+--     SELECT 
+--         a.AppointmentId,
+--         a.ClientId,
+--         a.ClientName,
+--         a.ClientPhone,
+--         a.Title,
+--         a.Description,
+--         a.AppointmentDate,
+--         a.StartTime,
+--         a.EndTime,
+--         a.Location,
+--         a.Type,
+--         a.Status,
+--         a.Priority,
+--         a.Notes,
+--         a.CreatedDate
+--     FROM Appointments a
+--     INNER JOIN Clients c ON a.ClientId = c.ClientId
+--     WHERE c.AgentId = @AgentId 
+--         AND a.IsActive = 1
+--         AND (
+--             a.Title LIKE '%' + @SearchTerm + '%' OR
+--             a.ClientName LIKE '%' + @SearchTerm + '%' OR
+--             a.Description LIKE '%' + @SearchTerm + '%' OR
+--             a.Location LIKE '%' + @SearchTerm + '%' OR
+--             a.Type LIKE '%' + @SearchTerm + '%'
+--         )
+--     ORDER BY a.AppointmentDate DESC, a.StartTime;
+-- END;
+-- GO
+
+-- -- Search Policies
+-- CREATE OR ALTER PROCEDURE sp_SearchPolicies
+--     @AgentId UNIQUEIDENTIFIER,
+--     @SearchTerm NVARCHAR(500)
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
+    
+--     SELECT 
+--         PolicyCatalogId,
+--         PolicyName,
+--         PolicyType,
+--         CompanyId,
+--         CompanyName,
+--         Notes,
+--         IsActive,
+--         CreatedDate,
+--         ModifiedDate
+--     FROM PolicyCatalog
+--     WHERE AgentId = @AgentId
+--         AND (
+--             PolicyName LIKE '%' + @SearchTerm + '%' OR
+--             PolicyType LIKE '%' + @SearchTerm + '%' OR
+--             CompanyName LIKE '%' + @SearchTerm + '%' OR
+--             Notes LIKE '%' + @SearchTerm + '%'
+--         )
+--     ORDER BY PolicyName;
+-- END;
+-- GO
+
+-- -- Search Reminders
+-- CREATE OR ALTER PROCEDURE sp_SearchReminders
+--     @AgentId UNIQUEIDENTIFIER,
+--     @SearchTerm NVARCHAR(500)
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
+    
+--     SELECT 
+--         ReminderId,
+--         ClientId,
+--         AppointmentId,
+--         ReminderType,
+--         Title,
+--         Description,
+--         ReminderDate,
+--         ReminderTime,
+--         ClientName,
+--         Priority,
+--         Status,
+--         Notes,
+--         CreatedDate
+--     FROM Reminders
+--     WHERE AgentId = @AgentId
+--         AND (
+--             Title LIKE '%' + @SearchTerm + '%' OR
+--             ClientName LIKE '%' + @SearchTerm + '%' OR
+--             Description LIKE '%' + @SearchTerm + '%' OR
+--             ReminderType LIKE '%' + @SearchTerm + '%' OR
+--             Notes LIKE '%' + @SearchTerm + '%'
+--         )
+--     ORDER BY ReminderDate DESC;
+-- END;
+-- GO
+
+-- -- Get Search Suggestions
+-- CREATE OR ALTER PROCEDURE sp_GetSearchSuggestions
+--     @AgentId UNIQUEIDENTIFIER,
+--     @SearchTerm NVARCHAR(500),
+--     @MaxResults INT = 10
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
+    
+--     SELECT TOP (@MaxResults) DISTINCT Suggestion
+--     FROM (
+--         SELECT FirstName AS Suggestion FROM Clients WHERE AgentId = @AgentId AND FirstName LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT Surname FROM Clients WHERE AgentId = @AgentId AND Surname LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT Email FROM Clients WHERE AgentId = @AgentId AND Email LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT InsuranceType FROM Clients WHERE AgentId = @AgentId AND InsuranceType LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT PolicyName FROM PolicyCatalog WHERE AgentId = @AgentId AND PolicyName LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT PolicyType FROM PolicyCatalog WHERE AgentId = @AgentId AND PolicyType LIKE @SearchTerm + '%'
+--         UNION
+--         SELECT CompanyName FROM PolicyCatalog WHERE AgentId = @AgentId AND CompanyName LIKE @SearchTerm + '%'
+--     ) AS Suggestions
+--     ORDER BY Suggestion;
+-- END;
+-- GO
+
+-- -- Save Search History
+-- CREATE OR ALTER PROCEDURE sp_SaveSearchHistory
+--     @AgentId UNIQUEIDENTIFIER,
+--     @SearchTerm NVARCHAR(500)
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
+    
+--     -- Create search history table if it doesn't exist
+--     IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[SearchHistory]') AND type in (N'U'))
+--     BEGIN
+--         CREATE TABLE SearchHistory (
+--             HistoryId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+--             AgentId UNIQUEIDENTIFIER NOT NULL,
+--             SearchTerm NVARCHAR(500) NOT NULL,
+--             SearchCount INT DEFAULT 1,
+--             LastSearched DATETIME2 DEFAULT GETUTCDATE(),
+--             FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
+--         );
+--     END
+    
+--     IF EXISTS (SELECT 1 FROM SearchHistory WHERE AgentId = @AgentId AND SearchTerm = @SearchTerm)
+--     BEGIN
+--         UPDATE SearchHistory 
+--         SET 
+--             SearchCount = SearchCount + 1,
+--             LastSearched = GETUTCDATE()
+--         WHERE AgentId = @AgentId AND SearchTerm = @SearchTerm;
+--     END
+--     ELSE
+--     BEGIN
+--         INSERT INTO SearchHistory (AgentId, SearchTerm)
+--         VALUES (@AgentId, @SearchTerm);
+--     END
+-- END;
+-- GO
+
+-- -- Get Search History
+-- CREATE OR ALTER PROCEDURE sp_GetSearchHistory
+--     @AgentId UNIQUEIDENTIFIER,
+--     @MaxResults INT = 20
+-- AS
+-- BEGIN
+--     SET NOCOUNT ON;
+    
+--     SELECT TOP (@MaxResults)
+--         SearchTerm,
+--         SearchCount,
+--         LastSearched
+--     FROM SearchHistory
+--     WHERE AgentId = @AgentId
+--     ORDER BY LastSearched DESC;
+-- END;
+-- GO

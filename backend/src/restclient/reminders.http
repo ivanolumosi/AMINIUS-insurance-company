@@ -1,73 +1,73 @@
-# ### Create Reminder
-# POST http://localhost:3000/api/reminders/{{agentId}}
-# Content-Type: application/json
+### Create Reminder
+POST http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468
+Content-Type: application/json
 
-# {
-#   "ReminderType": "Call",
-#   "Title": "Follow up with client",
-#   "Description": "Call about renewal",
-#   "ReminderDate": "2025-08-15",
-#   "Priority": "High"
-# }
+{
+  "ReminderType": "Call",
+  "Title": "Follow up with client",
+  "Description": "Call about renewal",
+  "ReminderDate": "2025-08-15",
+  "Priority": "High"
+}
 
-# ### Get All Reminders
-# GET http://localhost:3000/api/reminders/{{agentId}}?PageSize=10&PageNumber=1
+### Get All Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468?PageSize=10&PageNumber=1
 
-# ### Get Reminder by ID
-# GET http://localhost:3000/api/reminders/{{agentId}}/{{reminderId}}
+### Get Reminder by ID
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
 
-# ### Update Reminder
-# PUT http://localhost:3000/api/reminders/{{agentId}}/{{reminderId}}
-# Content-Type: application/json
+### Update Reminder
+PUT http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
+Content-Type: application/json
 
-# {
-#   "Title": "Updated Title",
-#   "Priority": "Low"
-# }
+{
+  "Title": "Updated Title",
+  "Priority": "Low"
+}
 
-# ### Delete Reminder
-# DELETE http://localhost:3000/api/reminders/{{agentId}}/{{reminderId}}
+### Delete Reminder
+DELETE http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
 
-# ### Complete Reminder
-# POST http://localhost:3000/api/reminders/{{agentId}}/{{reminderId}}/complete
-# Content-Type: application/json
+### Complete Reminder
+POST http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2/complete
+Content-Type: application/json
 
-# {
-#   "notes": "Task done"
-# }
+{
+  "notes": "Task done"
+}
 
-# ### Get Today's Reminders
-# GET http://localhost:3000/api/reminders/{{agentId}}/today
+### Get Today's Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/today
 
-# ### Get Upcoming Reminders
-# GET http://localhost:3000/api/reminders/{{agentId}}/upcoming?daysAhead=5
+### Get Upcoming Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/upcoming?daysAhead=5
 
-# ### Get Completed Reminders
-# GET http://localhost:3000/api/reminders/{{agentId}}/completed?startDate=2025-08-01&endDate=2025-08-31
+### Get Completed Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/completed?startDate=2025-08-01&endDate=2025-08-31
 
-# ### Get Birthday Reminders
-# GET http://localhost:3000/api/reminders/{{agentId}}/birthdays
+### Get Birthday Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/birthdays
 
-# ### Get Policy Expiry Reminders
-# GET http://localhost:3000/api/reminders/{{agentId}}/policy-expiries?daysAhead=15
+### Get Policy Expiry Reminders
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/policy-expiries?daysAhead=15
 
-# ### Get Reminder Settings
-# GET http://localhost:3000/api/reminders/{{agentId}}/settings
+### Get Reminder Settings
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/settings
 
-# ### Update Reminder Settings
-# PUT http://localhost:3000/api/reminders/{{agentId}}/settings
-# Content-Type: application/json
+### Update Reminder Settings
+PUT http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/settings
+Content-Type: application/json
 
-# {
-#   "ReminderType": "Birthday",
-#   "IsEnabled": true,
-#   "DaysBefore": 3,
-#   "TimeOfDay": "09:00:00",
-#   "RepeatDaily": false
-# }
+{
+  "ReminderType": "Birthday",
+  "IsEnabled": true,
+  "DaysBefore": 3,
+  "TimeOfDay": "09:00:00",
+  "RepeatDaily": false
+}
 
-# ### Get Reminder Statistics
-# GET http://localhost:3000/api/reminders/{{agentId}}/stats
+### Get Reminder Statistics
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/stats
 
-# ### Validate Phone
-# GET http://localhost:3000/api/reminders/{{agentId}}/validate-phone?phoneNumber=0712345678&countryCode=+254
+### Validate Phone
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/validate-phone?phoneNumber=0712345678&countryCode=+254

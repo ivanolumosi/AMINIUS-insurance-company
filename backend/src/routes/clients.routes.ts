@@ -12,21 +12,9 @@ router.post('/upsert', controller.upsert.bind(controller));
 router.post('/', controller.create.bind(controller));
 router.put('/', controller.update.bind(controller));
 
-// Get all clients (basic filters)
-router.get('/:agentId', controller.getAll.bind(controller));
-
-// Get client by id
-router.get('/:agentId/:clientId', controller.getById.bind(controller));
-
-// Convert to client
-router.put('/:agentId/:clientId/convert', controller.convert.bind(controller));
-
-// Delete client
-router.delete('/:agentId/:clientId', controller.delete.bind(controller));
-
-// Statistics
-router.get('/:agentId/statistics', controller.statistics.bind(controller));
+// Statistics (specific first)
 router.get('/:agentId/statistics/enhanced', controller.enhancedStatistics.bind(controller));
+router.get('/:agentId/statistics', controller.statistics.bind(controller));
 
 // Birthdays
 router.get('/:agentId/birthdays', controller.birthdays.bind(controller));
@@ -42,5 +30,17 @@ router.get('/:agentId/insurance/:insuranceType', controller.byInsuranceType.bind
 
 // With policies
 router.get('/:agentId/:clientId/policies', controller.withPolicies.bind(controller));
+
+// Get client by id
+router.get('/:agentId/:clientId', controller.getById.bind(controller));
+
+// Convert to client
+router.put('/:agentId/:clientId/convert', controller.convert.bind(controller));
+
+// Delete client
+router.delete('/:agentId/:clientId', controller.delete.bind(controller));
+
+// Get all clients (least specific — last)
+router.get('/:agentId', controller.getAll.bind(controller));
 
 export default router;

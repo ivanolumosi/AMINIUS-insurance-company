@@ -50,22 +50,22 @@ export class ClientController {
     }
 
     async getAll(req: Request, res: Response) {
-        try {
-            const { agentId } = req.params;
-            const { searchTerm, filterType, insuranceType } = req.query;
+  try {
+    const { agentId } = req.params;
+    const { searchTerm, filterType, insuranceType } = req.query;
 
-            const clients = await this.service.getClients(
-                agentId,
-                searchTerm as string,
-                (filterType as any) || 'all',
-                insuranceType as string
-            );
+    const clients = await this.service.getClients(
+      agentId,
+      searchTerm as string,
+      (filterType as any) || 'all',
+      insuranceType as string
+    );
 
-            res.json(clients);
-        } catch (err: any) {
-            res.status(500).json({ error: err.message });
-        }
-    }
+    res.json(clients || []); // ✅ Always return array
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
     async getById(req: Request, res: Response) {
         try {
@@ -96,26 +96,25 @@ export class ClientController {
             res.status(500).json({ error: err.message });
         }
     }
+async statistics(req: Request, res: Response) {
+  try {
+    const { agentId } = req.params;
+    const stats = await this.service.getClientStatistics(agentId);
+    res.json(stats || {}); // ✅ Always return object
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
-    async statistics(req: Request, res: Response) {
-        try {
-            const { agentId } = req.params;
-            const stats = await this.service.getClientStatistics(agentId);
-            res.json(stats);
-        } catch (err: any) {
-            res.status(500).json({ error: err.message });
-        }
-    }
-
-    async birthdays(req: Request, res: Response) {
-        try {
-            const { agentId } = req.params;
-            const data = await this.service.getTodaysBirthdays(agentId);
-            res.json(data);
-        } catch (err: any) {
-            res.status(500).json({ error: err.message });
-        }
-    }
+async birthdays(req: Request, res: Response) {
+  try {
+    const { agentId } = req.params;
+    const data = await this.service.getTodaysBirthdays(agentId);
+    res.json(data || []); // ✅ Always return array
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
     async allClientsPaginated(req: Request, res: Response) {
         try {

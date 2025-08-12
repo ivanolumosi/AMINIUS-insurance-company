@@ -1,63 +1,178 @@
 -- ============================================
--- Policy Catalog Management Tables
+-- 1. ClientPolicies
 -- ============================================
+CREATE TABLE ClientPolicies (
+    PolicyId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+    ClientId UNIQUEIDENTIFIER NOT NULL,
+    PolicyName NVARCHAR(100) NOT NULL,
+    Status NVARCHAR(20) NOT NULL,
+    StartDate DATE NOT NULL,
+    EndDate DATE NOT NULL,
+    Notes NVARCHAR(MAX) NULL,
+    CreatedDate DATETIME2 NULL DEFAULT GETDATE(),
+    ModifiedDate DATETIME2 NULL,
+    IsActive BIT NULL DEFAULT 1,
+    PolicyCatalogId UNIQUEIDENTIFIER NULL,
+    TypeId UNIQUEIDENTIFIER NULL,
+    CompanyId UNIQUEIDENTIFIER NULL,
+    CONSTRAINT FK_ClientPolicies_PolicyCatalog FOREIGN KEY (PolicyCatalogId) REFERENCES PolicyCatalog(PolicyCatalogId),
+    CONSTRAINT FK_ClientPolicies_Type FOREIGN KEY (TypeId) REFERENCES PolicyTypes(TypeId),
+    CONSTRAINT FK_ClientPolicies_Company FOREIGN KEY (CompanyId) REFERENCES InsuranceCompanies(CompanyId)
+);
 
--- Policy Catalog Table (Available policies from different companies)
+-- ============================================
+-- 2. InsuranceCompanies
+-- ============================================
+CREATE TABLE InsuranceCompanies (
+    CompanyId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+    CompanyName NVARCHAR(100) NOT NULL,
+    IsActive BIT NULL DEFAULT 1,
+    CreatedDate DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- ============================================
+-- 3. PolicyCatalog
+-- ============================================
 CREATE TABLE PolicyCatalog (
-    PolicyCatalogId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    PolicyCatalogId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
     AgentId UNIQUEIDENTIFIER NOT NULL,
     PolicyName NVARCHAR(100) NOT NULL,
-    PolicyType NVARCHAR(50) NOT NULL,
     CompanyId UNIQUEIDENTIFIER NOT NULL,
-    CompanyName NVARCHAR(100) NOT NULL, -- Denormalized for quick access
-    Notes NVARCHAR(MAX),
-    IsActive BIT DEFAULT 1,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE,
-    FOREIGN KEY (CompanyId) REFERENCES InsuranceCompanies(CompanyId)
+    Notes NVARCHAR(MAX) NULL,
+    IsActive BIT NULL DEFAULT 1,
+    CreatedDate DATETIME2 NULL DEFAULT GETDATE(),
+    ModifiedDate DATETIME2 NULL,
+    CategoryId UNIQUEIDENTIFIER NULL,
+    TypeId UNIQUEIDENTIFIER NULL,
+    CONSTRAINT FK_PolicyCatalog_Company FOREIGN KEY (CompanyId) REFERENCES InsuranceCompanies(CompanyId),
+    CONSTRAINT FK_PolicyCatalog_Category FOREIGN KEY (CategoryId) REFERENCES PolicyCategories(CategoryId),
+    CONSTRAINT FK_PolicyCatalog_Type FOREIGN KEY (TypeId) REFERENCES PolicyTypes(TypeId)
 );
 
--- Policy Templates Table (For common policy configurations)
+-- ============================================
+-- 4. PolicyCategories
+-- ============================================
+CREATE TABLE PolicyCategories (
+    CategoryId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+    CategoryName NVARCHAR(50) NOT NULL,
+    Description NVARCHAR(200) NULL,
+    IsActive BIT NULL DEFAULT 1,
+    CreatedDate DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- ============================================
+-- 5. PolicyTemplates
+-- ============================================
 CREATE TABLE PolicyTemplates (
-    TemplateId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    TemplateId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
     AgentId UNIQUEIDENTIFIER NOT NULL,
     TemplateName NVARCHAR(100) NOT NULL,
-    PolicyType NVARCHAR(50) NOT NULL,
-    DefaultTermMonths INT,
-    DefaultPremium DECIMAL(10,2),
-    CoverageDescription NVARCHAR(MAX),
-    Terms NVARCHAR(MAX),
-    IsActive BIT DEFAULT 1,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
+    DefaultTermMonths INT NULL,
+    DefaultPremium DECIMAL(18, 2) NULL,
+    CoverageDescription NVARCHAR(MAX) NULL,
+    Terms NVARCHAR(MAX) NULL,
+    IsActive BIT NULL DEFAULT 1,
+    CreatedDate DATETIME2 NULL DEFAULT GETDATE(),
+    CategoryId UNIQUEIDENTIFIER NULL,
+    PolicyCatalogId UNIQUEIDENTIFIER NULL,
+    TypeId UNIQUEIDENTIFIER NULL,
+    CONSTRAINT FK_PolicyTemplates_Category FOREIGN KEY (CategoryId) REFERENCES PolicyCategories(CategoryId),
+    CONSTRAINT FK_PolicyTemplates_Catalog FOREIGN KEY (PolicyCatalogId) REFERENCES PolicyCatalog(PolicyCatalogId),
+    CONSTRAINT FK_PolicyTemplates_Type FOREIGN KEY (TypeId) REFERENCES PolicyTypes(TypeId)
 );
 
--- Policy Categories Table (For organizing policies)
-CREATE TABLE PolicyCategories (
-    CategoryId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    CategoryName NVARCHAR(50) NOT NULL,
-    Description NVARCHAR(200),
-    IsActive BIT DEFAULT 1,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE()
+-- ============================================
+-- 6. PolicyTypes
+-- ============================================
+CREATE TABLE PolicyTypes (
+    TypeId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+    TypeName NVARCHAR(50) NOT NULL,
+    IsActive BIT NULL DEFAULT 1,
+    CreatedDate DATETIME2 NULL DEFAULT GETDATE()
 );
 
--- Insert default categories
-INSERT INTO PolicyCategories (CategoryName, Description) VALUES
-('Individual', 'Personal insurance policies'),
-('Corporate', 'Business and corporate policies'),
-('Family', 'Family package policies'),
-('Specialized', 'Specialized coverage policies');
 
--- Policy Company Relationships (Many-to-many for policies offered by multiple companies)
-CREATE TABLE PolicyCompanyRelationships (
-    RelationshipId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    PolicyCatalogId UNIQUEIDENTIFIER NOT NULL,
-    CompanyId UNIQUEIDENTIFIER NOT NULL,
-    BasePremium DECIMAL(10,2),
-    CommissionRate DECIMAL(5,2),
-    IsPreferred BIT DEFAULT 0,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (PolicyCatalogId) REFERENCES PolicyCatalog(PolicyCatalogId) ON DELETE CASCADE,
-    FOREIGN KEY (CompanyId) REFERENCES InsuranceCompanies(CompanyId) ON DELETE CASCADE
-);
+INSERT INTO PolicyTypes (TypeId, TypeName)
+VALUES (NEWID(), 'Auto Policy');
+INSERT INTO PolicyCatalog (AgentId, PolicyName, CompanyId, CategoryId, TypeId)
+VALUES (@AgentId, 'Test Policy', @CompanyId, @CategoryId, @TypeId);
+INSERT INTO PolicyCategories (CategoryId, CategoryName)
+VALUES (NEWID(), 'Life Insurance');
+
+-- -- CREATE SYNONYM InsuranceCompany FOR dbo.InsuranceCompanies;
+-- -- CREATE SYNONYM PolicyType FOR dbo.PolicyTypes;
+-- -- CREATE SYNONYM PolicyCategory FOR dbo.PolicyCategories;
+-- -- CREATE SYNONYM PolicyTemplate FOR dbo.PolicyTemplates;
+
+
+
+
+
+
+
+-- 1. ClientPolicies
+-- Stores individual client’s policy details.
+
+-- Links to:
+
+-- Clients (ClientId)
+
+-- PolicyCatalog (PolicyCatalogId)
+
+-- PolicyTypes (TypeId)
+
+-- InsuranceCompanies (CompanyId)
+
+-- Fields: PolicyId, ClientId, PolicyName, Status, StartDate, EndDate, Notes, IsActive, etc.
+
+-- 2. PolicyCatalog
+-- Master list of available policies (product definitions).
+
+-- Links to:
+
+-- PolicyCategories (CategoryId)
+
+-- PolicyTypes (TypeId)
+
+-- InsuranceCompanies via PolicyCompanyRelationships
+
+-- Fields: PolicyCatalogId, AgentId, PolicyName, CompanyId, Notes, IsActive, etc.
+
+-- 3. PolicyCategories
+-- Categories or classifications of policies.
+
+-- Fields: CategoryId, CategoryName, Description, IsActive.
+
+-- 4. PolicyCompanyRelationships
+-- Defines which company offers which catalog policy and under what terms.
+
+-- Links to:
+
+-- PolicyCatalog (PolicyCatalogId)
+
+-- InsuranceCompanies (CompanyId)
+
+-- Fields: BasePremium, CommissionRate, IsPreferred, etc.
+
+-- 5. PolicyTemplates
+-- Stores reusable templates for creating new policies.
+
+-- Links to:
+
+-- PolicyCatalog (PolicyCatalogId)
+
+-- PolicyCategories (CategoryId)
+
+-- PolicyTypes (TypeId)
+
+-- Fields: TemplateId, TemplateName, DefaultTermMonths, DefaultPremium, CoverageDescription, etc.
+
+-- 6. PolicyTypes
+-- Defines the type/class of policy.
+
+-- Fields: TypeId, TypeName, IsActive.
+
+-- 7. InsuranceCompanies
+-- Holds insurance company information.
+
+-- Fields: CompanyId, CompanyName, IsActive.

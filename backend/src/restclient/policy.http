@@ -1,106 +1,784 @@
-### Get Policy Catalog
-POST http://localhost:3000/api/policy/catalog
+### Policy API Tests - Updated Version
+### Base URL
+@baseUrl = http://localhost:3000/api/policies
+
+### Sample IDs (replace with actual IDs from your database)
+@agentId = 730080DD-742C-4934-8974-30AC3495E468
+@clientId = 550e8400-e29b-41d4-a716-446655440001
+@policyId = 550e8400-e29b-41d4-a716-446655440002
+@policyCatalogId = 550e8400-e29b-41d4-a716-446655440003
+@templateId = 550e8400-e29b-41d4-a716-446655440004
+@typeId = 550e8400-e29b-41d4-a716-446655440005
+@companyId = 550e8400-e29b-41d4-a716-446655440006
+@categoryId = 550e8400-e29b-41d4-a716-446655440007
+
+###############################################
+### HEALTH CHECK
+###############################################
+
+### Health Check
+GET {{baseUrl}}/health
 Content-Type: application/json
 
-{
-  "agentId": "11111111-1111-1111-1111-111111111111",
-  "policyType": null,
-  "companyId": null,
-  "companyName": null,
-  "searchTerm": null
-}
+###############################################
+### POLICY CATALOG ENDPOINTS (NEW RESTFUL)
+###############################################
+
+### Get Policy Catalog
+GET {{baseUrl}}/catalog?agentId={{agentId}}
+Content-Type: application/json
+
+###
+
+### Get Policy Catalog with Multiple Filters
+GET {{baseUrl}}/catalog?agentId={{agentId}}&typeId={{typeId}}&companyId={{companyId}}&isActive=true
+Content-Type: application/json
+
+###
 
 ### Create Policy Catalog Item
-POST http://localhost:3000/api/policy/catalog/create
+POST {{baseUrl}}/catalog
 Content-Type: application/json
 
 {
-  "agentId": "11111111-1111-1111-1111-111111111111",
-  "policyName": "Motor Comprehensive",
-  "policyType": "Motor",
-  "companyId": "22222222-2222-2222-2222-222222222222",
-  "notes": "Full cover"
+  "agentId": "{{agentId}}",
+  "policyName": "Comprehensive Motor Insurance",
+  "companyId": "{{companyId}}",
+  "typeId": "{{typeId}}",
+  "categoryId": "{{categoryId}}",
+  "notes": "Premium motor insurance coverage with comprehensive benefits"
 }
 
+###
+
 ### Update Policy Catalog Item
-PUT http://localhost:3000/api/policy/catalog/update
+PUT {{baseUrl}}/catalog/{{policyCatalogId}}
 Content-Type: application/json
 
 {
-  "policyCatalogId": "33333333-3333-3333-3333-333333333333",
-  "agentId": "11111111-1111-1111-1111-111111111111",
-  "policyName": "Motor Third Party",
-  "policyType": "Motor",
-  "companyId": "22222222-2222-2222-2222-222222222222",
-  "notes": "Third party only",
+  "policyName": "Updated Comprehensive Motor Insurance",
+  "companyId": "{{companyId}}",
+  "typeId": "{{typeId}}",
+  "categoryId": "{{categoryId}}",
+  "notes": "Updated comprehensive motor insurance with enhanced coverage",
   "isActive": true
 }
 
-### Delete Policy Catalog Item
-DELETE http://localhost:3000/api/policy/catalog/11111111-1111-1111-1111-111111111111/33333333-3333-3333-3333-333333333333
+###
+
+### Delete Policy Catalog Item (Soft Delete)
+DELETE {{baseUrl}}/catalog/{{policyCatalogId}}
+Content-Type: application/json
+
+###
+
+### Delete Policy Catalog Item (Hard Delete)
+DELETE {{baseUrl}}/catalog/{{policyCatalogId}}?hardDelete=true
+Content-Type: application/json
+
+###
 
 ### Upsert Policy Catalog
-POST http://localhost:3000/api/policy/catalog/upsert
+POST {{baseUrl}}/catalog/upsert
 Content-Type: application/json
 
 {
-  "policyCatalogId": null,
-  "agentId": "11111111-1111-1111-1111-111111111111",
-  "policyName": "Life Cover Premium",
-  "policyType": "Life",
-  "companyId": null,
-  "companyName": "Best Life Insurance",
-  "notes": "Top tier coverage"
+  "policyCatalogId": "{{policyCatalogId}}",
+  "agentId": "{{agentId}}",
+  "policyName": "Upserted Premium Policy",
+  "companyId": "{{companyId}}",
+  "typeId": "{{typeId}}",
+  "categoryId": "{{categoryId}}",
+  "notes": "This policy was created or updated via upsert operation"
 }
 
-### Get Client Policies
-POST http://localhost:3000/api/policy/client
+###############################################
+### CLIENT POLICY ENDPOINTS (NEW RESTFUL)
+###############################################
+
+### Get All Client Policies with Filters
+GET {{baseUrl}}/policies?agentId={{agentId}}&status=Active&isActive=true
+Content-Type: application/json
+
+###
+
+### Get Client Policies by Client ID
+GET {{baseUrl}}/policies?clientId={{clientId}}
+Content-Type: application/json
+
+###
+
+### Get Policy by ID
+GET {{baseUrl}}/policies/{{policyId}}
+Content-Type: application/json
+
+###
+
+### Create Client Policy (with Catalog Reference)
+POST {{baseUrl}}/policies
 Content-Type: application/json
 
 {
-  "clientId": "44444444-4444-4444-4444-444444444444"
-}
-
-### Create Client Policy
-POST http://localhost:3000/api/policy/client/create
-Content-Type: application/json
-
-{
-  "clientId": "44444444-4444-4444-4444-444444444444",
-  "policyName": "Health Plus",
-  "policyType": "Health",
-  "companyName": "MediCare",
+  "clientId": "{{clientId}}",
+  "policyName": "Client Motor Insurance Policy",
   "status": "Active",
-  "startDate": "2025-08-01",
-  "endDate": "2026-08-01",
-  "notes": "Annual renewal"
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31",
+  "policyCatalogId": "{{policyCatalogId}}",
+  "typeId": "{{typeId}}",
+  "companyId": "{{companyId}}",
+  "notes": "Annual comprehensive motor insurance policy for client"
 }
 
-### Expiring Policies
-POST http://localhost:3000/api/policy/client/expiring
+###
+
+### Create Client Policy (Direct without Catalog)
+POST {{baseUrl}}/policies
 Content-Type: application/json
 
 {
-  "agentId": "11111111-1111-1111-1111-111111111111",
-  "daysAhead": 30
+  "clientId": "{{clientId}}",
+  "policyName": "Direct Health Insurance Policy",
+  "status": "Active",
+  "startDate": "2024-02-01",
+  "endDate": "2025-01-31",
+  "typeId": "{{typeId}}",
+  "companyId": "{{companyId}}",
+  "notes": "Direct health insurance policy without catalog reference"
 }
 
-### Get Policy Statistics
-GET http://localhost:3000/api/policy/client/statistics/11111111-1111-1111-1111-111111111111
+###
+
+### Update Client Policy
+PUT {{baseUrl}}/policies/{{policyId}}
+Content-Type: application/json
+
+{
+  "policyName": "Updated Motor Insurance Policy",
+  "status": "Active",
+  "startDate": "2024-01-01",
+  "endDate": "2025-01-01",
+  "typeId": "{{typeId}}",
+  "companyId": "{{companyId}}",
+  "notes": "Updated policy with extended coverage period and enhanced benefits",
+  "isActive": true
+}
+
+###
+
+### Delete Client Policy (Soft Delete)
+DELETE {{baseUrl}}/policies/{{policyId}}
+Content-Type: application/json
+
+
+### Delete Client Policy (Hard Delete)
+DELETE {{baseUrl}}/policies/{{policyId}}?hardDelete=true
+Content-Type: application/json
+
+###
+
+### Upsert Client Policy
+POST {{baseUrl}}/policies/upsert
+Content-Type: application/json
+
+{
+  "policyId": "{{policyId}}",
+  "clientId": "{{clientId}}",
+  "policyName": "Upserted Client Policy",
+  "status": "Active",
+  "startDate": "2024-03-01",
+  "endDate": "2025-02-28",
+  "typeId": "{{typeId}}",
+  "companyId": "{{companyId}}",
+  "notes": "This client policy was created or updated via upsert"
+}
+
+###############################################
+### POLICY SEARCH AND FILTERING (NEW)
+###############################################
+
+### Advanced Policy Search
+GET {{baseUrl}}/policies/search?searchTerm=motor&agentId={{agentId}}&status=Active&pageSize=20&pageNumber=1
+Content-Type: application/json
+
+### Search Policies with Date Range
+GET {{baseUrl}}/policies/search?agentId={{agentId}}&startDate=2024-01-01&endDate=2024-12-31&companyId={{companyId}}
+Content-Type: application/json
+
+###
+
+### Get Policies by Status
+GET {{baseUrl}}/policies/status?status=Active&agentId={{agentId}}
+Content-Type: application/json
+
+
+### Get Expired Policies
+GET {{baseUrl}}/policies/status?status=Expired&agentId={{agentId}}
+Content-Type: application/json
+
+###############################################
+### POLICY EXPIRATION AND RENEWAL (NEW)
+###############################################
+
+### Get Expiring Policies (30 days)
+GET {{baseUrl}}/policies/expiring?agentId={{agentId}}&daysAhead=30
+Content-Type: application/json
+
+###
+
+### Get Expiring Policies (60 days with status filter)
+GET {{baseUrl}}/policies/expiring?agentId={{agentId}}&daysAhead=60&status=Active
+Content-Type: application/json
+
+###
+
+### Renew Policy
+POST {{baseUrl}}/policies/{{policyId}}/renew
+Content-Type: application/json
+
+{
+  "newStartDate": "2025-01-01",
+  "newEndDate": "2025-12-31",
+  "newPolicyName": "Renewed Motor Insurance 2025",
+  "notes": "Policy renewed for 2025 with updated terms"
+}
+
+###
+
+### Get Policy Renewal Candidates
+GET {{baseUrl}}/policies/renewal-candidates?agentId={{agentId}}&daysAhead=90
+Content-Type: application/json
+
+###############################################
+### BULK OPERATIONS (NEW)
+###############################################
+
+### Bulk Update Policy Status
+PUT {{baseUrl}}/policies/bulk/status
+Content-Type: application/json
+
+{
+  "policyIds": [
+    "{{policyId}}",
+    "550e8400-e29b-41d4-a716-446655440010",
+    "550e8400-e29b-41d4-a716-446655440011"
+  ],
+  "newStatus": "Inactive"
+}
+
+###
+
+### Bulk Create Policies
+POST {{baseUrl}}/policies/bulk/create
+Content-Type: application/json
+
+{
+  "policies": [
+    {
+      "clientId": "{{clientId}}",
+      "policyName": "Bulk Created Policy 1",
+      "status": "Active",
+      "startDate": "2024-01-01",
+      "endDate": "2024-12-31",
+      "typeId": "{{typeId}}",
+      "companyId": "{{companyId}}",
+      "notes": "First policy in bulk creation"
+    },
+    {
+      "clientId": "550e8400-e29b-41d4-a716-446655440020",
+      "policyName": "Bulk Created Policy 2",
+      "status": "Active",
+      "startDate": "2024-01-01",
+      "endDate": "2024-12-31",
+      "typeId": "{{typeId}}",
+      "companyId": "{{companyId}}",
+      "notes": "Second policy in bulk creation"
+    }
+  ]
+}
+
+###
+
+### Bulk Update Policies
+PUT {{baseUrl}}/policies/bulk/update
+Content-Type: application/json
+
+{
+  "updates": [
+    {
+      "policyId": "{{policyId}}",
+      "status": "Active",
+      "notes": "Updated via bulk operation"
+    },
+    {
+      "policyId": "550e8400-e29b-41d4-a716-446655440010",
+      "status": "Inactive",
+      "notes": "Deactivated via bulk operation"
+    }
+  ]
+}
+
+###
+
+### Batch Expire Policies
+POST {{baseUrl}}/policies/bulk/expire
+Content-Type: application/json
+
+{
+  "asOfDate": "2024-12-31"
+}
+
+###############################################
+### POLICY TEMPLATES (NEW)
+###############################################
 
 ### Get Policy Templates
-POST http://localhost:3000/api/policy/templates
+GET {{baseUrl}}/templates?agentId={{agentId}}&isActive=true
+Content-Type: application/json
+
+###
+
+### Get Policy Templates with Filters
+GET {{baseUrl}}/templates?agentId={{agentId}}&typeId={{typeId}}&categoryId={{categoryId}}
+Content-Type: application/json
+
+###
+
+### Create Policy Template
+POST {{baseUrl}}/templates
 Content-Type: application/json
 
 {
-  "agentId": "11111111-1111-1111-1111-111111111111"
+  "agentId": "{{agentId}}",
+  "templateName": "Standard Motor Insurance Template",
+  "defaultTermMonths": 12,
+  "defaultPremium": 1500.00,
+  "coverageDescription": "Comprehensive motor vehicle coverage including third party, fire, theft, and accidental damage",
+  "terms": "Annual premium payable in advance. Coverage valid for 12 months from start date.",
+  "categoryId": "{{categoryId}}",
+  "policyCatalogId": "{{policyCatalogId}}",
+  "typeId": "{{typeId}}"
 }
 
+###
+
+### Update Policy Template
+PUT {{baseUrl}}/templates/{{templateId}}
+Content-Type: application/json
+
+{
+  "templateName": "Updated Premium Motor Template",
+  "defaultTermMonths": 24,
+  "defaultPremium": 2800.00,
+  "coverageDescription": "Enhanced comprehensive motor coverage with additional benefits",
+  "terms": "Bi-annual premium payment with extended coverage period",
+  "categoryId": "{{categoryId}}",
+  "typeId": "{{typeId}}",
+  "isActive": true
+}
+
+###
+
+### Delete Policy Template
+DELETE {{baseUrl}}/templates/{{templateId}}?hardDelete=false
+Content-Type: application/json
+
+###############################################
+### REFERENCE DATA - INSURANCE COMPANIES (NEW)
+###############################################
+
 ### Get Insurance Companies
-GET http://localhost:3000/api/policy/reference/companies
+GET {{baseUrl}}/companies?isActive=true
+Content-Type: application/json
+
+###
+
+### Get All Insurance Companies (including inactive)
+GET {{baseUrl}}/companies?isActive=false
+Content-Type: application/json
+
+###
+
+### Create Insurance Company
+POST {{baseUrl}}/companies
+Content-Type: application/json
+
+{
+  "companyName": "Premium Insurance Corporation"
+}
+
+###
+
+### Update Insurance Company
+PUT {{baseUrl}}/companies/{{companyId}}
+Content-Type: application/json
+
+{
+  "companyName": "Updated Premium Insurance Corp",
+  "isActive": true
+}
+
+###############################################
+### REFERENCE DATA - POLICY TYPES (NEW)
+###############################################
 
 ### Get Policy Types
-GET http://localhost:3000/api/policy/reference/types
+GET {{baseUrl}}/types?isActive=true
+Content-Type: application/json
+
+###
+
+### Create Policy Type
+POST {{baseUrl}}/types
+Content-Type: application/json
+
+{
+  "typeName": "Cyber Liability Insurance"
+}
+
+###
+
+### Update Policy Type
+PUT {{baseUrl}}/types/{{typeId}}
+Content-Type: application/json
+
+{
+  "typeName": "Updated Motor Insurance",
+  "isActive": true
+}
+
+###############################################
+### REFERENCE DATA - POLICY CATEGORIES (NEW)
+###############################################
 
 ### Get Policy Categories
-GET http://localhost:3000/api/policy/reference/categories
+GET {{baseUrl}}/categories?isActive=true
+Content-Type: application/json
+
+###
+
+### Create Policy Category
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "categoryName": "Premium Commercial Policies",
+  "description": "High-value commercial insurance policies for businesses"
+}
+
+###
+
+### Update Policy Category
+PUT {{baseUrl}}/categories/{{categoryId}}
+Content-Type: application/json
+
+{
+  "categoryName": "Updated Premium Policies",
+  "description": "Updated description for premium policy category",
+  "isActive": true
+}
+
+###############################################
+### ANALYTICS AND REPORTING (NEW)
+###############################################
+
+### Get Policy Statistics
+GET {{baseUrl}}/statistics?agentId={{agentId}}
+Content-Type: application/json
+
+###
+
+### Get Policy Statistics with Date Range
+GET {{baseUrl}}/statistics?agentId={{agentId}}&startDate=2024-01-01&endDate=2024-12-31
+Content-Type: application/json
+
+###
+
+### Get Detailed Policy Statistics
+GET {{baseUrl}}/statistics/detailed?agentId={{agentId}}
+Content-Type: application/json
+
+###
+
+### Get Agent Dashboard Summary
+GET {{baseUrl}}/dashboard/{{agentId}}
+Content-Type: application/json
+
+###
+
+### Get Policy History for Client
+GET {{baseUrl}}/history/{{clientId}}?includeInactive=true
+Content-Type: application/json
+
+###############################################
+### VALIDATION (NEW)
+###############################################
+
+### Validate Policy Data (Valid)
+POST {{baseUrl}}/validate
+Content-Type: application/json
+
+{
+  "policyData": {
+    "clientId": "{{clientId}}",
+    "policyName": "Test Validation Policy",
+    "startDate": "2024-01-01",
+    "endDate": "2024-12-31",
+    "typeId": "{{typeId}}",
+    "companyId": "{{companyId}}"
+  }
+}
+
+###
+
+### Validate Policy Data (Invalid - Missing Required Fields)
+POST {{baseUrl}}/validate
+Content-Type: application/json
+
+{
+  "policyData": {
+    "policyName": "Incomplete Policy"
+  }
+}
+
+###
+
+### Validate Policy Data (Invalid - End Date Before Start Date)
+POST {{baseUrl}}/validate
+Content-Type: application/json
+
+{
+  "policyData": {
+    "clientId": "{{clientId}}",
+    "policyName": "Invalid Date Policy",
+    "startDate": "2024-12-31",
+    "endDate": "2024-01-01",
+    "typeId": "{{typeId}}"
+  }
+}
+
+###############################################
+### EXPORT OPERATIONS (NEW)
+###############################################
+
+### Export Policies as JSON
+GET {{baseUrl}}/export?agentId={{agentId}}&format=json
+Content-Type: application/json
+
+###
+
+### Export Policies as CSV
+GET {{baseUrl}}/export?agentId={{agentId}}&format=csv
+Content-Type: application/json
+
+###
+
+### Export All Policies (No Agent Filter)
+GET {{baseUrl}}/export?format=json
+Content-Type: application/json
+
+###############################################
+### UTILITY OPERATIONS (NEW)
+###############################################
+
+### Cleanup Soft Deleted Records (Dry Run)
+POST {{baseUrl}}/cleanup/soft-deleted
+Content-Type: application/json
+
+{
+  "daysOld": 365,
+  "dryRun": true
+}
+
+###
+
+### Cleanup Soft Deleted Records (Execute)
+POST {{baseUrl}}/cleanup/soft-deleted
+Content-Type: application/json
+
+{
+  "daysOld": 365,
+  "dryRun": false
+}
+
+###############################################
+### LEGACY ROUTES (BACKWARD COMPATIBILITY)
+###############################################
+
+### Legacy: Get Client Policies
+GET {{baseUrl}}/client/{{clientId}}?status=Active
+Content-Type: application/json
+
+###
+
+### Legacy: Get Policy by ID
+GET {{baseUrl}}/client/policy/{{policyId}}
+Content-Type: application/json
+
+###
+
+### Legacy: Create Client Policy
+POST {{baseUrl}}/client
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}",
+  "policyName": "Legacy Created Policy",
+  "status": "Active",
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31",
+  "typeId": "{{typeId}}",
+  "companyId": "{{companyId}}",
+  "notes": "Created using legacy endpoint"
+}
+
+###
+
+### Legacy: Update Client Policy
+PUT {{baseUrl}}/client/{{policyId}}
+Content-Type: application/json
+
+{
+  "policyName": "Legacy Updated Policy",
+  "status": "Active",
+  "notes": "Updated using legacy endpoint"
+}
+
+###
+
+### Legacy: Delete Client Policy
+DELETE {{baseUrl}}/client/{{policyId}}
+Content-Type: application/json
+
+###
+
+### Legacy: Get Expiring Policies
+GET {{baseUrl}}/client/expiring/{{agentId}}?daysAhead=30
+Content-Type: application/json
+
+###
+
+### Legacy: Search Policies
+GET {{baseUrl}}/search/{{agentId}}?searchTerm=motor&typeId={{typeId}}
+Content-Type: application/json
+
+###
+
+### Legacy: Get Policies by Status
+GET {{baseUrl}}/status/{{agentId}}/Active
+Content-Type: application/json
+
+###
+
+### Legacy: Renew Policy
+PUT {{baseUrl}}/renew/{{policyId}}
+Content-Type: application/json
+
+{
+  "newStartDate": "2025-01-01",
+  "newEndDate": "2025-12-31",
+  "notes": "Renewed using legacy endpoint"
+}
+
+###
+
+### Legacy: Bulk Update Status
+PUT {{baseUrl}}/bulk/status
+Content-Type: application/json
+
+{
+  "policyIds": [
+    "{{policyId}}"
+  ],
+  "newStatus": "Inactive"
+}
+
+###
+
+### Legacy: Get Policy Templates
+GET {{baseUrl}}/templates/{{agentId}}?isActive=true
+Content-Type: application/json
+
+###
+
+### Legacy: Get Insurance Companies
+GET {{baseUrl}}/reference/companies?isActive=true
+Content-Type: application/json
+
+###
+
+### Legacy: Get Policy Types
+GET {{baseUrl}}/reference/types?isActive=true
+Content-Type: application/json
+
+###
+
+### Legacy: Get Policy Categories
+GET {{baseUrl}}/reference/categories?isActive=true
+Content-Type: application/json
+
+###############################################
+### ERROR TESTING
+###############################################
+
+### Test with Invalid Policy ID
+GET {{baseUrl}}/policies/invalid-uuid-format
+Content-Type: application/json
+
+###
+
+### Test with Non-existent Policy ID
+GET {{baseUrl}}/policies/550e8400-e29b-41d4-a716-999999999999
+Content-Type: application/json
+
+###
+
+### Test Create Policy with Missing Required Fields
+POST {{baseUrl}}/policies
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}"
+}
+
+###
+
+### Test Update Policy with Invalid ID
+PUT {{baseUrl}}/policies/invalid-id
+Content-Type: application/json
+
+{
+  "policyName": "Should Fail"
+}
+
+###
+
+### Test Delete Non-existent Policy
+DELETE {{baseUrl}}/policies/550e8400-e29b-41d4-a716-999999999999
+Content-Type: application/json
+
+###
+
+### Test Bulk Operation with Invalid Policy IDs
+PUT {{baseUrl}}/policies/bulk/status
+Content-Type: application/json
+
+{
+  "policyIds": [
+    "invalid-id-1",
+    "invalid-id-2"
+  ],
+  "newStatus": "Active"
+}
+
+###
+
+### Test Search with Invalid Agent ID
+GET {{baseUrl}}/policies/search?agentId=invalid-agent-id&searchTerm=test
+Content-Type: application/json
+
+###
+
+### Test Export with Invalid Format
+GET {{baseUrl}}/export?format=xml
+Content-Type: application/json

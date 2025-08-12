@@ -66,3 +66,19 @@ CREATE TABLE Appointments (
     FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE NO ACTION ON UPDATE NO ACTION
 
 );
+
+
+ALTER TABLE ClientPolicies
+DROP COLUMN PolicyType, CompanyName;
+
+ALTER TABLE ClientPolicies
+ADD TypeId UNIQUEIDENTIFIER NULL,
+    CompanyId UNIQUEIDENTIFIER NULL;
+
+ALTER TABLE ClientPolicies
+ADD CONSTRAINT FK_ClientPolicies_PolicyTypes
+    FOREIGN KEY (TypeId) REFERENCES PolicyTypes(TypeId) ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+ALTER TABLE ClientPolicies
+ADD CONSTRAINT FK_ClientPolicies_InsuranceCompanies
+    FOREIGN KEY (CompanyId) REFERENCES InsuranceCompanies(CompanyId) ON DELETE NO ACTION ON UPDATE NO ACTION;

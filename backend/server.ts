@@ -24,7 +24,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// ✅ Log incoming requests
 
 // ✅ Parse JSON and URL-encoded data (with size limit)
 app.use(express.json({ limit: '10mb' }));
@@ -35,7 +34,7 @@ app.use('/api', agentRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/clients', clientRoutes);
-app.use('/api/policies', policyRoutes);
+app.use('/api/policies',policyRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/search', searchRoutes);

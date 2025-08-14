@@ -978,6 +978,115 @@ export class PolicyService {
             };
         }
     }
+    // ============================================
+// AUTOCOMPLETE FUNCTIONS
+// ============================================
+
+/**
+ * Search Insurance Companies by partial name
+ */
+public async searchInsuranceCompanies(term: string): Promise<InsuranceCompany[]> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('SearchTerm', sql.NVarChar(100), `%${term}%`)
+        .query(`
+            SELECT TOP 20 CompanyId, CompanyName
+            FROM InsuranceCompanies
+            WHERE IsActive = 1 AND CompanyName LIKE @SearchTerm
+            ORDER BY CompanyName
+        `);
+    return result.recordset;
+}
+
+/**
+ * Search Policy Catalog entries by partial name
+ */
+public async searchPolicyCatalog(agentId: string, term: string): Promise<PolicyCatalog[]> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('AgentId', sql.UniqueIdentifier, agentId)
+        .input('SearchTerm', sql.NVarChar(100), `%${term}%`)
+        .query(`
+            SELECT TOP 20 PolicyCatalogId, PolicyName, CompanyId, TypeId, CategoryId
+            FROM PolicyCatalog
+            WHERE IsActive = 1 
+              AND AgentId = @AgentId
+              AND PolicyName LIKE @SearchTerm
+            ORDER BY PolicyName
+        `);
+    return result.recordset;
+}
+
+/**
+ * Search Policy Categories by partial name
+ */
+public async searchPolicyCategories(term: string): Promise<PolicyCategory[]> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('SearchTerm', sql.NVarChar(50), `%${term}%`)
+        .query(`
+            SELECT TOP 20 CategoryId, CategoryName
+            FROM PolicyCategories
+            WHERE IsActive = 1 AND CategoryName LIKE @SearchTerm
+            ORDER BY CategoryName
+        `);
+    return result.recordset;
+}
+
+/**
+ * Search Policy Templates by partial name
+ */
+public async searchPolicyTemplates(agentId: string, term: string): Promise<PolicyTemplate[]> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('AgentId', sql.UniqueIdentifier, agentId)
+        .input('SearchTerm', sql.NVarChar(100), `%${term}%`)
+        .query(`
+            SELECT TOP 20 TemplateId, TemplateName, PolicyCatalogId, CategoryId, TypeId
+            FROM PolicyTemplates
+            WHERE IsActive = 1 
+              AND AgentId = @AgentId
+              AND TemplateName LIKE @SearchTerm
+            ORDER BY TemplateName
+        `);
+    return result.recordset;
+}
+
+/**
+ * Search Policy Types by partial name
+ */
+public async searchPolicyTypes(term: string): Promise<PolicyType[]> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('SearchTerm', sql.NVarChar(50), `%${term}%`)
+        .query(`
+            SELECT TOP 20 TypeId, TypeName
+            FROM PolicyTypes
+            WHERE IsActive = 1 AND TypeName LIKE @SearchTerm
+            ORDER BY TypeName
+        `);
+    return result.recordset;
+}
+
+/**
+ * Search Client Policies by partial name
+ */
+public async searchClientPolicies(clientId: string, term: string): Promise<ClientPolicy[]> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('ClientId', sql.UniqueIdentifier, clientId)
+        .input('SearchTerm', sql.NVarChar(100), `%${term}%`)
+        .query(`
+            SELECT TOP 20 PolicyId, PolicyName, Status, StartDate, EndDate
+            FROM ClientPolicies
+            WHERE IsActive = 1 
+              AND ClientId = @ClientId
+              AND PolicyName LIKE @SearchTerm
+            ORDER BY PolicyName
+        `);
+    return result.recordset;
+}
+
 
     // ============================================
     // PUBLIC WRAPPER METHODS WITH ERROR HANDLING
@@ -1009,5 +1118,88 @@ export class PolicyService {
             () => this.updateClientPolicy(request),
             'Update Client Policy'
         );
+    }
+// ============================================
+// INSURANCE COMPANY MANAGEMENT
+// ============================================
+
+// public async getInsuranceCompanies(): Promise<InsuranceCompany[]> {
+//     const pool = await poolPromise;
+//     const result = await pool.request()
+//         .execute('GetInsuranceCompanies'); // Stored Procedure name
+//     return result.recordset as InsuranceCompany[];
+// }
+
+// public async createInsuranceCompany(request: CreateInsuranceCompanyRequest): Promise<CreateResponse> {
+//     const pool = await poolPromise;
+//     const result = await pool.request()
+//         .input('CompanyName', sql.NVarChar(100), request.companyName)
+//         .output('CompanyId', sql.UniqueIdentifier)
+//         .execute('CreateInsuranceCompany');
+
+//     return {
+//         id: result.output.CompanyId
+//     };
+// }
+
+// public async updateInsuranceCompany(request: UpdateInsuranceCompanyRequest): Promise<UpdateResponse> {
+//     const pool = await poolPromise;
+//     const result = await pool.request()
+//         .input('CompanyId', sql.UniqueIdentifier, request.companyId)
+//         .input('CompanyName', sql.NVarChar(100), request.companyName || null)
+//         .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : null)
+//         .execute('UpdateInsuranceCompany');
+
+//     return {
+//         rowsAffected: result.recordset[0]?.RowsAffected || 0
+//     };
+// }
+
+public async deleteInsuranceCompany(companyId: string, request?: DeleteRequest): Promise<DeleteResponse> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('CompanyId', sql.UniqueIdentifier, companyId)
+        .input('HardDelete', sql.Bit, request?.hardDelete ? 1 : 0)
+        .execute('DeleteInsuranceCompany');
+
+    return {
+        rowsAffected: result.recordset[0]?.RowsAffected || 0
+    };
+}
+
+
+    public async softDeletePolicyTemplate(templateId: string): Promise<void> {
+        const pool = await poolPromise;
+        await pool.request()
+            .input('TemplateId', sql.UniqueIdentifier, templateId)
+            .execute('sp_SoftDeletePolicyTemplate');
+    }
+
+    public async softDeletePolicyCatalog(policyCatalogId: string): Promise<void> {
+        const pool = await poolPromise;
+        await pool.request()
+            .input('PolicyCatalogId', sql.UniqueIdentifier, policyCatalogId)
+            .execute('sp_SoftDeletePolicyCatalog');
+    }
+
+    public async softDeletePolicyCategory(categoryId: string): Promise<void> {
+        const pool = await poolPromise;
+        await pool.request()
+            .input('CategoryId', sql.UniqueIdentifier, categoryId)
+            .execute('sp_SoftDeletePolicyCategory');
+    }
+
+    public async softDeleteInsuranceCompany(companyId: string): Promise<void> {
+        const pool = await poolPromise;
+        await pool.request()
+            .input('CompanyId', sql.UniqueIdentifier, companyId)
+            .execute('sp_SoftDeleteInsuranceCompany');
+    }
+
+    public async softDeleteClientPolicy(policyId: string): Promise<void> {
+        const pool = await poolPromise;
+        await pool.request()
+            .input('PolicyId', sql.UniqueIdentifier, policyId)
+            .execute('sp_SoftDeleteClientPolicy');
     }
 }

@@ -13,6 +13,48 @@ import {
 
 export class AppointmentService {
     
+    
+    
+    /**
+     * Search clients for autocomplete dropdown
+     * @param searchTerm - partial text to match name or phone
+     * @param agentId - filter by agent to avoid showing other agents' clients
+     */
+    async searchClientsForAutocomplete(searchTerm: string, agentId: string) {
+        try {
+            const pool = await poolPromise;
+
+            const result = await pool.request()
+                .input('SearchTerm', sql.NVarChar, `%${searchTerm}%`)
+                .input('AgentId', sql.UniqueIdentifier, agentId)
+                .query(`
+                    SELECT TOP 10 
+                        ClientId,
+                        CONCAT(FirstName, ' ', Surname, ' ', LastName) AS FullName,
+                        PhoneNumber,
+                        Email
+                    FROM Clients
+                    WHERE AgentId = @AgentId
+                      AND IsActive = 1
+                      AND (
+                          FirstName LIKE @SearchTerm OR
+                          Surname LIKE @SearchTerm OR
+                          LastName LIKE @SearchTerm OR
+                          PhoneNumber LIKE @SearchTerm OR
+                          Email LIKE @SearchTerm
+                      )
+                    ORDER BY FirstName
+                `);
+
+            return result.recordset;
+        } catch (error) {
+            console.error('Error searching clients:', error);
+            throw error;
+        }
+    }
+
+
+
     public async createAppointment(agentId: string, appointmentData: CreateAppointmentRequest): Promise<{ success: boolean; message: string; appointmentId?: string }> {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -21,8 +63,8 @@ export class AppointmentService {
             .input('Title', sql.NVarChar(200), appointmentData.title)
             .input('Description', sql.NVarChar(sql.MAX), appointmentData.description || null)
             .input('AppointmentDate', sql.Date, appointmentData.appointmentDate)
-            .input('StartTime', sql.Time, appointmentData.startTime)
-            .input('EndTime', sql.Time, appointmentData.endTime)
+            .input('StartTime', sql.Time, new Date(`1970-01-01T${appointmentData.startTime}Z`))
+.input('EndTime', sql.Time, new Date(`1970-01-01T${appointmentData.endTime}Z`))
             .input('Location', sql.NVarChar(200), appointmentData.location || null)
             .input('Type', sql.NVarChar(50), appointmentData.type)
             .input('Priority', sql.NVarChar(10), appointmentData.priority || 'Medium')

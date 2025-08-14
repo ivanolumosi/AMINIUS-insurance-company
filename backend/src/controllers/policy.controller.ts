@@ -31,6 +31,7 @@ import {
     PolicyValidationRequest
 } from '../interfaces/policy';
 
+
 export class PolicyController {
     private service: PolicyService;
 
@@ -47,7 +48,8 @@ export class PolicyController {
         };
     }
 
-    // Utility to handle response formatting
+   
+// Consistent response handler
     private handleResponse(res: Response, result: any, successStatus: number = 200) {
         if (result?.success === false) {
             return res.status(400).json({
@@ -56,15 +58,22 @@ export class PolicyController {
                 data: null
             });
         }
-
-        // Handle both wrapped and unwrapped responses
         const data = result?.data !== undefined ? result.data : result;
         const message = result?.message || 'Operation completed successfully';
-
         return res.status(successStatus).json({
             success: true,
             message,
             data
+        });
+    }
+
+    // Consistent error handler to avoid "err is unknown"
+    private handleError(res: Response, err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: message
         });
     }
 
@@ -117,19 +126,19 @@ export class PolicyController {
         }
     }
 
-    public async deletePolicyCatalogItem(req: Request, res: Response) {
-        try {
-            const hardDelete = req.query.hardDelete === 'true';
-            const result = await this.service.deletePolicyCatalogItem(req.params.id, hardDelete);
-            return this.handleResponse(res, result);
-        } catch (error) {
-            return res.status(500).json({
-                success: false,
-                message: 'Internal server error',
-                error: error instanceof Error ? error.message : 'Unknown error'
-            });
-        }
-    }
+    // public async deletePolicyCatalogItem(req: Request, res: Response) {
+    //     try {
+    //         const hardDelete = req.query.hardDelete === 'true';
+    //         const result = await this.service.deletePolicyCatalogItem(req.params.id, hardDelete);
+    //         return this.handleResponse(res, result);
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             success: false,
+    //             message: 'Internal server error',
+    //             error: error instanceof Error ? error.message : 'Unknown error'
+    //         });
+    //     }
+    // }
 
     public async upsertPolicyCatalog(req: Request, res: Response) {
         try {
@@ -214,19 +223,19 @@ export class PolicyController {
         }
     }
 
-    public async deleteClientPolicy(req: Request, res: Response) {
-        try {
-            const hardDelete = req.query.hardDelete === 'true';
-            const result = await this.service.deleteClientPolicy(req.params.id, hardDelete);
-            return this.handleResponse(res, result);
-        } catch (error) {
-            return res.status(500).json({
-                success: false,
-                message: 'Internal server error',
-                error: error instanceof Error ? error.message : 'Unknown error'
-            });
-        }
-    }
+    // public async deleteClientPolicy(req: Request, res: Response) {
+    //     try {
+    //         const hardDelete = req.query.hardDelete === 'true';
+    //         const result = await this.service.deleteClientPolicy(req.params.id, hardDelete);
+    //         return this.handleResponse(res, result);
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             success: false,
+    //             message: 'Internal server error',
+    //             error: error instanceof Error ? error.message : 'Unknown error'
+    //         });
+    //     }
+    // }
 
     public async upsertClientPolicy(req: Request, res: Response) {
         try {
@@ -432,19 +441,19 @@ export class PolicyController {
         }
     }
 
-    public async deletePolicyTemplate(req: Request, res: Response) {
-        try {
-            const hardDelete = req.query.hardDelete === 'true';
-            const result = await this.service.deletePolicyTemplate(req.params.id, hardDelete);
-            return this.handleResponse(res, result);
-        } catch (error) {
-            return res.status(500).json({
-                success: false,
-                message: 'Internal server error',
-                error: error instanceof Error ? error.message : 'Unknown error'
-            });
-        }
-    }
+    // public async deletePolicyTemplate(req: Request, res: Response) {
+    //     try {
+    //         const hardDelete = req.query.hardDelete === 'true';
+    //         const result = await this.service.deletePolicyTemplate(req.params.id, hardDelete);
+    //         return this.handleResponse(res, result);
+    //     } catch (error) {
+    //         return res.status(500).json({
+    //             success: false,
+    //             message: 'Internal server error',
+    //             error: error instanceof Error ? error.message : 'Unknown error'
+    //         });
+    //     }
+    // }
 
     // ============================================
     // REFERENCE DATA MANAGEMENT
@@ -754,4 +763,129 @@ export class PolicyController {
             });
         }
     }
+    
+   
+
+    public async deleteInsuranceCompany(req: Request, res: Response) {
+        try {
+            const { companyId } = req.params;
+            const hardDelete = req.query.hardDelete === 'true';
+            const result = await this.service.deleteInsuranceCompany(companyId, { hardDelete });
+            return this.handleResponse(res, result);
+        } catch (err) {
+            return this.handleError(res, err);
+        }
+    }
+
+    public async softDeletePolicyTemplate(req: Request, res: Response) {
+        try {
+            const { templateId } = req.params;
+            await this.service.softDeletePolicyTemplate(templateId);
+            return this.handleResponse(res, { message: 'Template soft deleted successfully' });
+        } catch (err) {
+            return this.handleError(res, err);
+        }
+    }
+
+    public async softDeletePolicyCatalog(req: Request, res: Response) {
+        try {
+            const { policyCatalogId } = req.params;
+            await this.service.softDeletePolicyCatalog(policyCatalogId);
+            return this.handleResponse(res, { message: 'Policy catalog soft deleted successfully' });
+        } catch (err) {
+            return this.handleError(res, err);
+        }
+    }
+
+    public async softDeletePolicyCategory(req: Request, res: Response) {
+        try {
+            const { categoryId } = req.params;
+            await this.service.softDeletePolicyCategory(categoryId);
+            return this.handleResponse(res, { message: 'Policy category soft deleted successfully' });
+        } catch (err) {
+            return this.handleError(res, err);
+        }
+    }
+
+    public async softDeleteInsuranceCompany(req: Request, res: Response) {
+        try {
+            const { companyId } = req.params;
+            await this.service.softDeleteInsuranceCompany(companyId);
+            return this.handleResponse(res, { message: 'Insurance company soft deleted successfully' });
+        } catch (err) {
+            return this.handleError(res, err);
+        }
+    }
+
+    public async softDeleteClientPolicy(req: Request, res: Response) {
+        try {
+            const { policyId } = req.params;
+            await this.service.softDeleteClientPolicy(policyId);
+            return this.handleResponse(res, { message: 'Client policy soft deleted successfully' });
+        } catch (err) {
+            return this.handleError(res, err);
+        }
+    }
+// ============================================
+// AUTOCOMPLETE METHODS
+// ============================================
+public async autocompleteInsuranceCompanies(req: Request, res: Response) {
+    try {
+        const { term = '' } = req.query;
+        const result = await this.service.searchInsuranceCompanies(String(term));
+        return this.handleResponse(res, result);
+    } catch (error) {
+        return this.handleError(res, error);
+    }
+}
+
+public async autocompletePolicyCatalog(req: Request, res: Response) {
+    try {
+        const { agentId, term = '' } = req.query;
+        const result = await this.service.searchPolicyCatalog(String(agentId), String(term));
+        return this.handleResponse(res, result);
+    } catch (error) {
+        return this.handleError(res, error);
+    }
+}
+
+public async autocompletePolicyCategories(req: Request, res: Response) {
+    try {
+        const { term = '' } = req.query;
+        const result = await this.service.searchPolicyCategories(String(term));
+        return this.handleResponse(res, result);
+    } catch (error) {
+        return this.handleError(res, error);
+    }
+}
+
+public async autocompletePolicyTemplates(req: Request, res: Response) {
+    try {
+        const { agentId, term = '' } = req.query;
+        const result = await this.service.searchPolicyTemplates(String(agentId), String(term));
+        return this.handleResponse(res, result);
+    } catch (error) {
+        return this.handleError(res, error);
+    }
+}
+
+public async autocompletePolicyTypes(req: Request, res: Response) {
+    try {
+        const { term = '' } = req.query;
+        const result = await this.service.searchPolicyTypes(String(term));
+        return this.handleResponse(res, result);
+    } catch (error) {
+        return this.handleError(res, error);
+    }
+}
+
+public async autocompleteClientPolicies(req: Request, res: Response) {
+    try {
+        const { clientId, term = '' } = req.query;
+        const result = await this.service.searchClientPolicies(String(clientId), String(term));
+        return this.handleResponse(res, result);
+    } catch (error) {
+        return this.handleError(res, error);
+    }
+}
 }

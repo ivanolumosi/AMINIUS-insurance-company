@@ -88,3 +88,8 @@ GET http://localhost:3000/api/insurance-companies
 
 ### 11. Get Policy Types
 GET http://localhost:3000/api/policy-types
+
+
+### Get Navbar Badge Counts
+GET http://localhost:3000/api/agent/730080DD-742C-4934-8974-30AC3495E468/navbar-counts
+Content-Type: application/json

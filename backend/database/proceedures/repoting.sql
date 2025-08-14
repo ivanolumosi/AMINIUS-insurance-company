@@ -228,3 +228,36 @@ BEGIN
     SELECT @@ROWCOUNT AS RowsAffected;
 END;
 GO
+
+CREATE PROCEDURE GetNavbarBadgeCounts
+    @AgentId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        -- Clients (only active ones)
+        ClientsCount = COUNT(DISTINCT CASE WHEN c.IsActive = 1 THEN c.ClientId END),
+
+        -- Policies (only active)
+        PoliciesCount = COUNT(DISTINCT CASE WHEN p.IsActive = 1 THEN p.PolicyId END),
+
+        -- Reminders (pending/active)
+        RemindersCount = COUNT(DISTINCT CASE WHEN r.Status = 'Active' THEN r.ReminderId END),
+
+        -- Appointments (upcoming or active)
+        AppointmentsCount = COUNT(DISTINCT CASE 
+                            WHEN a.IsActive = 1 
+                                 AND a.Status NOT IN ('Completed', 'Cancelled') 
+                            THEN a.AppointmentId END)
+    FROM (SELECT 1 AS dummy) d
+    LEFT JOIN Clients c 
+        ON c.AgentId = @AgentId
+    LEFT JOIN ClientPolicies p 
+        ON p.ClientId = c.ClientId
+    LEFT JOIN Reminders r 
+        ON r.AgentId = @AgentId
+    LEFT JOIN Appointments a 
+        ON a.AgentId = @AgentId;
+END;
+GO

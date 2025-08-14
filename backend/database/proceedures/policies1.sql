@@ -1322,3 +1322,328 @@ GO
 -- ============================================
 
 PRINT 'All Aminius Insurance Management stored procedures have been created successfully!';
+GO
+
+-- ============================================
+-- 1. Create Insurance Company
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_CreateInsuranceCompany
+    @CompanyName NVARCHAR(100),
+    @IsActive BIT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO InsuranceCompanies (CompanyId, CompanyName, IsActive, CreatedDate)
+    VALUES (NEWID(), @CompanyName, @IsActive, GETDATE());
+END
+GO
+
+-- ============================================
+-- 2. Get All Insurance Companies
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_GetInsuranceCompanies
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT CompanyId, CompanyName, IsActive, CreatedDate
+    FROM InsuranceCompanies
+    ORDER BY CompanyName;
+END
+GO
+
+-- ============================================
+-- 3. Get Insurance Company by ID
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_GetInsuranceCompanyById
+    @CompanyId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT CompanyId, CompanyName, IsActive, CreatedDate
+    FROM InsuranceCompanies
+    WHERE CompanyId = @CompanyId;
+END
+GO
+
+-- ============================================
+-- 4. Update Insurance Company
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_UpdateInsuranceCompany
+    @CompanyId UNIQUEIDENTIFIER,
+    @CompanyName NVARCHAR(100),
+    @IsActive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE InsuranceCompanies
+    SET CompanyName = @CompanyName,
+        IsActive = @IsActive
+    WHERE CompanyId = @CompanyId;
+END
+GO
+
+-- ============================================
+-- 5. Delete Insurance Company (Soft Delete)
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_DeleteInsuranceCompany
+    @CompanyId UNIQUEIDENTIFIER,
+    @HardDelete BIT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @HardDelete = 1
+    BEGIN
+        DELETE FROM InsuranceCompanies
+        WHERE CompanyId = @CompanyId;
+    END
+    ELSE
+    BEGIN
+        UPDATE InsuranceCompanies
+        SET IsActive = 0
+        WHERE CompanyId = @CompanyId;
+    END
+END
+GO
+-- ============================================
+-- 1. Create Policy Category
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_CreatePolicyCategory
+    @CategoryName NVARCHAR(100),
+    @CompanyId UNIQUEIDENTIFIER,
+    @IsActive BIT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO PolicyCategories (CategoryId, CategoryName, CompanyId, IsActive, CreatedDate)
+    VALUES (NEWID(), @CategoryName, @CompanyId, @IsActive, GETDATE());
+END
+GO
+
+-- ============================================
+-- 2. Get All Policy Categories
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_GetPolicyCategories
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT c.CategoryId, c.CategoryName, c.CompanyId, ic.CompanyName, c.IsActive, c.CreatedDate
+    FROM PolicyCategories c
+    INNER JOIN InsuranceCompanies ic ON c.CompanyId = ic.CompanyId
+    ORDER BY ic.CompanyName, c.CategoryName;
+END
+GO
+
+-- ============================================
+-- 3. Get Policy Category by ID
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_GetPolicyCategoryById
+    @CategoryId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT c.CategoryId, c.CategoryName, c.CompanyId, ic.CompanyName, c.IsActive, c.CreatedDate
+    FROM PolicyCategories c
+    INNER JOIN InsuranceCompanies ic ON c.CompanyId = ic.CompanyId
+    WHERE c.CategoryId = @CategoryId;
+END
+GO
+
+-- ============================================
+-- 4. Update Policy Category
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_UpdatePolicyCategory
+    @CategoryId UNIQUEIDENTIFIER,
+    @CategoryName NVARCHAR(100),
+    @CompanyId UNIQUEIDENTIFIER,
+    @IsActive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyCategories
+    SET CategoryName = @CategoryName,
+        CompanyId = @CompanyId,
+        IsActive = @IsActive
+    WHERE CategoryId = @CategoryId;
+END
+GO
+
+-- ============================================
+-- 5. Delete Policy Category (Soft Delete)
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_DeletePolicyCategory
+    @CategoryId UNIQUEIDENTIFIER,
+    @HardDelete BIT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @HardDelete = 1
+    BEGIN
+        DELETE FROM PolicyCategories
+        WHERE CategoryId = @CategoryId;
+    END
+    ELSE
+    BEGIN
+        UPDATE PolicyCategories
+        SET IsActive = 0
+        WHERE CategoryId = @CategoryId;
+    END
+END
+GO
+-- ============================================
+-- Create Policy Type (GUID Primary Key)
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_CreatePolicyType
+    @TypeName NVARCHAR(50),
+    @IsActive BIT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @NewId UNIQUEIDENTIFIER = NEWID();
+
+    INSERT INTO PolicyTypes (TypeId, TypeName, IsActive)
+    VALUES (@NewId, @TypeName, @IsActive);
+
+    SELECT * FROM PolicyTypes WHERE TypeId = @NewId;
+END
+GO
+
+
+-- ============================================
+-- Get All Policy Types
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_GetPolicyTypes
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT *
+    FROM PolicyTypes
+    ORDER BY CreatedDate DESC;
+END
+GO
+
+-- ============================================
+-- Get Policy Type By Id
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_GetPolicyTypeById
+    @TypeId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT *
+    FROM PolicyTypes
+    WHERE TypeId = @TypeId;
+END
+GO
+
+-- ============================================
+-- Update Policy Type
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_UpdatePolicyType
+    @TypeId UNIQUEIDENTIFIER,
+    @TypeName NVARCHAR(50),
+    @IsActive BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyTypes
+    SET TypeName = @TypeName,
+        IsActive = @IsActive
+    WHERE TypeId = @TypeId;
+END
+GO
+
+-- ============================================
+-- Delete Policy Type
+-- ============================================
+CREATE OR ALTER PROCEDURE sp_DeletePolicyType
+    @TypeId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DELETE FROM PolicyTypes
+    WHERE TypeId = @TypeId;
+END
+GO
+
+
+
+CREATE OR ALTER PROCEDURE sp_SoftDeletePolicyTemplate
+    @TemplateId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyTemplates
+    SET IsActive = 0
+    WHERE TemplateId = @TemplateId;
+END
+
+GO
+
+CREATE OR ALTER PROCEDURE sp_SoftDeletePolicyCatalog
+    @PolicyCatalogId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyCatalog
+    SET IsActive = 0,
+        ModifiedDate = GETDATE()
+    WHERE PolicyCatalogId = @PolicyCatalogId;
+END
+
+GO
+
+CREATE OR ALTER PROCEDURE sp_SoftDeletePolicyCategory
+    @CategoryId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyCategories
+    SET IsActive = 0
+    WHERE CategoryId = @CategoryId;
+END
+
+GO
+
+CREATE OR ALTER PROCEDURE sp_SoftDeleteInsuranceCompany
+    @CompanyId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE InsuranceCompanies
+    SET IsActive = 0
+    WHERE CompanyId = @CompanyId;
+END
+
+GO
+
+CREATE OR ALTER PROCEDURE sp_SoftDeleteClientPolicy
+    @PolicyId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE ClientPolicies
+    SET IsActive = 0,
+        ModifiedDate = GETDATE()
+    WHERE PolicyId = @PolicyId;
+END
+GO

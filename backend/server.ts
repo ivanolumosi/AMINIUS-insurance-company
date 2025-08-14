@@ -10,6 +10,7 @@ import reminderRoutes from './src/routes/reminder.routes';
 import notesRoutes from './src/routes/notes.routes';
 import searchRoutes from './src/routes/search.routes';
 import utilityRoutes from './src/routes/utility.routes';
+import autocompleteRoutes from './src/routes/autocomplete.routes';
 
 dotenv.config();
 
@@ -17,7 +18,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* ------------------  Middleware ------------------ */
-// ✅ Allow requests from Angular dev server
+// Allow requests from Angular dev server
+
 app.use(cors({
   origin: 'http://localhost:4200',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -39,13 +41,13 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/utility', utilityRoutes);
+app.use('/api/autocomplete', autocompleteRoutes);
 
 // ✅ Root Route
 app.get('/', (_req: Request, res: Response) => {
   res.send('🚀 Welcome to the API!');
 });
 
-/* ------------------  Error Handling ------------------ */
 // Catch all unhandled routes
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: 'Route not found' });

@@ -4,13 +4,13 @@
 
 ### Sample IDs (replace with actual IDs from your database)
 @agentId = 730080DD-742C-4934-8974-30AC3495E468
-@clientId = 550e8400-e29b-41d4-a716-446655440001
-@policyId = 550e8400-e29b-41d4-a716-446655440002
-@policyCatalogId = 550e8400-e29b-41d4-a716-446655440003
+@clientId = 5ABFFC14-164C-493C-AD4C-64F10C1649D5
+@policyId = B593DE49-D835-4969-83D9-31FD0392017B
+@policyCatalogId = 6C30C39C-8FBF-4FE6-8410-FEBAC45C2938
 @templateId = 550e8400-e29b-41d4-a716-446655440004
-@typeId = 550e8400-e29b-41d4-a716-446655440005
-@companyId = 550e8400-e29b-41d4-a716-446655440006
-@categoryId = 550e8400-e29b-41d4-a716-446655440007
+@typeId = F2F92B98-C741-402C-8339-431A7897D236
+@companyId = 5F29A06B-771F-4779-B572-B551F546BA9F
+@categoryId = B8086B0E-ED95-47C9-8194-C0D3260D16DB
 
 ###############################################
 ### HEALTH CHECK
@@ -404,7 +404,7 @@ POST {{baseUrl}}/companies
 Content-Type: application/json
 
 {
-  "companyName": "Premium Insurance Corporation"
+  "companyName": "Jubilee  Insurance Corporation"
 }
 
 ###
@@ -781,4 +781,29 @@ Content-Type: application/json
 
 ### Test Export with Invalid Format
 GET {{baseUrl}}/export?format=xml
+Content-Type: application/json
+
+
+### Autocomplete - Insurance Companies
+GET {{baseUrl}}/autocomplete/companies
+Content-Type: application/json
+
+### Autocomplete - Policy Catalog
+GET {{baseUrl}}/autocomplete/catalog
+Content-Type: application/json
+
+### Autocomplete - Policy Categories
+GET {{baseUrl}}/autocomplete/categories
+Content-Type: application/json
+
+### Autocomplete - Policy Templates
+GET {{baseUrl}}/autocomplete/templates
+Content-Type: application/json
+
+### Autocomplete - Policy Types
+GET {{baseUrl}}/autocomplete/types
+Content-Type: application/json
+
+### Autocomplete - Client Policies
+GET {{baseUrl}}/autocomplete/client-policies
 Content-Type: application/json

@@ -10,32 +10,32 @@ const controller = new PolicyController();
 router.get('/health', controller.healthCheck.bind(controller));
 
 // ============================================
-// POLICY CATALOG ROUTES
+// POLICY CATALOG
 // ============================================
 router.get('/catalog', controller.getPolicyCatalog.bind(controller));
 router.post('/catalog', controller.createPolicyCatalogItem.bind(controller));
 router.put('/catalog/:id', controller.updatePolicyCatalogItem.bind(controller));
-router.delete('/catalog/:id', controller.deletePolicyCatalogItem.bind(controller));
 router.post('/catalog/upsert', controller.upsertPolicyCatalog.bind(controller));
+router.delete('/catalog/:policyCatalogId/soft', controller.softDeletePolicyCatalog.bind(controller));
 
 // ============================================
-// CLIENT POLICY ROUTES
+// CLIENT POLICIES
 // ============================================
 router.get('/policies', controller.getClientPolicies.bind(controller));
 router.get('/policies/:id', controller.getPolicyById.bind(controller));
 router.post('/policies', controller.createClientPolicy.bind(controller));
 router.put('/policies/:id', controller.updateClientPolicy.bind(controller));
-router.delete('/policies/:id', controller.deleteClientPolicy.bind(controller));
 router.post('/policies/upsert', controller.upsertClientPolicy.bind(controller));
+router.delete('/policies/:policyId/soft', controller.softDeleteClientPolicy.bind(controller));
 
 // ============================================
-// POLICY SEARCH AND FILTERING
+// SEARCH & FILTER
 // ============================================
 router.get('/policies/search', controller.searchPolicies.bind(controller));
 router.get('/policies/status', controller.getPoliciesByStatus.bind(controller));
 
 // ============================================
-// POLICY EXPIRATION AND RENEWAL
+// EXPIRATION & RENEWAL
 // ============================================
 router.get('/policies/expiring', controller.getExpiringPolicies.bind(controller));
 router.post('/policies/:id/renew', controller.renewPolicy.bind(controller));
@@ -55,7 +55,7 @@ router.post('/policies/bulk/expire', controller.batchExpirePolicies.bind(control
 router.get('/templates', controller.getPolicyTemplates.bind(controller));
 router.post('/templates', controller.createPolicyTemplate.bind(controller));
 router.put('/templates/:id', controller.updatePolicyTemplate.bind(controller));
-router.delete('/templates/:id', controller.deletePolicyTemplate.bind(controller));
+router.delete('/templates/:id', controller.softDeletePolicyTemplate.bind(controller));
 
 // ============================================
 // REFERENCE DATA - INSURANCE COMPANIES
@@ -63,6 +63,8 @@ router.delete('/templates/:id', controller.deletePolicyTemplate.bind(controller)
 router.get('/companies', controller.getInsuranceCompanies.bind(controller));
 router.post('/companies', controller.createInsuranceCompany.bind(controller));
 router.put('/companies/:id', controller.updateInsuranceCompany.bind(controller));
+router.delete('/companies/:companyId', controller.deleteInsuranceCompany.bind(controller));
+router.delete('/companies/:companyId/soft', controller.softDeleteInsuranceCompany.bind(controller));
 
 // ============================================
 // REFERENCE DATA - POLICY TYPES
@@ -77,9 +79,20 @@ router.put('/types/:id', controller.updatePolicyType.bind(controller));
 router.get('/categories', controller.getPolicyCategories.bind(controller));
 router.post('/categories', controller.createPolicyCategory.bind(controller));
 router.put('/categories/:id', controller.updatePolicyCategory.bind(controller));
+router.delete('/categories/:categoryId/soft', controller.softDeletePolicyCategory.bind(controller));
 
 // ============================================
-// ANALYTICS AND REPORTING
+// AUTOCOMPLETE ENDPOINTS
+// ============================================
+router.get('/autocomplete/companies', controller.autocompleteInsuranceCompanies.bind(controller));
+router.get('/autocomplete/catalog', controller.autocompletePolicyCatalog.bind(controller));
+router.get('/autocomplete/categories', controller.autocompletePolicyCategories.bind(controller));
+router.get('/autocomplete/templates', controller.autocompletePolicyTemplates.bind(controller));
+router.get('/autocomplete/types', controller.autocompletePolicyTypes.bind(controller));
+router.get('/autocomplete/client-policies', controller.autocompleteClientPolicies.bind(controller));
+
+// ============================================
+// ANALYTICS & REPORTING
 // ============================================
 router.get('/statistics', controller.getPolicyStatistics.bind(controller));
 router.get('/statistics/detailed', controller.getPolicyStatisticsDetailed.bind(controller));
@@ -92,58 +105,13 @@ router.get('/history/:clientId', controller.getPolicyHistory.bind(controller));
 router.post('/validate', controller.validatePolicy.bind(controller));
 
 // ============================================
-// EXPORT OPERATIONS
+// EXPORT
 // ============================================
 router.get('/export', controller.exportPolicies.bind(controller));
 
 // ============================================
-// UTILITY OPERATIONS
+// UTILITY
 // ============================================
 router.post('/cleanup/soft-deleted', controller.cleanupSoftDeletedRecords.bind(controller));
-
-// ============================================
-// LEGACY SUPPORT ROUTES (if still needed)
-// ============================================
-
-// Legacy client policy routes
-router.get('/client/:clientId', controller.getClientPolicies.bind(controller));
-router.get('/client/policy/:policyId', controller.getPolicyById.bind(controller));
-router.post('/client', controller.createClientPolicy.bind(controller));
-router.put('/client/:policyId', controller.updateClientPolicy.bind(controller));
-router.delete('/client/:policyId', controller.deleteClientPolicy.bind(controller));
-
-// Legacy expiring policies route
-router.get('/client/expiring/:agentId', controller.getExpiringPolicies.bind(controller));
-
-// Legacy statistics routes
-router.get('/client/statistics/:agentId', controller.getPolicyStatistics.bind(controller));
-router.get('/client/statistics/detailed/:agentId', controller.getPolicyStatisticsDetailed.bind(controller));
-
-// Legacy search routes
-router.get('/search/:agentId', controller.searchPolicies.bind(controller));
-router.get('/status/:agentId/:status', controller.getPoliciesByStatus.bind(controller));
-
-// Legacy renewal route
-router.put('/renew/:policyId', controller.renewPolicy.bind(controller));
-
-// Legacy bulk status route
-router.put('/bulk/status', controller.bulkUpdatePolicyStatus.bind(controller));
-
-// Legacy template routes
-router.get('/templates/:agentId', controller.getPolicyTemplates.bind(controller));
-router.put('/templates/:templateId', controller.updatePolicyTemplate.bind(controller));
-router.delete('/templates/:templateId', controller.deletePolicyTemplate.bind(controller));
-
-// Legacy reference data routes
-router.get('/reference/companies', controller.getInsuranceCompanies.bind(controller));
-router.get('/reference/types', controller.getPolicyTypes.bind(controller));
-router.get('/reference/categories', controller.getPolicyCategories.bind(controller));
-router.post('/reference/categories', controller.createPolicyCategory.bind(controller));
-
-// Legacy catalog routes
-router.post('/catalog/item', controller.createPolicyCatalogItem.bind(controller));
-router.put('/catalog/:policyCatalogId', controller.updatePolicyCatalogItem.bind(controller));
-router.delete('/catalog/:policyCatalogId', controller.deletePolicyCatalogItem.bind(controller));
-router.put('/catalog/upsert', controller.upsertPolicyCatalog.bind(controller));
 
 export default router;

@@ -182,4 +182,31 @@ export class AgentService {
 
         return result.recordset;
     }
+    
+/**
+ * Get navbar badge counts
+ */
+public async getNavbarBadgeCounts(agentId: string): Promise<{
+    clients: number;
+    policies: number;
+    reminders: number;
+    appointments: number;
+}> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('AgentId', sql.UniqueIdentifier, agentId)
+        .execute('GetNavbarBadgeCounts');
+
+    if (!result.recordset.length) {
+        return { clients: 0, policies: 0, reminders: 0, appointments: 0 };
+    }
+
+    const row = result.recordset[0];
+    return {
+        clients: row.ClientsCount ?? 0,
+        policies: row.PoliciesCount ?? 0,
+        reminders: row.RemindersCount ?? 0,
+        appointments: row.AppointmentsCount ?? 0
+    };
+}
 }

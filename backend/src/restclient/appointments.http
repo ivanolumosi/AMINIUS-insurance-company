@@ -5,7 +5,7 @@ POST {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468
 Content-Type: application/json
 
 {
-  "clientId": "33333333-3333-3333-3333-333333333333",
+  "clientId": "5ABFFC14-164C-493C-AD4C-64F10C1649D5",
   "title": "Policy Renewal Meeting",
   "description": "Discuss renewal options",
   "appointmentDate": "2025-08-10",
@@ -71,3 +71,6 @@ Content-Type: application/json
   "startTime": "10:30:00",
   "endTime": "11:30:00"
 }
+### Search Clients for Autocomplete
+GET http://localhost:3000/api/appointments/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=mes
+Content-Type: application/json

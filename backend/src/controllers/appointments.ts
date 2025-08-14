@@ -6,6 +6,7 @@ const service = new AppointmentService();
 
 export class AppointmentController {
 
+
     /** Utility: validate a GUID format */
     private isValidGuid(guid: string): boolean {
         const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -21,6 +22,26 @@ export class AppointmentController {
         }
         return agentId;
     }
+    
+  public async searchClients(req: Request, res: Response) {
+    const agentId = this.validateAgentId(req, res);
+    if (!agentId) return;
+
+    const { q } = req.query;
+    if (!q || typeof q !== 'string' || q.trim().length < 1) {
+        res.status(400).json({ message: 'Search term (q) is required' });
+        return;
+    }
+
+    try {
+        const result = await appointmentService.searchClientsForAutocomplete(q.trim(), agentId);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error searching clients:', error);
+        res.status(500).json({ message: 'Error searching clients', error: (error as Error).message });
+    }
+}
+   
 
     public async create(req: Request, res: Response) {
   const agentId = this.validateAgentId(req, res);

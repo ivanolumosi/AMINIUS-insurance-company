@@ -105,7 +105,7 @@ VALUES (NEWID(), 'Life Insurance');
 -- -- CREATE SYNONYM PolicyTemplate FOR dbo.PolicyTemplates;
 
 
-
+SELECT * FROM PolicyCategories
 
 
 

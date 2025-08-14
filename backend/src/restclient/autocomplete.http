@@ -1,0 +1,35 @@
+@baseUrl = http://localhost:3000/api/autocomplete
+### SAMPLE IDS (replace with real IDs from DB)
+@agentId = 730080DD-742C-4934-8974-30AC3495E468
+@clientId =5ABFFC14-164C-493C-AD4C-64F10C1649D5
+@policyId = B593DE49-D835-4969-83D9-31FD0392017B
+@policyCatalogId = 6C30C39C-8FBF-4FE6-8410-FEBAC45C2938
+@templateId = 550e8400-e29b-41d4-a716-446655440004
+@typeId = F2F92B98-C741-402C-8339-431A7897D236
+@companyId = 5F29A06B-771F-4779-B572-B551F546BA9F
+@categoryId = B8086B0E-ED95-47C9-8194-C0D3260D16DB
+
+### STATIC AUTOCOMPLETES
+
+### Get active insurance companies
+GET {{baseUrl}}/companies
+
+### Get active policy types
+GET {{baseUrl}}/types
+
+### Get active policy categories
+GET {{baseUrl}}/categories
+
+
+### DYNAMIC AUTOCOMPLETES
+
+### Get policy catalog (with optional filters)
+GET {{baseUrl}}/catalog?agentId={{agentId}}&companyId={{companyId}}&typeId={{typeId}}&searchTerm=
+
+### Get policy templates (with optional filters)
+GET {{baseUrl}}/templates?agentId={{agentId}}&typeId={{typeId}}&categoryId={{categoryId}}&searchTerm=s
+
+### Get client policies (with optional filters)
+GET {{baseUrl}}/client-policies?clientId={{clientId}}&searchTerm=
+
+

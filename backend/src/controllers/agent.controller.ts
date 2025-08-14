@@ -132,3 +132,13 @@ export const getPolicyTypes = async (_req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to get policy types" });
   }
 };
+export const getNavbarBadgeCounts = async (req: Request, res: Response) => {
+  try {
+    const { agentId } = req.params;
+    const counts = await agentService.getNavbarBadgeCounts(agentId);
+    res.json(counts);
+  } catch (err) {
+    console.error("Error getting navbar badge counts:", err);
+    res.status(500).json({ error: "Failed to get navbar badge counts" });
+  }
+};

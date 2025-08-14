@@ -10,7 +10,8 @@ import {
   requestPasswordReset,
   resetAgentPassword,
   getInsuranceCompanies,
-  getPolicyTypes
+  getPolicyTypes,
+  getNavbarBadgeCounts // <-- add import
 } from "../controllers/agent.controller";
 
 const router = Router();
@@ -37,5 +38,8 @@ router.post("/agent/:agentId/password-reset", resetAgentPassword);
 // Data lookups
 router.get("/insurance-companies", getInsuranceCompanies);
 router.get("/policy-types", getPolicyTypes);
+
+// Navbar badge counts
+router.get("/agent/:agentId/navbar-counts", getNavbarBadgeCounts); // <-- added route
 
 export default router;

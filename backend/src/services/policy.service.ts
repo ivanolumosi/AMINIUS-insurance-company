@@ -51,8 +51,53 @@ import {
     PolicyValidationRequest,
     PolicyValidationResponse
 } from '../interfaces/policy';
+export interface ClientWithPolicies {
+  clientId: string;
+  agentId: string;
+  firstName: string;
+  surname: string;
+  lastName: string;
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  address: string;
+  nationalId: string;
+  dateOfBirth: Date;
+  isClient: boolean;
+  insuranceType: string;
+  clientNotes?: string;
+  clientCreatedDate: Date;
+  clientModifiedDate: Date;
+  clientIsActive: boolean;
+
+  policyId?: string;
+  policyName?: string;
+  status?: string;
+  startDate?: Date;
+  endDate?: Date;
+  policyNotes?: string;
+  policyCreatedDate?: Date;
+  policyModifiedDate?: Date;
+  policyIsActive?: boolean;
+  policyCatalogId?: string;
+  catalogPolicyName?: string;
+  typeId?: string;
+  typeName?: string;
+  companyId?: string;
+  companyName?: string;
+  daysUntilExpiry?: number;
+}
+
+export interface ClientWithPoliciesFilterRequest {
+  agentId?: string;
+  clientId?: string;
+  includeInactive?: boolean;
+}
 
 export class PolicyService {
+    static softDeletePolicyType(typeId: string) {
+        throw new Error('Method not implemented.');
+    }
 
     // ============================================
     // POLICY CATALOG MANAGEMENT
@@ -70,6 +115,60 @@ export class PolicyService {
 
         return result.recordset.map(this.mapPolicyCatalogFromDb);
     }
+    public async getClientsWithPolicies(
+    request: ClientWithPoliciesFilterRequest
+  ): Promise<ClientWithPolicies[]> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
+      .input('ClientId', sql.UniqueIdentifier, request.clientId || null)
+      .input('IncludeInactive', sql.Bit, request.includeInactive ? 1 : 0)
+      .execute('GetClientsWithPolicies');
+
+    return result.recordset.map(this.mapClientWithPoliciesFromDb);
+  }
+  
+  private mapClientWithPoliciesFromDb(record: any): ClientWithPolicies {
+    return {
+      clientId: record.ClientId,
+      agentId: record.AgentId,
+      firstName: record.FirstName,
+      surname: record.Surname,
+      lastName: record.LastName,
+      fullName: record.FullName,
+      phoneNumber: record.PhoneNumber,
+      email: record.Email,
+      address: record.Address,
+      nationalId: record.NationalId,
+      dateOfBirth: record.DateOfBirth,
+      isClient: record.IsClient,
+      insuranceType: record.InsuranceType,
+      clientNotes: record.ClientNotes,
+      clientCreatedDate: record.ClientCreatedDate,
+      clientModifiedDate: record.ClientModifiedDate,
+      clientIsActive: record.ClientIsActive,
+
+      policyId: record.PolicyId,
+      policyName: record.PolicyName,
+      status: record.Status,
+      startDate: record.StartDate,
+      endDate: record.EndDate,
+      policyNotes: record.PolicyNotes,
+      policyCreatedDate: record.PolicyCreatedDate,
+      policyModifiedDate: record.PolicyModifiedDate,
+      policyIsActive: record.PolicyIsActive,
+      policyCatalogId: record.PolicyCatalogId,
+      catalogPolicyName: record.CatalogPolicyName,
+      typeId: record.TypeId,
+      typeName: record.TypeName,
+      companyId: record.CompanyId,
+      companyName: record.CompanyName,
+      daysUntilExpiry: record.DaysUntilExpiry,
+    };
+  }
+
+
+
 
     public async createPolicyCatalogItem(request: CreatePolicyCatalogRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
@@ -1202,4 +1301,13 @@ public async deleteInsuranceCompany(companyId: string, request?: DeleteRequest):
             .input('PolicyId', sql.UniqueIdentifier, policyId)
             .execute('sp_SoftDeleteClientPolicy');
     }
+    
+ async softDeletePolicyType(typeId: string) {
+    const pool = await poolPromise;
+    await pool.request()
+        .input('TypeId', sql.UniqueIdentifier, typeId)
+        .execute('PolicyTypes_SoftDelete');
+    return { message: 'PolicyType soft deleted successfully' };
+}
+
 }

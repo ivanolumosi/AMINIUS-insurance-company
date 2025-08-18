@@ -19,7 +19,7 @@ CREATE TABLE ClientPolicies (
     CONSTRAINT FK_ClientPolicies_Type FOREIGN KEY (TypeId) REFERENCES PolicyTypes(TypeId),
     CONSTRAINT FK_ClientPolicies_Company FOREIGN KEY (CompanyId) REFERENCES InsuranceCompanies(CompanyId)
 );
-
+select * from ClientPolicies
 -- ============================================
 -- 2. InsuranceCompanies
 -- ============================================

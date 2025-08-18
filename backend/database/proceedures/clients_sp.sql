@@ -90,7 +90,7 @@ BEGIN
         c.NationalId,
         c.DateOfBirth,
         c.IsClient,
-        c.InsuranceType,
+        COALESCE(pt.TypeName, c.InsuranceType) AS InsuranceType,  -- ✅ Override if policy exists
         c.Notes,
         c.CreatedDate,
         c.ModifiedDate,
@@ -98,7 +98,7 @@ BEGIN
         -- Policy Info from related tables
         cp.PolicyId,
         cp.PolicyName,
-        pt.TypeName AS PolicyType,         -- ✅ Correct column name
+        pt.TypeName AS PolicyType,
         ic.CompanyName AS PolicyCompany,
         cp.Status AS PolicyStatus,
         cp.StartDate AS PolicyStartDate,

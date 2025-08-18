@@ -235,7 +235,7 @@ BEGIN
     ORDER BY cp.EndDate DESC;
 END
 GO
-
+EXEC GetClientPolicies
 -- Get Policy By ID
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'GetPolicyById')
     DROP PROCEDURE GetPolicyById;
@@ -464,7 +464,7 @@ BEGIN
     ORDER BY cp.EndDate;
 END
 GO
-
+exec GetPolicyStatistics
 -- Get Policy Statistics
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'GetPolicyStatistics')
     DROP PROCEDURE GetPolicyStatistics;
@@ -1080,38 +1080,54 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'GetAgentDashbo
     DROP PROCEDURE GetAgentDashboardSummary;
 GO
 
-CREATE PROCEDURE GetAgentDashboardSummary
+ALTER PROCEDURE GetAgentDashboardSummary
     @AgentId UNIQUEIDENTIFIER
 AS
 BEGIN
     SET NOCOUNT ON;
     
-    DECLARE @TotalPolicies INT, @ActivePolicies INT, @ExpiringIn30Days INT, 
-            @ExpiringIn60Days INT, @TotalCompanies INT, @TotalClients INT;
+    DECLARE @TotalPolicies INT = 0, 
+            @ActivePolicies INT = 0, 
+            @ExpiringIn30Days INT = 0, 
+            @ExpiringIn60Days INT = 0, 
+            @TotalCompanies INT = 0, 
+            @TotalClients INT = 0;
     
     -- Get policy counts
     SELECT 
         @TotalPolicies = COUNT(*),
-        @ActivePolicies = SUM(CASE WHEN Status = 'Active' THEN 1 ELSE 0 END),
-        @ExpiringIn30Days = SUM(CASE WHEN Status = 'Active' AND EndDate BETWEEN GETDATE() AND DATEADD(DAY, 30, GETDATE()) THEN 1 ELSE 0 END),
-        @ExpiringIn60Days = SUM(CASE WHEN Status = 'Active' AND EndDate BETWEEN GETDATE() AND DATEADD(DAY, 60, GETDATE()) THEN 1 ELSE 0 END)
+        @ActivePolicies = SUM(CASE WHEN cp.Status = 'Active' AND cp.IsActive = 1 THEN 1 ELSE 0 END),
+        @ExpiringIn30Days = SUM(
+            CASE 
+                WHEN cp.Status = 'Active' 
+                     AND cp.IsActive = 1
+                     AND cp.EndDate BETWEEN CAST(GETDATE() AS DATE) AND DATEADD(DAY, 30, CAST(GETDATE() AS DATE)) 
+                THEN 1 ELSE 0 END),
+        @ExpiringIn60Days = SUM(
+            CASE 
+                WHEN cp.Status = 'Active' 
+                     AND cp.IsActive = 1
+                     AND cp.EndDate BETWEEN DATEADD(DAY, 31, CAST(GETDATE() AS DATE)) AND DATEADD(DAY, 60, CAST(GETDATE() AS DATE)) 
+                THEN 1 ELSE 0 END)
     FROM ClientPolicies cp
-        LEFT JOIN PolicyCatalog pc ON cp.PolicyCatalogId = pc.PolicyCatalogId
-    WHERE cp.IsActive = 1
-        AND pc.AgentId = @AgentId;
-    
-    -- Get company count
-    SELECT @TotalCompanies = COUNT(DISTINCT pc.CompanyId)
-    FROM PolicyCatalog pc
-    WHERE pc.AgentId = @AgentId AND pc.IsActive = 1;
-    
-    -- Get client count
-    SELECT @TotalClients = COUNT(DISTINCT cp.ClientId)
+        INNER JOIN PolicyCatalog pc ON cp.PolicyCatalogId = pc.PolicyCatalogId
+    WHERE pc.AgentId = @AgentId;
+
+    -- Get company count (companies actually used in policies for this agent)
+    SELECT @TotalCompanies = COUNT(DISTINCT cp.CompanyId)
     FROM ClientPolicies cp
-        LEFT JOIN PolicyCatalog pc ON cp.PolicyCatalogId = pc.PolicyCatalogId
-    WHERE cp.IsActive = 1
-        AND pc.AgentId = @AgentId;
-    
+        INNER JOIN PolicyCatalog pc ON cp.PolicyCatalogId = pc.PolicyCatalogId
+    WHERE pc.AgentId = @AgentId
+      AND cp.IsActive = 1
+      AND cp.CompanyId IS NOT NULL;
+
+    -- Get client count (all clients of the agent, regardless of policy)
+    SELECT @TotalClients = COUNT(*)
+    FROM Clients c
+    WHERE c.AgentId = @AgentId
+      AND c.IsActive = 1;
+
+    -- Final result
     SELECT 
         @TotalPolicies as TotalPolicies,
         @ActivePolicies as ActivePolicies,
@@ -1645,5 +1661,212 @@ BEGIN
     SET IsActive = 0,
         ModifiedDate = GETDATE()
     WHERE PolicyId = @PolicyId;
+END
+GO
+
+
+CREATE PROCEDURE ClientPolicies_SoftDelete
+    @PolicyId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE ClientPolicies
+    SET IsActive = 0,
+        ModifiedDate = GETDATE()
+    WHERE PolicyId = @PolicyId AND IsActive = 1;
+END;
+go
+CREATE PROCEDURE InsuranceCompanies_SoftDelete
+    @CompanyId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE InsuranceCompanies
+    SET IsActive = 0,
+        CreatedDate = CreatedDate -- keep original
+    WHERE CompanyId = @CompanyId AND IsActive = 1;
+END;
+go
+CREATE PROCEDURE PolicyCatalog_SoftDelete
+    @PolicyCatalogId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyCatalog
+    SET IsActive = 0,
+        ModifiedDate = GETDATE()
+    WHERE PolicyCatalogId = @PolicyCatalogId AND IsActive = 1;
+END;
+go
+CREATE PROCEDURE PolicyCategories_SoftDelete
+    @CategoryId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyCategories
+    SET IsActive = 0
+    WHERE CategoryId = @CategoryId AND IsActive = 1;
+END;
+go 
+CREATE PROCEDURE PolicyTemplates_SoftDelete
+    @TemplateId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyTemplates
+    SET IsActive = 0,
+        CreatedDate = CreatedDate -- preserve
+    WHERE TemplateId = @TemplateId AND IsActive = 1;
+END;
+go 
+CREATE PROCEDURE PolicyTypes_SoftDelete
+    @TypeId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE PolicyTypes
+    SET IsActive = 0
+    WHERE TypeId = @TypeId AND IsActive = 1;
+END;
+go
+
+CREATE PROCEDURE GetClientsWithPolicies
+    @AgentId UNIQUEIDENTIFIER = NULL,
+    @ClientId UNIQUEIDENTIFIER = NULL,
+    @IncludeInactive BIT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        c.ClientId,
+        c.AgentId,
+        c.FirstName,
+        c.Surname,
+        c.LastName,
+        (c.FirstName + ' ' + c.Surname + ' ' + c.LastName) AS FullName,
+        c.PhoneNumber,
+        c.Email,
+        c.Address,
+        c.NationalId,
+        c.DateOfBirth,
+        c.IsClient,
+        c.InsuranceType,
+        c.Notes AS ClientNotes,
+        c.CreatedDate AS ClientCreatedDate,
+        c.ModifiedDate AS ClientModifiedDate,
+        c.IsActive AS ClientIsActive,
+
+        cp.PolicyId,
+        cp.PolicyName,
+        cp.Status,
+        cp.StartDate,
+        cp.EndDate,
+        cp.Notes AS PolicyNotes,
+        cp.CreatedDate AS PolicyCreatedDate,
+        cp.ModifiedDate AS PolicyModifiedDate,
+        cp.IsActive AS PolicyIsActive,
+        cp.PolicyCatalogId,
+        pc.PolicyName AS CatalogPolicyName,
+        cp.TypeId,
+        pt.TypeName,
+        cp.CompanyId,
+        ic.CompanyName,
+        DATEDIFF(DAY, GETDATE(), cp.EndDate) AS DaysUntilExpiry
+    FROM Clients c
+        LEFT JOIN ClientPolicies cp ON c.ClientId = cp.ClientId
+        LEFT JOIN PolicyCatalog pc ON cp.PolicyCatalogId = pc.PolicyCatalogId
+        LEFT JOIN PolicyTypes pt ON cp.TypeId = pt.TypeId
+        LEFT JOIN InsuranceCompanies ic ON cp.CompanyId = ic.CompanyId
+    WHERE 
+        (@AgentId IS NULL OR c.AgentId = @AgentId)
+        AND (@ClientId IS NULL OR c.ClientId = @ClientId)
+        AND (
+            @IncludeInactive = 1 
+            OR (c.IsActive = 1 AND (cp.IsActive = 1 OR cp.IsActive IS NULL))
+        )
+    ORDER BY c.CreatedDate DESC, cp.EndDate DESC;
+END
+GO
+exec GetClientsWithPolicies
+go
+ALTER PROCEDURE GetAgentDashboardSummary
+    @AgentId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @TotalPolicies INT = 0,
+            @ActivePolicies INT = 0,
+            @ExpiringIn30Days INT = 0,
+            @ExpiringIn60Days INT = 0,
+            @TotalCompanies INT = 0,
+            @TotalClients INT = 0;
+
+    ;WITH AgentPolicies AS (
+        SELECT
+            cp.PolicyId,
+            cp.ClientId,
+            cp.CompanyId,
+            cp.StartDate,
+            cp.EndDate,
+            -- normalize status once
+            UPPER(LTRIM(RTRIM(cp.Status))) AS NormStatus,
+            -- treat NULL as active
+            CASE WHEN ISNULL(cp.IsActive, 1) = 1 THEN 1 ELSE 0 END AS IsActiveFlag
+        FROM ClientPolicies cp
+        INNER JOIN Clients c
+            ON c.ClientId = cp.ClientId
+        WHERE c.AgentId = @AgentId
+          -- policy considered present in the dashboard only if (NULL -> active) or explicitly active
+          AND ISNULL(cp.IsActive, 1) = 1
+    )
+    SELECT
+        @TotalPolicies =
+            COUNT(*),
+        @ActivePolicies =
+            SUM(CASE
+                    WHEN NormStatus = 'ACTIVE'
+                         AND EndDate >= CAST(GETDATE() AS DATE)
+                    THEN 1 ELSE 0
+                END),
+        @ExpiringIn30Days =
+            SUM(CASE
+                    WHEN NormStatus = 'ACTIVE'
+                         AND EndDate BETWEEN CAST(GETDATE() AS DATE)
+                                         AND DATEADD(DAY, 30, CAST(GETDATE() AS DATE))
+                    THEN 1 ELSE 0
+                END),
+        @ExpiringIn60Days =
+            SUM(CASE
+                    WHEN NormStatus = 'ACTIVE'
+                         AND EndDate BETWEEN DATEADD(DAY, 31, CAST(GETDATE() AS DATE))
+                                         AND DATEADD(DAY, 60, CAST(GETDATE() AS DATE))
+                    THEN 1 ELSE 0
+                END),
+        @TotalCompanies =
+            COUNT(DISTINCT CASE WHEN CompanyId IS NOT NULL THEN CompanyId END)
+    FROM AgentPolicies;
+
+    -- Count all active clients for this agent (not only those with policies)
+    SELECT @TotalClients = COUNT(*)
+    FROM Clients c
+    WHERE c.AgentId = @AgentId
+      AND ISNULL(c.IsActive, 1) = 1;
+
+    SELECT
+        @TotalPolicies      AS TotalPolicies,
+        @ActivePolicies     AS ActivePolicies,
+        @ExpiringIn30Days   AS ExpiringIn30Days,
+        @ExpiringIn60Days   AS ExpiringIn60Days,
+        @TotalCompanies     AS TotalCompanies,
+        @TotalClients       AS TotalClients,
+        (@TotalPolicies - @ActivePolicies) AS InactivePolicies;
 END
 GO

@@ -72,5 +72,5 @@ Content-Type: application/json
   "endTime": "11:30:00"
 }
 ### Search Clients for Autocomplete
-GET http://localhost:3000/api/appointments/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=mes
+GET http://localhost:3000/api/appointments/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=j
 Content-Type: application/json

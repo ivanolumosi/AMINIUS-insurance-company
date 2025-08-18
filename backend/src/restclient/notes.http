@@ -1,19 +1,22 @@
-# ### Get Daily Notes
-# GET http://localhost:3000/api/notes/{{agentId}}/2025-08-08
 
-# ### Save Daily Notes
-# POST http://localhost:3000/api/notes/730080DD-742C-4934-8974-30AC3495E468/2025-08-08
-# Content-Type: application/json
+@agentId = 730080DD-742C-4934-8974-30AC3495E468
 
-# {
-#   "notes": "Meeting with insurance client, discussed policy upgrade."
-# }
+### Get Daily Notes
+GET http://localhost:3000/api/notes/{{agentId}}/2025-08-08
 
-# ### Get All Notes in Date Range
-# GET http://localhost:3000/api/notes/730080DD-742C-4934-8974-30AC3495E468?StartDate=2025-08-01&EndDate=2025-08-31
+### Save Daily Notes
+POST http://localhost:3000/api/notes/730080DD-742C-4934-8974-30AC3495E468/2025-08-08
+Content-Type: application/json
 
-# ### Search Notes
-# GET http://localhost:3000/api/notes/{{agentId}}/search?searchTerm=insurance
+{
+  "notes": "Meeting with insurance client, discussed policy upgrade."
+}
 
-# ### Delete Notes
-# DELETE http://localhost:3000/api/notes/{{agentId}}/2025-08-08
+### Get All Notes in Date Range
+GET http://localhost:3000/api/notes/730080DD-742C-4934-8974-30AC3495E468?StartDate=2025-08-01&EndDate=2025-08-31
+
+### Search Notes
+GET http://localhost:3000/api/notes/{{agentId}}/search?searchTerm=insurance
+
+### Delete Notes
+DELETE http://localhost:3000/api/notes/{{agentId}}/2025-08-08

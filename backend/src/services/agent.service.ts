@@ -16,7 +16,7 @@ import {
     InsuranceCompany,
     PolicyType
 } from '../interfaces/agent';
-
+   import emailService from '../nodemailer/emailservice';
 export class AgentService {
     
     /**
@@ -101,22 +101,51 @@ export class AgentService {
         return result.recordset[0];
     }
 
-    /**
-     * Register new agent
-     */
-    public async registerAgent(registerData: RegisterRequest): Promise<RegisterResponse> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('FirstName', sql.NVarChar(50), registerData.FirstName)
-            .input('LastName', sql.NVarChar(50), registerData.LastName)
-            .input('Email', sql.NVarChar(100), registerData.Email)
-            .input('Phone', sql.NVarChar(20), registerData.Phone)
-            .input('PasswordHash', sql.NVarChar(256), registerData.PasswordHash)
-            .input('Avatar', sql.NVarChar(sql.MAX), registerData.Avatar)
-            .execute('sp_RegisterAgent');
+public async registerAgent(registerData: RegisterRequest): Promise<RegisterResponse> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('FirstName', sql.NVarChar(50), registerData.FirstName)
+        .input('LastName', sql.NVarChar(50), registerData.LastName)
+        .input('Email', sql.NVarChar(100), registerData.Email)
+        .input('Phone', sql.NVarChar(20), registerData.Phone)
+        .input('PasswordHash', sql.NVarChar(256), registerData.PasswordHash)
+        .input('Avatar', sql.NVarChar(sql.MAX), registerData.Avatar)
+        .execute('sp_RegisterAgent');
 
-        return result.recordset[0];
+    const response = result.recordset[0];
+
+    // After registration, send welcome email
+    try {
+        await emailService.sendMail(
+            registerData.Email,
+            'Welcome to Our Aminius App!',
+            `Hi ${registerData.FirstName},\n\nThanks for signing up! We're glad to have you.`,
+            `<h1>Welcome, ${registerData.FirstName}!</h1><p>Thanks for signing up. 🚀</p>`
+        );
+        console.log(`Welcome email sent to ${registerData.Email}`);
+    } catch (err) {
+        console.error(`Failed to send welcome email:`, err);
     }
+
+    return response;
+}
+
+    // /**
+    //  * Register new agent
+    //  */
+    // public async registerAgent(registerData: RegisterRequest): Promise<RegisterResponse> {
+    //     const pool = await poolPromise;
+    //     const result = await pool.request()
+    //         .input('FirstName', sql.NVarChar(50), registerData.FirstName)
+    //         .input('LastName', sql.NVarChar(50), registerData.LastName)
+    //         .input('Email', sql.NVarChar(100), registerData.Email)
+    //         .input('Phone', sql.NVarChar(20), registerData.Phone)
+    //         .input('PasswordHash', sql.NVarChar(256), registerData.PasswordHash)
+    //         .input('Avatar', sql.NVarChar(sql.MAX), registerData.Avatar)
+    //         .execute('sp_RegisterAgent');
+
+    //     return result.recordset[0];
+    // }
 
     /**
      * Change password
@@ -209,4 +238,6 @@ public async getNavbarBadgeCounts(agentId: string): Promise<{
         appointments: row.AppointmentsCount ?? 0
     };
 }
+
+
 }

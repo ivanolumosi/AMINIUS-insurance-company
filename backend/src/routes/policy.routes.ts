@@ -27,6 +27,8 @@ router.post('/policies', controller.createClientPolicy.bind(controller));
 router.put('/policies/:id', controller.updateClientPolicy.bind(controller));
 router.post('/policies/upsert', controller.upsertClientPolicy.bind(controller));
 router.delete('/policies/:policyId/soft', controller.softDeleteClientPolicy.bind(controller));
+router.get('/clients-with-policies', controller.getClientsWithPolicies.bind(controller));
+
 
 // ============================================
 // SEARCH & FILTER
@@ -72,6 +74,7 @@ router.delete('/companies/:companyId/soft', controller.softDeleteInsuranceCompan
 router.get('/types', controller.getPolicyTypes.bind(controller));
 router.post('/types', controller.createPolicyType.bind(controller));
 router.put('/types/:id', controller.updatePolicyType.bind(controller));
+router.delete('/types/:typeId/soft', controller.softDeletePolicyType.bind(controller));  // ✅ Added
 
 // ============================================
 // REFERENCE DATA - POLICY CATEGORIES

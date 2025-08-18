@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PolicyService } from '../services/policy.service';
+import { ClientWithPoliciesFilterRequest, PolicyService } from '../services/policy.service';
 import {
     PolicyCatalogFilterRequest,
     ClientPolicyFilterRequest,
@@ -94,7 +94,21 @@ export class PolicyController {
             });
         }
     }
+    public async getClientsWithPolicies(req: Request, res: Response): Promise<void> {
+    try {
+      const request: ClientWithPoliciesFilterRequest = {
+        agentId: req.query.agentId as string | undefined,
+        clientId: req.query.clientId as string | undefined,
+        includeInactive: req.query.includeInactive === 'true',
+      };
 
+      const result = await this.service.getClientsWithPolicies(request);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getClientsWithPolicies:', error);
+      res.status(500).json({ message: 'Failed to fetch clients with policies', error });
+    }
+  }
     public async createPolicyCatalogItem(req: Request, res: Response) {
         try {
             const request: CreatePolicyCatalogRequest = req.body;
@@ -826,6 +840,16 @@ export class PolicyController {
             return this.handleError(res, err);
         }
     }
+     async softDeletePolicyType(req: Request, res: Response) {
+       try {
+           const result = await PolicyService.softDeletePolicyType(req.params.typeId);
+           res.json(result);
+       } catch (error: any) {
+           res.status(500).json({ error: error.message });
+       }
+   }
+
+    
 // ============================================
 // AUTOCOMPLETE METHODS
 // ============================================

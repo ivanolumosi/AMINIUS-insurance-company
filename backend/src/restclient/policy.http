@@ -5,7 +5,7 @@
 ### Sample IDs (replace with actual IDs from your database)
 @agentId = 730080DD-742C-4934-8974-30AC3495E468
 @clientId = 5ABFFC14-164C-493C-AD4C-64F10C1649D5
-@policyId = B593DE49-D835-4969-83D9-31FD0392017B
+@policyId = 75EC16A0-D26A-4D53-8BFE-C5FDBD1E54D4
 @policyCatalogId = 6C30C39C-8FBF-4FE6-8410-FEBAC45C2938
 @templateId = 550e8400-e29b-41d4-a716-446655440004
 @typeId = F2F92B98-C741-402C-8339-431A7897D236
@@ -446,6 +446,9 @@ Content-Type: application/json
   "typeName": "Updated Motor Insurance",
   "isActive": true
 }
+### Soft Delete Policy Type
+DELETE {{baseUrl}}/types/{{typeId}}/soft
+Content-Type: application/json
 
 ###############################################
 ### REFERENCE DATA - POLICY CATEGORIES (NEW)
@@ -806,4 +809,11 @@ Content-Type: application/json
 
 ### Autocomplete - Client Policies
 GET {{baseUrl}}/autocomplete/client-policies
+Content-Type: application/json
+
+
+### ============================================
+### CLIENTS WITH POLICIES
+### ============================================
+GET {{baseUrl}}/clients-with-policies?agentId={{agentId}}
 Content-Type: application/json

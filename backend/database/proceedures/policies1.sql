@@ -274,11 +274,7 @@ END
 GO
 
 -- Create Client Policy
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'CreateClientPolicy')
-    DROP PROCEDURE CreateClientPolicy;
-GO
-
-CREATE PROCEDURE CreateClientPolicy
+ALTER PROCEDURE CreateClientPolicy
     @ClientId UNIQUEIDENTIFIER,
     @PolicyName NVARCHAR(100),
     @Status NVARCHAR(20) = 'Active',
@@ -286,15 +282,22 @@ CREATE PROCEDURE CreateClientPolicy
     @EndDate DATE,
     @Notes NVARCHAR(MAX) = NULL,
     @PolicyCatalogId UNIQUEIDENTIFIER = NULL,
-    @TypeId UNIQUEIDENTIFIER = NULL,
-    @CompanyId UNIQUEIDENTIFIER = NULL,
     @PolicyId UNIQUEIDENTIFIER OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
-    
     SET @PolicyId = NEWID();
-    
+
+    DECLARE @CompanyId UNIQUEIDENTIFIER;
+    DECLARE @TypeId UNIQUEIDENTIFIER;
+
+    -- Pull CompanyId and TypeId from PolicyCatalog
+    SELECT 
+        @CompanyId = CompanyId,
+        @TypeId = TypeId
+    FROM PolicyCatalog
+    WHERE PolicyCatalogId = @PolicyCatalogId;
+
     INSERT INTO ClientPolicies (
         PolicyId, ClientId, PolicyName, Status, StartDate, EndDate,
         Notes, PolicyCatalogId, TypeId, CompanyId, IsActive, CreatedDate
@@ -306,7 +309,7 @@ BEGIN
     
     SELECT @PolicyId as PolicyId;
 END
-GO
+go
 
 -- Update Client Policy
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'UpdateClientPolicy')
@@ -1735,8 +1738,9 @@ BEGIN
     WHERE TypeId = @TypeId AND IsActive = 1;
 END;
 go
-
-CREATE PROCEDURE GetClientsWithPolicies
+exec GetClientsWithPolicies
+go
+ALTER PROCEDURE GetClientsWithPolicies
     @AgentId UNIQUEIDENTIFIER = NULL,
     @ClientId UNIQUEIDENTIFIER = NULL,
     @IncludeInactive BIT = 0
@@ -1780,7 +1784,11 @@ BEGIN
         ic.CompanyName,
         DATEDIFF(DAY, GETDATE(), cp.EndDate) AS DaysUntilExpiry
     FROM Clients c
-        LEFT JOIN ClientPolicies cp ON c.ClientId = cp.ClientId
+        INNER JOIN ClientPolicies cp 
+            ON c.ClientId = cp.ClientId
+           AND cp.PolicyId IS NOT NULL
+           AND cp.CompanyId IS NOT NULL
+           AND cp.TypeId IS NOT NULL  -- ✅ ensure valid policy only
         LEFT JOIN PolicyCatalog pc ON cp.PolicyCatalogId = pc.PolicyCatalogId
         LEFT JOIN PolicyTypes pt ON cp.TypeId = pt.TypeId
         LEFT JOIN InsuranceCompanies ic ON cp.CompanyId = ic.CompanyId
@@ -1789,11 +1797,13 @@ BEGIN
         AND (@ClientId IS NULL OR c.ClientId = @ClientId)
         AND (
             @IncludeInactive = 1 
-            OR (c.IsActive = 1 AND (cp.IsActive = 1 OR cp.IsActive IS NULL))
+            OR (c.IsActive = 1 AND cp.IsActive = 1)
         )
     ORDER BY c.CreatedDate DESC, cp.EndDate DESC;
-END
+END;
 GO
+
+
 exec GetClientsWithPolicies
 go
 ALTER PROCEDURE GetAgentDashboardSummary

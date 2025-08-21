@@ -1,11 +1,9 @@
-// interfaces/Reminder.ts
-
 export interface Reminder {
     ReminderId: string;
     ClientId?: string;
     AppointmentId?: string;
     AgentId: string;
-    ReminderType: 'Call' | 'Visit' | 'Policy Expiry' | 'Birthday' | 'Holiday' | 'Custom';
+    ReminderType: 'Call' | 'Visit' | 'Policy Expiry' | 'Maturing Policy' | 'Birthday' | 'Holiday' | 'Custom';
     Title: string;
     Description?: string;
     ReminderDate: Date;
@@ -23,9 +21,6 @@ export interface Reminder {
     CreatedDate: Date;
     ModifiedDate: Date;
     CompletedDate?: Date;
-    ClientPhone?: string; // From JOIN
-    ClientEmail?: string; // From JOIN
-    FullClientName?: string; // From JOIN
 }
 
 export interface ReminderSettings {

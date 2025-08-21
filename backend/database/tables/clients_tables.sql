@@ -22,23 +22,20 @@ CREATE TABLE Clients (
     IsActive BIT DEFAULT 1,
     FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
 );
-
--- Client Policies Table
-CREATE TABLE ClientPolicies (
-    PolicyId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    ClientId UNIQUEIDENTIFIER NOT NULL,
-    PolicyName NVARCHAR(100) NOT NULL,
-    PolicyType NVARCHAR(50) NOT NULL,
-    CompanyName NVARCHAR(100) NOT NULL,
-    Status NVARCHAR(20) NOT NULL CHECK (Status IN ('Active', 'Inactive', 'Expired', 'Lapsed')),
-    StartDate DATE NOT NULL,
-    EndDate DATE NOT NULL,
-    Notes NVARCHAR(MAX),
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    IsActive BIT DEFAULT 1,
-    FOREIGN KEY (ClientId) REFERENCES Clients(ClientId) ON DELETE CASCADE
-);
+ALTER TABLE Clients
+ADD CONSTRAINT DF_Clients_InsuranceType DEFAULT 'N/A' FOR InsuranceType;
+go
+CREATE TRIGGER trg_UpdateInsuranceType
+ON ClientPolicies
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    UPDATE c
+    SET c.InsuranceType = i.PolicyName
+    FROM Clients c
+    INNER JOIN inserted i ON c.ClientId = i.ClientId;
+END;
+go
 
 -- Appointments Table
 CREATE TABLE Appointments (

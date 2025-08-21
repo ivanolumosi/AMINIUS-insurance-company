@@ -259,24 +259,23 @@ export class PolicyService {
     }
 
     public async createClientPolicy(request: CreateClientPolicyRequest): Promise<CreateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ClientId', sql.UniqueIdentifier, request.clientId)
-            .input('PolicyName', sql.NVarChar(100), request.policyName)
-            .input('Status', sql.NVarChar(20), request.status || 'Active')
-            .input('StartDate', sql.Date, request.startDate)
-            .input('EndDate', sql.Date, request.endDate)
-            .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
-            .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId || null)
-            .output('PolicyId', sql.UniqueIdentifier)
-            .execute('CreateClientPolicy');
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input('ClientId', sql.UniqueIdentifier, request.clientId)
+        .input('PolicyName', sql.NVarChar(100), request.policyName)
+        .input('Status', sql.NVarChar(20), request.status || 'Active')
+        .input('StartDate', sql.Date, request.startDate)
+        .input('EndDate', sql.Date, request.endDate)
+        .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
+        .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId) // required
+        .output('PolicyId', sql.UniqueIdentifier)
+        .execute('CreateClientPolicy');
 
-        return {
-            id: result.recordset[0].PolicyId
-        };
-    }
+    return {
+        id: result.recordset[0].PolicyId
+    };
+}
+
 
     public async updateClientPolicy(request: UpdateClientPolicyRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;

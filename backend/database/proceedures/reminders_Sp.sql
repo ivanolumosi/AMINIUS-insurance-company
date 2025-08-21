@@ -80,33 +80,137 @@ END;
 GO
 
 -- Get Reminders
-CREATE OR ALTER PROCEDURE sp_GetReminders
+CREATE OR ALTER PROCEDURE sp_GetAllReminders
+(
     @AgentId UNIQUEIDENTIFIER,
-    @Status NVARCHAR(20) = 'Active', -- 'Active', 'Completed', 'Cancelled', 'All'
-    @ReminderType NVARCHAR(50) = NULL,
     @StartDate DATE = NULL,
-    @EndDate DATE = NULL
+    @EndDate DATE = NULL,
+    @PageNumber INT = 1,
+    @PageSize INT = 20
+)
 AS
 BEGIN
     SET NOCOUNT ON;
-    
-    SELECT 
-        r.*,
-        c.FirstName + ' ' + c.Surname AS ComputedClientName,
-        c.PhoneNumber AS ClientPhone,
-        a.Title AS AppointmentTitle
-    FROM Reminders r
-    LEFT JOIN Clients c ON r.ClientId = c.ClientId
-    LEFT JOIN Appointments a ON r.AppointmentId = a.AppointmentId
-    WHERE 
-        r.AgentId = @AgentId
-        AND (@Status = 'All' OR r.Status = @Status)
-        AND (@ReminderType IS NULL OR r.ReminderType = @ReminderType)
-        AND (@StartDate IS NULL OR r.ReminderDate >= @StartDate)
-        AND (@EndDate IS NULL OR r.ReminderDate <= @EndDate)
-    ORDER BY r.ReminderDate ASC, r.ReminderTime ASC;
+
+    ;WITH AllReminders AS
+    (
+        -- 1. Manual Reminders from Reminders table
+        SELECT 
+            r.ReminderId,
+            r.ClientId,
+            r.AppointmentId,
+            r.AgentId,
+            CASE WHEN r.ReminderType = 'Policy Expiry' THEN 'Maturing Policy' ELSE r.ReminderType END AS ReminderType,
+            r.Title,
+            r.Description,
+            r.ReminderDate,
+            r.ReminderTime,
+            r.ClientName,
+            r.Priority,
+            r.Status,
+            r.EnableSMS,
+            r.EnableWhatsApp,
+            r.EnablePushNotification,
+            r.AdvanceNotice,
+            r.CustomMessage,
+            r.AutoSend,
+            r.Notes,
+            r.CreatedDate,
+            r.ModifiedDate,
+            r.CompletedDate
+        FROM Reminders r
+        WHERE r.AgentId = @AgentId
+
+        UNION ALL
+
+        -- 2. Maturing Policies (fix: join Clients to get AgentId)
+        SELECT 
+            NEWID() AS ReminderId,
+            cp.ClientId,
+            NULL AS AppointmentId,
+            c.AgentId,  -- <-- get AgentId from Clients table
+            'Maturing Policy' AS ReminderType,
+            cp.PolicyName AS Title,
+            CONCAT('Policy for ', cp.PolicyName, ' is maturing soon') AS Description,
+            cp.EndDate AS ReminderDate,
+            NULL AS ReminderTime,
+            CONCAT(c.FirstName, ' ', c.LastName) AS ClientName,
+            'High' AS Priority,
+            'Active' AS Status,
+            0, 0, 1, '7 days', NULL, 0, NULL,
+            GETDATE(), GETDATE(), NULL
+        FROM ClientPolicies cp
+        INNER JOIN Clients c ON c.ClientId = cp.ClientId
+        WHERE c.AgentId = @AgentId
+          AND cp.IsActive = 1
+          AND (@StartDate IS NULL OR cp.EndDate >= @StartDate)
+          AND (@EndDate IS NULL OR cp.EndDate <= @EndDate)
+
+        UNION ALL
+
+        -- 3. Birthdays (next 7 days)
+        SELECT 
+            NEWID() AS ReminderId,
+            c.ClientId,
+            NULL AS AppointmentId,
+            c.AgentId,
+            'Birthday' AS ReminderType,
+            'Birthday Reminder' AS Title,
+            CONCAT('Wish ', c.FirstName, ' ', c.LastName, ' a Happy Birthday!') AS Description,
+            DATEFROMPARTS(YEAR(GETDATE()), MONTH(c.DateOfBirth), DAY(c.DateOfBirth)) AS ReminderDate,
+            NULL AS ReminderTime,
+            CONCAT(c.FirstName, ' ', c.LastName) AS ClientName,
+            'Low' AS Priority,
+            'Active' AS Status,
+            0, 0, 1, '1 day', NULL, 0, NULL,
+            GETDATE(), GETDATE(), NULL
+        FROM Clients c
+        WHERE c.AgentId = @AgentId
+          AND c.IsActive = 1
+          AND DATEFROMPARTS(YEAR(GETDATE()), MONTH(c.DateOfBirth), DAY(c.DateOfBirth))
+              BETWEEN GETDATE() AND DATEADD(DAY, 7, GETDATE())
+
+        UNION ALL
+
+        -- 4. Appointments
+        SELECT 
+            NEWID() AS ReminderId,
+            a.ClientId,
+            a.AppointmentId,
+            a.AgentId,
+            'Appointment' AS ReminderType,
+            a.Title,
+            a.Description,
+            a.AppointmentDate AS ReminderDate,
+            a.StartTime AS ReminderTime,
+            a.ClientName,
+            a.Priority,
+            a.Status,
+            0, 0, 1, '1 day', NULL, 0, a.Notes,
+            a.CreatedDate,
+            a.ModifiedDate,
+            NULL
+        FROM Appointments a
+        WHERE a.AgentId = @AgentId
+          AND a.IsActive = 1
+          AND (@StartDate IS NULL OR a.AppointmentDate >= @StartDate)
+          AND (@EndDate IS NULL OR a.AppointmentDate <= @EndDate)
+    )
+
+    -- Pagination
+    SELECT *
+    FROM (
+        SELECT 
+            ROW_NUMBER() OVER (ORDER BY ReminderDate ASC, ReminderTime ASC) AS RowNum,
+            *
+        FROM AllReminders
+    ) AS Paged
+    WHERE RowNum BETWEEN ((@PageNumber - 1) * @PageSize + 1) AND (@PageNumber * @PageSize)
+    ORDER BY ReminderDate ASC, ReminderTime ASC;
 END;
 GO
+
+go
 
 -- Get Today's Reminders
 CREATE OR ALTER PROCEDURE sp_GetTodayReminders

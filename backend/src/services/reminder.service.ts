@@ -46,38 +46,31 @@ export class ReminderService {
     /**
      * Get all reminders with filters and pagination
      */
-   public async getAllReminders(
+/**
+ * Get all reminders with filters and pagination
+ */
+public async getAllReminders(
     agentId: string,
     filters: ReminderFilters = {}
 ): Promise<PaginatedReminderResponse> {
     const pool = await poolPromise;
     const result = await pool.request()
         .input('AgentId', sql.UniqueIdentifier, agentId)
-        .input('ReminderType', sql.NVarChar(50), filters.ReminderType || null)
-        .input('Status', sql.NVarChar(20), filters.Status || null)
-        .input('Priority', sql.NVarChar(10), filters.Priority || null)
         .input('StartDate', sql.Date, filters.StartDate || null)
         .input('EndDate', sql.Date, filters.EndDate || null)
-        .input('ClientId', sql.UniqueIdentifier, filters.ClientId || null)
-        .input('PageSize', sql.Int, filters.PageSize || 50)
+        .input('PageSize', sql.Int, filters.PageSize || 20)
         .input('PageNumber', sql.Int, filters.PageNumber || 1)
         .execute('sp_GetAllReminders');
 
-    // Narrow type so TS knows it's an array
-    const recordsets = result.recordsets as sql.IRecordSet<any>[];
-
-    const reminders: Reminder[] = recordsets[0];
-    const totalRecords = recordsets[1]?.[0]?.TotalRecords || 0;
-    const pageSize = filters.PageSize || 50;
-    const currentPage = filters.PageNumber || 1;
-    const totalPages = Math.ceil(totalRecords / pageSize);
+    // since procedure returns only one set → use recordset
+    const reminders: Reminder[] = result.recordset;
 
     return {
         reminders,
-        totalRecords,
-        currentPage,
-        totalPages,
-        pageSize
+        totalRecords: reminders.length, // we can add COUNT(*) in SP if true total is needed
+        currentPage: filters.PageNumber || 1,
+        totalPages: Math.ceil(reminders.length / (filters.PageSize || 20)),
+        pageSize: filters.PageSize || 20
     };
 }
 

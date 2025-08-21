@@ -48,7 +48,7 @@ CREATE TABLE PolicyCatalog (
     CONSTRAINT FK_PolicyCatalog_Category FOREIGN KEY (CategoryId) REFERENCES PolicyCategories(CategoryId),
     CONSTRAINT FK_PolicyCatalog_Type FOREIGN KEY (TypeId) REFERENCES PolicyTypes(TypeId)
 );
-
+SELECT * from PolicyCatalog
 -- ============================================
 -- 4. PolicyCategories
 -- ============================================

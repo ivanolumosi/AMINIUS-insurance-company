@@ -1,8 +1,6 @@
 -- ============================================
--- Client Management Stored Procedures
+-- Create or Update Client (Trigger manages InsuranceType)
 -- ============================================
-
--- Create or Update Client
 CREATE OR ALTER PROCEDURE sp_UpsertClient
     @ClientId UNIQUEIDENTIFIER = NULL,
     @AgentId UNIQUEIDENTIFIER,
@@ -15,7 +13,6 @@ CREATE OR ALTER PROCEDURE sp_UpsertClient
     @NationalId NVARCHAR(20),
     @DateOfBirth DATE,
     @IsClient BIT,
-    @InsuranceType NVARCHAR(50),
     @Notes NVARCHAR(MAX) = NULL
 AS
 BEGIN
@@ -28,16 +25,17 @@ BEGIN
         
         INSERT INTO Clients (
             ClientId, AgentId, FirstName, Surname, LastName, PhoneNumber, 
-            Email, Address, NationalId, DateOfBirth, IsClient, InsuranceType, Notes
+            Email, Address, NationalId, DateOfBirth, IsClient, Notes
         )
         VALUES (
             @ClientId, @AgentId, @FirstName, @Surname, @LastName, @PhoneNumber,
-            @Email, @Address, @NationalId, @DateOfBirth, @IsClient, @InsuranceType, @Notes
+            @Email, @Address, @NationalId, @DateOfBirth, @IsClient, @Notes
         );
         
         -- Log activity
         INSERT INTO ActivityLog (AgentId, ActivityType, EntityType, EntityId, Description)
-        VALUES (@AgentId, 'client_created', 'client', @ClientId, @FirstName + ' ' + @Surname + ' added as ' + CASE WHEN @IsClient = 1 THEN 'client' ELSE 'prospect' END);
+        VALUES (@AgentId, 'client_created', 'client', @ClientId, 
+                @FirstName + ' ' + @Surname + ' added as ' + CASE WHEN @IsClient = 1 THEN 'client' ELSE 'prospect' END);
     END
     ELSE
     BEGIN
@@ -53,7 +51,6 @@ BEGIN
             NationalId = @NationalId,
             DateOfBirth = @DateOfBirth,
             IsClient = @IsClient,
-            InsuranceType = @InsuranceType,
             Notes = @Notes,
             ModifiedDate = GETUTCDATE()
         WHERE ClientId = @ClientId;
@@ -67,8 +64,6 @@ BEGIN
 END;
 GO
 
-
---get client
 
 CREATE OR ALTER PROCEDURE sp_GetClients
     @AgentId UNIQUEIDENTIFIER,
@@ -90,7 +85,7 @@ BEGIN
         c.NationalId,
         c.DateOfBirth,
         c.IsClient,
-        COALESCE(pt.TypeName, c.InsuranceType) AS InsuranceType,  -- ✅ Override if policy exists
+        c.InsuranceType,   -- ✅ always reliable now (trigger keeps it synced)
         c.Notes,
         c.CreatedDate,
         c.ModifiedDate,
@@ -133,8 +128,6 @@ BEGIN
     ORDER BY c.FirstName, c.Surname;
 END;
 GO
-
--- Get Single Client with Details
 CREATE OR ALTER PROCEDURE sp_GetClient
     @ClientId UNIQUEIDENTIFIER,
     @AgentId UNIQUEIDENTIFIER
@@ -146,7 +139,7 @@ BEGIN
     SELECT 
         c.*,
         cp.PolicyId,
-        pc.PolicyName,
+        cp.PolicyName,
         pt.TypeName AS PolicyType,
         ic.CompanyName AS PolicyCompany,
         cp.Status AS PolicyStatus,

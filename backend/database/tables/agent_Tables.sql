@@ -6,18 +6,18 @@
 -- DROP TABLE IF EXISTS Agent;
 -- GO
 
--- CREATE TABLE Agent (
---     AgentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
---     FirstName NVARCHAR(50) NOT NULL,
---     LastName NVARCHAR(50) NOT NULL,
---     Email NVARCHAR(100) NOT NULL UNIQUE,
---     PasswordHash NVARCHAR(256) NOT NULL, -- store securely hashed password
---     Phone NVARCHAR(20) NOT NULL,
---     Avatar NVARCHAR(MAX), -- Base64 or file path
---     CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
---     ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
---     IsActive BIT DEFAULT 1
--- );
+CREATE TABLE Agent (
+    AgentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    FirstName NVARCHAR(50) NOT NULL,
+    LastName NVARCHAR(50) NOT NULL,
+    Email NVARCHAR(100) NOT NULL UNIQUE,
+    PasswordHash NVARCHAR(256) NOT NULL, -- store securely hashed password
+    Phone NVARCHAR(20) NOT NULL,
+    Avatar NVARCHAR(MAX), -- Base64 or file path
+    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
+    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
+    IsActive BIT DEFAULT 1
+);
 -- SELECT 
 --     f.name AS ForeignKey,
 --     OBJECT_NAME(f.parent_object_id) AS TableName,
@@ -35,7 +35,7 @@
 -- ADD PasswordHash NVARCHAR(200) NOT NULL DEFAULT '';
 
 -- select * from Agent;
-
+select * from appointments
 -- -- Agent Settings Table
 -- CREATE TABLE AgentSettings (
 --     SettingId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),

@@ -31,6 +31,8 @@ export interface CreateAppointmentRequest {
     endTime: string;
     location?: string;
     type: 'Call' | 'Meeting' | 'Site Visit' | 'Policy Review' | 'Claim Processing';
+    status?: 'Scheduled' | 'Confirmed' | 'In Progress' | 'Completed' | 'Cancelled' | 'Rescheduled'; // ✅ optional
+
     priority?: 'High' | 'Medium' | 'Low';
     notes?: string;
     reminderSet?: boolean;
@@ -44,6 +46,8 @@ export interface UpdateAppointmentRequest {
     endTime?: string;
     location?: string;
     type?: 'Call' | 'Meeting' | 'Site Visit' | 'Policy Review' | 'Claim Processing';
+   status?: 'Scheduled' | 'Confirmed' | 'In Progress' | 'Completed' | 'Cancelled' | 'Rescheduled'; // ✅ optional
+
     priority?: 'High' | 'Medium' | 'Low';
     notes?: string;
     reminderSet?: boolean;

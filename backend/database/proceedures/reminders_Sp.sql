@@ -326,7 +326,21 @@ BEGIN
     END
 END;
 GO
+CREATE OR ALTER PROCEDURE sp_GetReminderStatistics
+    @AgentId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    SELECT 
+        (SELECT COUNT(*) FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active') AS TotalActive,
+        (SELECT COUNT(*) FROM Reminders WHERE AgentId = @AgentId AND Status = 'Completed') AS TotalCompleted,
+        (SELECT COUNT(*) FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active' AND ReminderDate = CAST(GETDATE() AS DATE)) AS TodayReminders,
+        (SELECT COUNT(*) FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active' AND ReminderDate BETWEEN CAST(GETDATE() AS DATE) AND DATEADD(DAY, 7, CAST(GETDATE() AS DATE))) AS UpcomingReminders,
+        (SELECT COUNT(*) FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active' AND Priority = 'High') AS HighPriority,
+        (SELECT COUNT(*) FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active' AND ReminderDate < CAST(GETDATE() AS DATE)) AS Overdue;
+END;
+go
 -- Get Reminder Settings
 CREATE OR ALTER PROCEDURE sp_GetReminderSettings
     @AgentId UNIQUEIDENTIFIER
@@ -514,337 +528,7 @@ END;
 GO
 
 
-=========================================== -- Agent Management Tables -- ============================================ -- Agent Profile Table DROP TABLE IF EXISTS Agent; GO CREATE TABLE Agent ( AgentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(), FirstName NVARCHAR(50) NOT NULL, LastN
 
-pasted
-
-
--- ============================================ -- Analytics and Dashboard Stored Procedures -- ============================================ -- Get Dashboard Overview CREATE OR ALTER PROCEDURE sp_GetDashboardOverview @AgentId UNIQUEIDENTIFIER AS BEGIN SET NOCOUNT ON; DEC
-
-pasted
-
-
--- ============================================ -- Settings Management Stored Procedures -- ============================================ -- Get Application Settings CREATE OR ALTER PROCEDURE sp_GetApplicationSettings AS BEGIN SET NOCOUNT ON; SELECT SettingKey,
-
-pasted
-
--- ============================================
--- Client Management Tables
--- ============================================
-
--- Clients Table
-CREATE TABLE Clients (
-    ClientId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    FirstName NVARCHAR(50) NOT NULL,
-    Surname NVARCHAR(50) NOT NULL,
-    LastName NVARCHAR(50) NOT NULL,
-    PhoneNumber NVARCHAR(20) NOT NULL,
-    Email NVARCHAR(100) NOT NULL,
-    Address NVARCHAR(500) NOT NULL,
-    NationalId NVARCHAR(20) NOT NULL,
-    DateOfBirth DATE NOT NULL,
-    IsClient BIT NOT NULL DEFAULT 0, -- 0 = Prospect, 1 = Client
-    InsuranceType NVARCHAR(50) NOT NULL,
-    Notes NVARCHAR(MAX),
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    IsActive BIT DEFAULT 1,
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
-);
-
--- Client Policies Table
-CREATE TABLE ClientPolicies (
-    PolicyId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    ClientId UNIQUEIDENTIFIER NOT NULL,
-    PolicyName NVARCHAR(100) NOT NULL,
-    PolicyType NVARCHAR(50) NOT NULL,
-    CompanyName NVARCHAR(100) NOT NULL,
-    Status NVARCHAR(20) NOT NULL CHECK (Status IN ('Active', 'Inactive', 'Expired', 'Lapsed')),
-    StartDate DATE NOT NULL,
-    EndDate DATE NOT NULL,
-    Notes NVARCHAR(MAX),
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    IsActive BIT DEFAULT 1,
-    FOREIGN KEY (ClientId) REFERENCES Clients(ClientId) ON DELETE CASCADE
-);
--- ============================================
--- Policy Catalog Management Tables
--- ============================================
-
--- Policy Catalog Table (Available policies from different companies)
-CREATE TABLE PolicyCatalog (
-    PolicyCatalogId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    PolicyName NVARCHAR(100) NOT NULL,
-    PolicyType NVARCHAR(50) NOT NULL,
-    CompanyId UNIQUEIDENTIFIER NOT NULL,
-    CompanyName NVARCHAR(100) NOT NULL, -- Denormalized for quick access
-    Notes NVARCHAR(MAX),
-    IsActive BIT DEFAULT 1,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE,
-    FOREIGN KEY (CompanyId) REFERENCES InsuranceCompanies(CompanyId)
-);
-
--- Policy Templates Table (For common policy configurations)
-CREATE TABLE PolicyTemplates (
-    TemplateId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    TemplateName NVARCHAR(100) NOT NULL,
-    PolicyType NVARCHAR(50) NOT NULL,
-    DefaultTermMonths INT,
-    DefaultPremium DECIMAL(10,2),
-    CoverageDescription NVARCHAR(MAX),
-    Terms NVARCHAR(MAX),
-    IsActive BIT DEFAULT 1,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
-);
--- ============================================
--- Reminders and Messaging Tables
--- ============================================
-
--- Reminder Settings Table
-CREATE TABLE ReminderSettings (
-    ReminderSettingId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    ReminderType NVARCHAR(50) NOT NULL CHECK (ReminderType IN ('Policy Expiry', 'Birthday', 'Appointment', 'Call', 'Visit')),
-    IsEnabled BIT DEFAULT 1,
-    DaysBefore INT DEFAULT 1,
-    TimeOfDay TIME DEFAULT '09:00',
-    RepeatDaily BIT DEFAULT 0,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
-);
-
--- Reminders Table
-CREATE TABLE Reminders (
-    ReminderId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    ClientId UNIQUEIDENTIFIER,
-    AppointmentId UNIQUEIDENTIFIER,
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    ReminderType NVARCHAR(50) NOT NULL CHECK (ReminderType IN ('Call', 'Visit', 'Policy Expiry', 'Birthday', 'Holiday', 'Custom')),
-    Title NVARCHAR(200) NOT NULL,
-    Description NVARCHAR(MAX),
-    ReminderDate DATE NOT NULL,
-    ReminderTime TIME,
-    ClientName NVARCHAR(150),
-    Priority NVARCHAR(10) NOT NULL CHECK (Priority IN ('High', 'Medium', 'Low')) DEFAULT 'Medium',
-    Status NVARCHAR(20) NOT NULL CHECK (Status IN ('Active', 'Completed', 'Cancelled')) DEFAULT 'Active',
-    EnableSMS BIT DEFAULT 0,
-    EnableWhatsApp BIT DEFAULT 0,
-    EnablePushNotification BIT DEFAULT 1,
-    AdvanceNotice NVARCHAR(20) DEFAULT '1 day',
-    CustomMessage NVARCHAR(MAX),
-    AutoSend BIT DEFAULT 0,
-    Notes NVARCHAR(MAX),
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    CompletedDate DATETIME2,
-    FOREIGN KEY (ClientId) REFERENCES Clients(ClientId),
-    FOREIGN KEY (AppointmentId) REFERENCES Appointments(AppointmentId),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
-);
-
--- Automated Messages Table
-CREATE TABLE AutomatedMessages (
-    MessageId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    MessageType NVARCHAR(50) NOT NULL CHECK (MessageType IN ('Birthday', 'Holiday', 'Policy Expiry', 'Appointment', 'Custom')),
-    Title NVARCHAR(200) NOT NULL,
-    Template NVARCHAR(MAX) NOT NULL,
-    ScheduledDate DATETIME2 NOT NULL,
-    DeliveryMethod NVARCHAR(20) NOT NULL CHECK (DeliveryMethod IN ('SMS', 'WhatsApp', 'Both')),
-    Status NVARCHAR(20) NOT NULL CHECK (Status IN ('Scheduled', 'Sent', 'Failed')) DEFAULT 'Scheduled',
-    Recipients NVARCHAR(MAX), -- JSON array of phone numbers
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    SentDate DATETIME2,
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
-);
--- ============================================
--- Settings Management Tables
--- ============================================
-
--- Application Settings Table (System-wide settings)
-CREATE TABLE ApplicationSettings (
-    SettingId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    SettingKey NVARCHAR(100) NOT NULL UNIQUE,
-    SettingValue NVARCHAR(MAX),
-    Description NVARCHAR(200),
-    DataType NVARCHAR(20) DEFAULT 'string' CHECK (DataType IN ('string', 'number', 'boolean', 'json')),
-    IsActive BIT DEFAULT 1,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE()
-);
-
--- Insert default application settings
-INSERT INTO ApplicationSettings (SettingKey, SettingValue, Description, DataType) VALUES
-('app_version', '1.0.0', 'Application version', 'string'),
-('app_build', '2025.01.001', 'Application build number', 'string'),
-('default_reminder_time', '09:00', 'Default time for reminders', 'string'),
-('max_appointments_per_day', '10', 'Maximum appointments per day', 'number'),
-('auto_backup_enabled', 'true', 'Enable automatic backups', 'boolean');
-
--- Agent Notification Preferences Table (Detailed notification settings per agent)
-CREATE TABLE AgentNotificationPreferences (
-    PreferenceId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    NotificationType NVARCHAR(50) NOT NULL, -- 'appointment', 'birthday', 'policy_expiry', etc.
-    EmailEnabled BIT DEFAULT 1,
-    SmsEnabled BIT DEFAULT 1,
-    WhatsAppEnabled BIT DEFAULT 1,
-    PushEnabled BIT DEFAULT 1,
-    SoundEnabled BIT DEFAULT 1,
-    AdvanceNoticeMinutes INT DEFAULT 60,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
-);
-
--- System Preferences Table (User interface and system preferences)
-CREATE TABLE SystemPreferences (
-    PreferenceId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    PreferenceKey NVARCHAR(100) NOT NULL,
-    PreferenceValue NVARCHAR(MAX),
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE,
-    UNIQUE(AgentId, PreferenceKey)
-);
-
--- Backup Settings Table
-CREATE TABLE BackupSettings (
-    BackupId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    BackupFrequency NVARCHAR(20) DEFAULT 'Weekly' CHECK (BackupFrequency IN ('Daily', 'Weekly', 'Monthly')),
-    LastBackupDate DATETIME2,
-    BackupLocation NVARCHAR(500),
-    AutoBackupEnabled BIT DEFAULT 1,
-    IncludeClientData BIT DEFAULT 1,
-    IncludeAppointments BIT DEFAULT 1,
-    IncludeReminders BIT DEFAULT 1,
-    IncludeSettings BIT DEFAULT 1,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
-);
-
--- Template Messages Table (Pre-defined message templates)
-CREATE TABLE MessageTemplates (
-    TemplateId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    TemplateName NVARCHAR(100) NOT NULL,
-    MessageType NVARCHAR(50) NOT NULL,
-    Template NVARCHAR(MAX) NOT NULL,
-    IsDefault BIT DEFAULT 0,
-    UsageCount INT DEFAULT 0,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE
-);
-
--- Insert default message templates
-INSERT INTO MessageTemplates (AgentId, TemplateName, MessageType, Template, IsDefault) 
-SELECT 
-    a.AgentId,
-    'Birthday Greeting',
-    'Birthday',
-    'Happy Birthday {name}! Wishing you health, happiness and prosperity in the year ahead. Best regards, {agent_name} - Aminius Insurance.',
-    1
-FROM Agent a;
-
-INSERT INTO MessageTemplates (AgentId, TemplateName, MessageType, Template, IsDefault)
-SELECT 
-    a.AgentId,
-    'Policy Expiry Reminder',
-    'Policy Expiry',
-    'Dear {name}, your {policy_type} policy is expiring on {expiry_date}. Please contact me to discuss renewal options. Regards, {agent_name}',
-    1
-FROM Agent a;
--- Message Recipients Table (For tracking individual message deliveries)
-CREATE TABLE MessageRecipients (
-    RecipientId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    MessageId UNIQUEIDENTIFIER NOT NULL,
-    ClientId UNIQUEIDENTIFIER,
-    PhoneNumber NVARCHAR(20) NOT NULL,
-    DeliveryStatus NVARCHAR(20) DEFAULT 'Pending' CHECK (DeliveryStatus IN ('Pending', 'Sent', 'Delivered', 'Failed')),
-    DeliveryDate DATETIME2,
-    ErrorMessage NVARCHAR(500),
-    FOREIGN KEY (MessageId) REFERENCES AutomatedMessages(MessageId) ON DELETE CASCADE,
-    FOREIGN KEY (ClientId) REFERENCES Clients(ClientId)
-);
-
--- Daily Notes Table
-CREATE TABLE DailyNotes (
-    NoteId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    NoteDate DATE NOT NULL,
-    Notes NVARCHAR(MAX),
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE CASCADE,
-    UNIQUE(AgentId, NoteDate) -- One note per agent per day
-);
--- Policy Categories Table (For organizing policies)
-CREATE TABLE PolicyCategories (
-    CategoryId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    CategoryName NVARCHAR(50) NOT NULL,
-    Description NVARCHAR(200),
-    IsActive BIT DEFAULT 1,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE()
-);
-
--- Insert default categories
-INSERT INTO PolicyCategories (CategoryName, Description) VALUES
-('Individual', 'Personal insurance policies'),
-('Corporate', 'Business and corporate policies'),
-('Family', 'Family package policies'),
-('Specialized', 'Specialized coverage policies');
-
--- Policy Company Relationships (Many-to-many for policies offered by multiple companies)
-CREATE TABLE PolicyCompanyRelationships (
-    RelationshipId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    PolicyCatalogId UNIQUEIDENTIFIER NOT NULL,
-    CompanyId UNIQUEIDENTIFIER NOT NULL,
-    BasePremium DECIMAL(10,2),
-    CommissionRate DECIMAL(5,2),
-    IsPreferred BIT DEFAULT 0,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    FOREIGN KEY (PolicyCatalogId) REFERENCES PolicyCatalog(PolicyCatalogId) ON DELETE CASCADE,
-    FOREIGN KEY (CompanyId) REFERENCES InsuranceCompanies(CompanyId) ON DELETE CASCADE
-);
--- Appointments Table
-CREATE TABLE Appointments (
-    AppointmentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    ClientId UNIQUEIDENTIFIER NOT NULL,
-    AgentId UNIQUEIDENTIFIER NOT NULL,
-    ClientName NVARCHAR(150) NOT NULL, -- Computed from client names
-    ClientPhone NVARCHAR(20),
-    Title NVARCHAR(200) NOT NULL,
-    Description NVARCHAR(MAX),
-    AppointmentDate DATE NOT NULL,
-    StartTime TIME NOT NULL,
-    EndTime TIME NOT NULL,
-    Location NVARCHAR(200),
-    Type NVARCHAR(50) NOT NULL CHECK (Type IN ('Call', 'Meeting', 'Site Visit', 'Policy Review', 'Claim Processing')),
-    Status NVARCHAR(20) NOT NULL CHECK (Status IN ('Scheduled', 'Confirmed', 'In Progress', 'Completed', 'Cancelled', 'Rescheduled')),
-    Priority NVARCHAR(10) NOT NULL CHECK (Priority IN ('High', 'Medium', 'Low')),
-    Notes NVARCHAR(MAX),
-    ReminderSet BIT DEFAULT 0,
-    CreatedDate DATETIME2 DEFAULT GETUTCDATE(),
-    ModifiedDate DATETIME2 DEFAULT GETUTCDATE(),
-    IsActive BIT DEFAULT 1,
-    FOREIGN KEY (ClientId) REFERENCES Clients(ClientId) ON DELETE NO ACTION ON UPDATE NO ACTION,
-
-    FOREIGN KEY (AgentId) REFERENCES Agent(AgentId) ON DELETE NO ACTION ON UPDATE NO ACTION
-
-);
 
 
 -- ============================================
@@ -1169,215 +853,6 @@ GO
 
 
 
--- ============================================
--- Missing Message Service Stored Procedures
--- ============================================
-
--- Create Automated Message
-CREATE OR ALTER PROCEDURE sp_CreateAutomatedMessage
-    @AgentId UNIQUEIDENTIFIER,
-    @MessageType NVARCHAR(50),
-    @Title NVARCHAR(200),
-    @Template NVARCHAR(MAX),
-    @ScheduledDate DATETIME2,
-    @DeliveryMethod NVARCHAR(20),
-    @Recipients NVARCHAR(MAX) = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    DECLARE @MessageId UNIQUEIDENTIFIER = NEWID();
-    
-    INSERT INTO AutomatedMessages (
-        MessageId, AgentId, MessageType, Title, Template, ScheduledDate, DeliveryMethod, Recipients
-    )
-    VALUES (
-        @MessageId, @AgentId, @MessageType, @Title, @Template, @ScheduledDate, @DeliveryMethod, @Recipients
-    );
-    
-    SELECT @MessageId AS MessageId;
-END;
-GO
-
--- Get Automated Messages
-CREATE OR ALTER PROCEDURE sp_GetAutomatedMessages
-    @AgentId UNIQUEIDENTIFIER,
-    @Status NVARCHAR(20) = NULL,
-    @MessageType NVARCHAR(50) = NULL,
-    @StartDate DATE = NULL,
-    @EndDate DATE = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    SELECT 
-        MessageId,
-        MessageType,
-        Title,
-        Template,
-        ScheduledDate,
-        DeliveryMethod,
-        Status,
-        Recipients,
-        CreatedDate,
-        ModifiedDate,
-        SentDate
-    FROM AutomatedMessages
-    WHERE 
-        AgentId = @AgentId
-        AND (@Status IS NULL OR Status = @Status)
-        AND (@MessageType IS NULL OR MessageType = @MessageType)
-        AND (@StartDate IS NULL OR CAST(ScheduledDate AS DATE) >= @StartDate)
-        AND (@EndDate IS NULL OR CAST(ScheduledDate AS DATE) <= @EndDate)
-    ORDER BY ScheduledDate DESC;
-END;
-GO
-
--- Delete Automated Message
-CREATE OR ALTER PROCEDURE sp_DeleteAutomatedMessage
-    @MessageId UNIQUEIDENTIFIER,
-    @AgentId UNIQUEIDENTIFIER
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    DELETE FROM AutomatedMessages 
-    WHERE MessageId = @MessageId AND AgentId = @AgentId AND Status = 'Scheduled';
-    
-    SELECT @@ROWCOUNT AS RowsAffected;
-END;
-GO
-
--- Send Message (Update status to Sent)
-CREATE OR ALTER PROCEDURE sp_SendMessage
-    @MessageId UNIQUEIDENTIFIER
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    UPDATE AutomatedMessages 
-    SET 
-        Status = 'Sent',
-        SentDate = GETUTCDATE(),
-        ModifiedDate = GETUTCDATE()
-    WHERE MessageId = @MessageId AND Status = 'Scheduled';
-    
-    SELECT @@ROWCOUNT AS RowsAffected;
-END;
-GO
-
--- Process Scheduled Messages (Get messages ready to send)
-CREATE OR ALTER PROCEDURE sp_GetScheduledMessages
-    @CurrentDateTime DATETIME2 = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    IF @CurrentDateTime IS NULL
-        SET @CurrentDateTime = GETUTCDATE();
-    
-    SELECT 
-        MessageId,
-        AgentId,
-        MessageType,
-        Title,
-        Template,
-        ScheduledDate,
-        DeliveryMethod,
-        Recipients
-    FROM AutomatedMessages
-    WHERE 
-        Status = 'Scheduled'
-        AND ScheduledDate <= @CurrentDateTime
-    ORDER BY ScheduledDate ASC;
-END;
-GO
-
--- Update Message Status (for failed sends)
-CREATE OR ALTER PROCEDURE sp_UpdateMessageStatus
-    @MessageId UNIQUEIDENTIFIER,
-    @Status NVARCHAR(20),
-    @ErrorMessage NVARCHAR(500) = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    UPDATE AutomatedMessages 
-    SET 
-        Status = @Status,
-        ModifiedDate = GETUTCDATE()
-    WHERE MessageId = @MessageId;
-    
-    -- If there's an error message, we might want to store it somewhere
-    -- For now, just return the status update result
-    SELECT @@ROWCOUNT AS RowsAffected;
-END;
-GO
-
--- Track Message Recipients
-CREATE OR ALTER PROCEDURE sp_TrackMessageRecipient
-    @MessageId UNIQUEIDENTIFIER,
-    @ClientId UNIQUEIDENTIFIER = NULL,
-    @PhoneNumber NVARCHAR(20),
-    @DeliveryStatus NVARCHAR(20) = 'Pending',
-    @ErrorMessage NVARCHAR(500) = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    INSERT INTO MessageRecipients (
-        MessageId, ClientId, PhoneNumber, DeliveryStatus, DeliveryDate, ErrorMessage
-    )
-    VALUES (
-        @MessageId, @ClientId, @PhoneNumber, @DeliveryStatus, 
-        CASE WHEN @DeliveryStatus IN ('Sent', 'Delivered') THEN GETUTCDATE() ELSE NULL END,
-        @ErrorMessage
-    );
-END;
-GO
-
--- Update Recipient Delivery Status
-CREATE OR ALTER PROCEDURE sp_UpdateRecipientStatus
-    @MessageId UNIQUEIDENTIFIER,
-    @PhoneNumber NVARCHAR(20),
-    @DeliveryStatus NVARCHAR(20),
-    @ErrorMessage NVARCHAR(500) = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    UPDATE MessageRecipients 
-    SET 
-        DeliveryStatus = @DeliveryStatus,
-        DeliveryDate = CASE WHEN @DeliveryStatus IN ('Sent', 'Delivered') THEN GETUTCDATE() ELSE DeliveryDate END,
-        ErrorMessage = @ErrorMessage
-    WHERE MessageId = @MessageId AND PhoneNumber = @PhoneNumber;
-    
-    SELECT @@ROWCOUNT AS RowsAffected;
-END;
-GO
-
--- Get Message Delivery Report
-CREATE OR ALTER PROCEDURE sp_GetMessageDeliveryReport
-    @MessageId UNIQUEIDENTIFIER
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    SELECT 
-        mr.RecipientId,
-        mr.ClientId,
-        mr.PhoneNumber,
-        mr.DeliveryStatus,
-        mr.DeliveryDate,
-        mr.ErrorMessage,
-        c.FirstName + ' ' + c.Surname AS ClientName
-    FROM MessageRecipients mr
-    LEFT JOIN Clients c ON mr.ClientId = c.ClientId
-    WHERE mr.MessageId = @MessageId
-    ORDER BY mr.DeliveryDate DESC;
-END;
-GO
 
 -- Get Birthday Reminders for Today
 CREATE OR ALTER PROCEDURE sp_GetTodayBirthdayReminders
@@ -1487,3 +962,76 @@ BEGIN
         @ValidationMessage AS ValidationMessage;
 END;
 GO
+
+CREATE OR ALTER PROCEDURE spGetRemindersByType
+    @AgentId UNIQUEIDENTIFIER,
+    @ReminderType NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        R.ReminderId,
+        R.ClientId,
+        R.AppointmentId,
+        R.AgentId,
+        R.ReminderType,
+        R.Title,
+        R.Description,
+        R.ReminderDate,
+        R.ReminderTime,
+        R.ClientName,
+        R.Priority,
+        R.Status,
+        R.EnableSMS,
+        R.EnableWhatsApp,
+        R.EnablePushNotification,
+        R.AdvanceNotice,
+        R.CustomMessage,
+        R.AutoSend,
+        R.Notes,
+        R.CreatedDate,
+        R.ModifiedDate,
+        R.CompletedDate
+    FROM Reminders R
+    WHERE R.AgentId = @AgentId
+      AND R.ReminderType = @ReminderType
+    ORDER BY R.ReminderDate, R.ReminderTime;
+END;
+go
+CREATE OR ALTER PROCEDURE spGetRemindersByStatus
+    @AgentId UNIQUEIDENTIFIER,
+    @Status NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        R.ReminderId,
+        R.ClientId,
+        R.AppointmentId,
+        R.AgentId,
+        R.ReminderType,
+        R.Title,
+        R.Description,
+        R.ReminderDate,
+        R.ReminderTime,
+        R.ClientName,
+        R.Priority,
+        R.Status,
+        R.EnableSMS,
+        R.EnableWhatsApp,
+        R.EnablePushNotification,
+        R.AdvanceNotice,
+        R.CustomMessage,
+        R.AutoSend,
+        R.Notes,
+        R.CreatedDate,
+        R.ModifiedDate,
+        R.CompletedDate
+    FROM Reminders R
+    WHERE R.AgentId = @AgentId
+      AND R.Status = @Status
+    ORDER BY R.ReminderDate, R.ReminderTime;
+END;
+go

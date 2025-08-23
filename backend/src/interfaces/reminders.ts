@@ -1,26 +1,26 @@
 export interface Reminder {
-    ReminderId: string;
-    ClientId?: string;
-    AppointmentId?: string;
-    AgentId: string;
-    ReminderType: 'Call' | 'Visit' | 'Policy Expiry' | 'Maturing Policy' | 'Birthday' | 'Holiday' | 'Custom';
-    Title: string;
-    Description?: string;
-    ReminderDate: Date;
-    ReminderTime?: string; // TIME format from SQL
-    ClientName?: string;
-    Priority: 'High' | 'Medium' | 'Low';
-    Status: 'Active' | 'Completed' | 'Cancelled';
-    EnableSMS: boolean;
-    EnableWhatsApp: boolean;
-    EnablePushNotification: boolean;
-    AdvanceNotice: string;
-    CustomMessage?: string;
-    AutoSend: boolean;
-    Notes?: string;
-    CreatedDate: Date;
-    ModifiedDate: Date;
-    CompletedDate?: Date;
+  ReminderId: string;
+  ClientId?: string;
+  AppointmentId?: string;
+  AgentId: string;
+  ReminderType: 'Call' | 'Visit' | 'Policy Expiry' | 'Birthday' | 'Holiday' | 'Custom';
+  Title: string;
+  Description?: string;
+  ReminderDate: Date;
+  ReminderTime?: string; // TIME format from SQL
+  ClientName?: string;
+  Priority: 'High' | 'Medium' | 'Low';
+  Status: 'Active' | 'Completed' | 'Cancelled';
+  EnableSMS: boolean;  
+  EnableWhatsApp: boolean;
+  EnablePushNotification: boolean;
+  AdvanceNotice: string;
+  CustomMessage?: string;
+  AutoSend: boolean;
+  Notes?: string;
+  CreatedDate: Date;
+  ModifiedDate: Date;
+  CompletedDate?: Date;
 }
 
 export interface ReminderSettings {

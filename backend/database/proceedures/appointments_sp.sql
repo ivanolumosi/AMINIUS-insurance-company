@@ -85,7 +85,15 @@ BEGIN
     SELECT @AppointmentId AS AppointmentId;
 END;
 GO
-
+EXEC sp_helpconstraint 'Appointments';
+go
+SELECT 
+    con.name AS ConstraintName,
+    con.definition
+FROM sys.check_constraints con
+INNER JOIN sys.objects obj ON con.parent_object_id = obj.object_id
+WHERE obj.name = 'Appointments';
+go
 -- Get Appointments with Filters
 CREATE OR ALTER PROCEDURE sp_GetAppointments
     @AgentId UNIQUEIDENTIFIER,
@@ -467,6 +475,7 @@ CREATE OR ALTER PROCEDURE sp_CreateAppointment
     @EndTime TIME,
     @Location NVARCHAR(200) = NULL,
     @Type NVARCHAR(50),
+    @Status NVARCHAR(20) = 'Scheduled',   -- ✅ allow status from backend
     @Priority NVARCHAR(10) = 'Medium',
     @Notes NVARCHAR(MAX) = NULL,
     @ReminderSet BIT = 0
@@ -478,12 +487,21 @@ BEGIN
     DECLARE @ClientName NVARCHAR(150);
     DECLARE @ClientPhone NVARCHAR(20);
     
-    -- Get client details
+    -- ✅ Validate time range
+    IF @EndTime <= @StartTime
+    BEGIN
+        SELECT 0 AS Success, 'End time must be after start time' AS Message;
+        RETURN;
+    END
+
+    -- ✅ Get client details
     SELECT 
         @ClientName = FirstName + ' ' + Surname,
         @ClientPhone = PhoneNumber
     FROM Clients 
-    WHERE ClientId = @ClientId AND AgentId = @AgentId AND IsActive = 1;
+    WHERE ClientId = @ClientId 
+      AND AgentId = @AgentId 
+      AND IsActive = 1;
     
     IF @ClientName IS NULL
     BEGIN
@@ -491,24 +509,26 @@ BEGIN
         RETURN;
     END
     
-    -- Check for time conflicts
+    -- ✅ Improved time conflict check
+    -- Detects any overlapping interval properly
     IF EXISTS (
-        SELECT 1 FROM Appointments 
+        SELECT 1 
+        FROM Appointments 
         WHERE AgentId = @AgentId 
-            AND AppointmentDate = @AppointmentDate
-            AND IsActive = 1
-            AND Status NOT IN ('Cancelled')
-            AND (
-                (@StartTime >= StartTime AND @StartTime < EndTime) OR
-                (@EndTime > StartTime AND @EndTime <= EndTime) OR
-                (@StartTime <= StartTime AND @EndTime >= EndTime)
-            )
+          AND AppointmentDate = @AppointmentDate
+          AND IsActive = 1
+          AND Status NOT IN ('Cancelled')
+          AND (
+              -- Overlap if one starts before the other ends AND ends after the other starts
+              (@StartTime < EndTime AND @EndTime > StartTime)
+          )
     )
     BEGIN
         SELECT 0 AS Success, 'Time conflict with existing appointment' AS Message;
         RETURN;
     END
     
+    -- ✅ Insert new appointment
     INSERT INTO Appointments (
         AppointmentId, ClientId, AgentId, ClientName, ClientPhone,
         Title, Description, AppointmentDate, StartTime, EndTime,
@@ -517,7 +537,7 @@ BEGIN
     VALUES (
         @AppointmentId, @ClientId, @AgentId, @ClientName, @ClientPhone,
         @Title, @Description, @AppointmentDate, @StartTime, @EndTime,
-        @Location, @Type, 'Scheduled', @Priority, @Notes, @ReminderSet
+        @Location, @Type, @Status, @Priority, @Notes, @ReminderSet
     );
     
     SELECT 1 AS Success, 'Appointment created successfully' AS Message, @AppointmentId AS AppointmentId;
@@ -659,8 +679,6 @@ BEGIN
     ORDER BY a.AppointmentDate DESC, a.StartTime DESC;
 END;
 GO
-
--- Check Time Conflicts
 CREATE OR ALTER PROCEDURE sp_CheckTimeConflicts
     @AgentId UNIQUEIDENTIFIER,
     @AppointmentDate DATE,
@@ -670,27 +688,27 @@ CREATE OR ALTER PROCEDURE sp_CheckTimeConflicts
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     DECLARE @ConflictCount INT;
-    
+
     SELECT @ConflictCount = COUNT(*)
-    FROM Appointments 
-    WHERE AgentId = @AgentId 
-        AND AppointmentDate = @AppointmentDate
-        AND IsActive = 1
-        AND Status NOT IN ('Cancelled')
-        AND (@ExcludeAppointmentId IS NULL OR AppointmentId <> @ExcludeAppointmentId)
-        AND (
-            (@StartTime >= StartTime AND @StartTime < EndTime) OR
-            (@EndTime > StartTime AND @EndTime <= EndTime) OR
-            (@StartTime <= StartTime AND @EndTime >= EndTime)
-        );
-    
+    FROM Appointments
+    WHERE AgentId = @AgentId   -- ✅ restrict to same agent
+      AND AppointmentDate = @AppointmentDate
+      AND IsActive = 1
+      AND Status NOT IN ('Cancelled')
+      AND (@ExcludeAppointmentId IS NULL OR AppointmentId <> @ExcludeAppointmentId)
+      AND (
+            -- real overlap check (simpler form)
+            NOT (@EndTime <= StartTime OR @StartTime >= EndTime)
+          );
+
     SELECT 
         CASE WHEN @ConflictCount > 0 THEN 1 ELSE 0 END AS HasConflict,
         @ConflictCount AS ConflictCount;
 END;
 GO
+
 
 -- ============================================
 -- Missing Reminder Service Stored Procedures

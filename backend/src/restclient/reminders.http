@@ -4,9 +4,9 @@ Content-Type: application/json
 
 {
   "ReminderType": "Call",
-  "Title": "",
+  "Title": "jkdasfghgdfsg",
   "Description": "Call about renewal",
-  "ReminderDate": "2025-08-15",
+  "ReminderDate": "2025-09-15",
   "Priority": "High"
 }
 
@@ -36,16 +36,7 @@ Content-Type: application/json
   "notes": "Task done"
 }
 
-### Get Today's Reminders
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/today
-
-### Get Upcoming Reminders
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/upcoming?daysAhead=5
-
-### Get Completed Reminders
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/completed?startDate=2025-08-01&endDate=2025-08-31
-
-### Get Birthday Reminders
+### Get Today Birthday Reminders
 GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/birthdays
 
 ### Get Policy Expiry Reminders
@@ -67,7 +58,31 @@ Content-Type: application/json
 }
 
 ### Get Reminder Statistics
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/stats
+GET http://localhost:3000/api/reminders/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD/statistics
 
 ### Validate Phone
 GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/validate-phone?phoneNumber=0712345678&countryCode=+254
+GET http://localhost:3000/api/reminders/<agentId>/statistics
+
+
+### Get Reminders by Type
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/type/call
+Content-Type: application/json
+
+###
+
+### Get Reminders by Type (meeting)
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/type/meeting
+Content-Type: application/json
+
+###
+
+### Get Reminders by Status (pending)
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/status/pending
+Content-Type: application/json
+
+###
+
+### Get Reminders by Status (completed)
+GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/status/completed
+Content-Type: application/json

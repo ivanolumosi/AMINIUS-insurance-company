@@ -1,5 +1,4 @@
 // services/reminders.service.ts
-
 import { poolPromise } from '../../db';
 import * as sql from 'mssql';
 import {
@@ -14,70 +13,169 @@ import {
     PhoneValidationResult
 } from '../interfaces/reminders';
 
+export interface ReminderStatistics {
+  TotalActive: number;
+  TotalCompleted: number;
+  TodayReminders: number;
+  UpcomingReminders: number;
+  HighPriority: number;
+  Overdue: number;
+}
+
 export class ReminderService {
-    /**
-     * Create a new reminder
-     */
+    /** Create a new reminder */
     public async createReminder(agentId: string, reminderData: CreateReminderRequest): Promise<{ ReminderId: string }> {
+        console.log('📝 Backend: Creating reminder with raw data:', reminderData);
+        
+        try {
+            // Robust time validation and formatting
+            let validatedTime: string | null = null;
+            
+            if (reminderData.ReminderTime) {
+                validatedTime = this.validateAndFormatSQLTime(reminderData.ReminderTime);
+                console.log('📝 Backend: Time validated:', reminderData.ReminderTime, '->', validatedTime);
+            }
+            
+            const pool = await poolPromise;
+            const request = pool.request()
+                .input('AgentId', sql.UniqueIdentifier, agentId)
+                .input('ClientId', sql.UniqueIdentifier, reminderData.ClientId ?? null)
+                .input('AppointmentId', sql.UniqueIdentifier, reminderData.AppointmentId ?? null)
+                .input('ReminderType', sql.NVarChar(50), reminderData.ReminderType)
+                .input('Title', sql.NVarChar(200), reminderData.Title)
+                .input('Description', sql.NVarChar(sql.MAX), reminderData.Description ?? null)
+                .input('ReminderDate', sql.Date, reminderData.ReminderDate)
+                .input('ClientName', sql.NVarChar(150), reminderData.ClientName ?? null)
+                .input('Priority', sql.NVarChar(10), reminderData.Priority ?? 'Medium')
+                .input('EnableSMS', sql.Bit, reminderData.EnableSMS ?? false)
+                .input('EnableWhatsApp', sql.Bit, reminderData.EnableWhatsApp ?? false)
+                .input('EnablePushNotification', sql.Bit, reminderData.EnablePushNotification ?? true)
+                .input('AdvanceNotice', sql.NVarChar(20), reminderData.AdvanceNotice ?? '1 day')
+                .input('CustomMessage', sql.NVarChar(sql.MAX), reminderData.CustomMessage ?? null)
+                .input('AutoSend', sql.Bit, reminderData.AutoSend ?? false)
+                .input('Notes', sql.NVarChar(sql.MAX), reminderData.Notes ?? null);
+
+            // Only add ReminderTime parameter if we have a valid time
+            if (validatedTime) {
+                request.input('ReminderTime', sql.Time, validatedTime);
+            } else {
+                // Pass null if no time provided
+                request.input('ReminderTime', sql.Time, null);
+            }
+
+            console.log('📝 Backend: Executing stored procedure with validated time:', validatedTime);
+            
+            const result = await request.execute('sp_CreateReminder');
+            
+            console.log('✅ Backend: Reminder created successfully');
+            return result.recordset[0];
+            
+        } catch (error: unknown) {
+            console.error('❌ Backend: Error creating reminder:', error);
+            console.error('❌ Original reminder data:', reminderData);
+            
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            throw new Error(`Failed to create reminder: ${errorMessage}`);
+        }
+    }
+
+    // Add this robust time validation method to your ReminderService class
+    private validateAndFormatSQLTime(timeString: string | null | undefined): string | null {
+        console.log('🕐 Backend: Validating SQL time:', timeString, typeof timeString);
+        
+        if (!timeString || timeString === 'null' || timeString === 'undefined') {
+            console.log('🕐 Backend: No valid time provided, returning null');
+            return null;
+        }
+        
+        // Clean the input
+        let cleanTime = timeString.toString().trim();
+        console.log('🕐 Backend: Cleaned time:', cleanTime);
+        
+        // Handle various time formats
+        try {
+            // Format 1: Already HH:MM:SS
+            if (/^\d{2}:\d{2}:\d{2}$/.test(cleanTime)) {
+                const [h, m, s] = cleanTime.split(':').map(Number);
+                if (h >= 0 && h <= 23 && m >= 0 && m <= 59 && s >= 0 && s <= 59) {
+                    console.log('🕐 Backend: Valid HH:MM:SS format');
+                    return cleanTime;
+                }
+                throw new Error('Invalid time ranges');
+            }
+            
+            // Format 2: HH:MM
+            if (/^\d{1,2}:\d{2}$/.test(cleanTime)) {
+                const [h, m] = cleanTime.split(':').map(Number);
+                if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+                    const formatted = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
+                    console.log('🕐 Backend: Converted HH:MM to HH:MM:SS:', cleanTime, '->', formatted);
+                    return formatted;
+                }
+                throw new Error('Invalid time ranges for HH:MM');
+            }
+            
+            // Format 3: Try parsing as ISO datetime and extract time
+            if (cleanTime.includes('T') || cleanTime.includes('-')) {
+                const date = new Date(cleanTime);
+                if (!isNaN(date.getTime())) {
+                    const hours = date.getUTCHours().toString().padStart(2, '0');
+                    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+                    const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+                    const formatted = `${hours}:${minutes}:${seconds}`;
+                    console.log('🕐 Backend: Extracted time from datetime:', cleanTime, '->', formatted);
+                    return formatted;
+                }
+            }
+            
+            // Format 4: Try creating a date with the time
+            const testDate = new Date(`1970-01-01T${cleanTime}`);
+            if (!isNaN(testDate.getTime())) {
+                const hours = testDate.getUTCHours().toString().padStart(2, '0');
+                const minutes = testDate.getUTCMinutes().toString().padStart(2, '0');
+                const seconds = testDate.getUTCSeconds().toString().padStart(2, '0');
+                const formatted = `${hours}:${minutes}:${seconds}`;
+                console.log('🕐 Backend: Parsed with date constructor:', cleanTime, '->', formatted);
+                return formatted;
+            }
+            
+            throw new Error(`Cannot parse time format: ${cleanTime}`);
+            
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+            console.error('🕐 Backend: Time validation failed:', errorMessage);
+            console.error('🕐 Backend: Original input was:', timeString);
+            
+            // Instead of throwing, return null to let the database handle it
+            console.log('🕐 Backend: Returning null due to validation failure');
+            return null;
+        }
+    }
+
+    /** Get all reminders with filters and pagination */
+    public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Promise<PaginatedReminderResponse> {
         const pool = await poolPromise;
         const result = await pool.request()
             .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('ClientId', sql.UniqueIdentifier, reminderData.ClientId || null)
-            .input('AppointmentId', sql.UniqueIdentifier, reminderData.AppointmentId || null)
-            .input('ReminderType', sql.NVarChar(50), reminderData.ReminderType)
-            .input('Title', sql.NVarChar(200), reminderData.Title)
-            .input('Description', sql.NVarChar(sql.MAX), reminderData.Description || null)
-            .input('ReminderDate', sql.Date, reminderData.ReminderDate)
-            .input('ReminderTime', sql.Time, reminderData.ReminderTime || null)
-            .input('ClientName', sql.NVarChar(150), reminderData.ClientName || null)
-            .input('Priority', sql.NVarChar(10), reminderData.Priority || 'Medium')
-            .input('EnableSMS', sql.Bit, reminderData.EnableSMS || false)
-            .input('EnableWhatsApp', sql.Bit, reminderData.EnableWhatsApp || false)
-            .input('EnablePushNotification', sql.Bit, reminderData.EnablePushNotification || true)
-            .input('AdvanceNotice', sql.NVarChar(20), reminderData.AdvanceNotice || '1 day')
-            .input('CustomMessage', sql.NVarChar(sql.MAX), reminderData.CustomMessage || null)
-            .input('AutoSend', sql.Bit, reminderData.AutoSend || false)
-            .input('Notes', sql.NVarChar(sql.MAX), reminderData.Notes || null)
-            .execute('sp_CreateReminder');
+            .input('StartDate', sql.Date, filters.StartDate ?? null)
+            .input('EndDate', sql.Date, filters.EndDate ?? null)
+            .input('PageSize', sql.Int, filters.PageSize ?? 20)
+            .input('PageNumber', sql.Int, filters.PageNumber ?? 1)
+            .execute('sp_GetAllReminders');
 
-        return result.recordset[0];
+        const reminders: Reminder[] = result.recordset;
+        const pageSize = filters.PageSize ?? 20;
+
+        return {
+            reminders,
+            totalRecords: reminders.length, // ideally add COUNT(*) in SP for accuracy
+            currentPage: filters.PageNumber ?? 1,
+            totalPages: Math.ceil(reminders.length / pageSize),
+            pageSize
+        };
     }
 
-    /**
-     * Get all reminders with filters and pagination
-     */
-/**
- * Get all reminders with filters and pagination
- */
-public async getAllReminders(
-    agentId: string,
-    filters: ReminderFilters = {}
-): Promise<PaginatedReminderResponse> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('AgentId', sql.UniqueIdentifier, agentId)
-        .input('StartDate', sql.Date, filters.StartDate || null)
-        .input('EndDate', sql.Date, filters.EndDate || null)
-        .input('PageSize', sql.Int, filters.PageSize || 20)
-        .input('PageNumber', sql.Int, filters.PageNumber || 1)
-        .execute('sp_GetAllReminders');
-
-    // since procedure returns only one set → use recordset
-    const reminders: Reminder[] = result.recordset;
-
-    return {
-        reminders,
-        totalRecords: reminders.length, // we can add COUNT(*) in SP if true total is needed
-        currentPage: filters.PageNumber || 1,
-        totalPages: Math.ceil(reminders.length / (filters.PageSize || 20)),
-        pageSize: filters.PageSize || 20
-    };
-}
-
-
-    /**
-     * Get reminder by ID
-     */
+    /** Get reminder by ID */
     public async getReminderById(reminderId: string, agentId: string): Promise<Reminder | null> {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -88,35 +186,31 @@ public async getAllReminders(
         return result.recordset.length ? result.recordset[0] : null;
     }
 
-    /**
-     * Update a reminder
-     */
+    /** Update a reminder */
     public async updateReminder(reminderId: string, agentId: string, updateData: UpdateReminderRequest): Promise<{ RowsAffected: number }> {
         const pool = await poolPromise;
         const result = await pool.request()
             .input('ReminderId', sql.UniqueIdentifier, reminderId)
             .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('Title', sql.NVarChar(200), updateData.Title || null)
-            .input('Description', sql.NVarChar(sql.MAX), updateData.Description || null)
-            .input('ReminderDate', sql.Date, updateData.ReminderDate || null)
-            .input('ReminderTime', sql.Time, updateData.ReminderTime || null)
-            .input('Priority', sql.NVarChar(10), updateData.Priority || null)
-            .input('Status', sql.NVarChar(20), updateData.Status || null)
-            .input('EnableSMS', sql.Bit, updateData.EnableSMS)
-            .input('EnableWhatsApp', sql.Bit, updateData.EnableWhatsApp)
-            .input('EnablePushNotification', sql.Bit, updateData.EnablePushNotification)
-            .input('AdvanceNotice', sql.NVarChar(20), updateData.AdvanceNotice || null)
-            .input('CustomMessage', sql.NVarChar(sql.MAX), updateData.CustomMessage || null)
-            .input('AutoSend', sql.Bit, updateData.AutoSend)
-            .input('Notes', sql.NVarChar(sql.MAX), updateData.Notes || null)
+            .input('Title', sql.NVarChar(200), updateData.Title ?? null)
+            .input('Description', sql.NVarChar(sql.MAX), updateData.Description ?? null)
+            .input('ReminderDate', sql.Date, updateData.ReminderDate ?? null)
+            .input('ReminderTime', sql.Time, updateData.ReminderTime ?? null)
+            .input('Priority', sql.NVarChar(10), updateData.Priority ?? null)
+            .input('Status', sql.NVarChar(20), updateData.Status ?? null)
+            .input('EnableSMS', sql.Bit, updateData.EnableSMS ?? false)
+            .input('EnableWhatsApp', sql.Bit, updateData.EnableWhatsApp ?? false)
+            .input('EnablePushNotification', sql.Bit, updateData.EnablePushNotification ?? false)
+            .input('AdvanceNotice', sql.NVarChar(20), updateData.AdvanceNotice ?? null)
+            .input('CustomMessage', sql.NVarChar(sql.MAX), updateData.CustomMessage ?? null)
+            .input('AutoSend', sql.Bit, updateData.AutoSend ?? false)
+            .input('Notes', sql.NVarChar(sql.MAX), updateData.Notes ?? null)
             .execute('sp_UpdateReminder');
 
         return result.recordset[0];
     }
 
-    /**
-     * Delete a reminder
-     */
+    /** Delete a reminder */
     public async deleteReminder(reminderId: string, agentId: string): Promise<{ RowsAffected: number }> {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -127,23 +221,19 @@ public async getAllReminders(
         return result.recordset[0];
     }
 
-    /**
-     * Complete a reminder
-     */
+    /** Complete a reminder */
     public async completeReminder(reminderId: string, agentId: string, notes?: string): Promise<{ RowsAffected: number }> {
         const pool = await poolPromise;
         const result = await pool.request()
             .input('ReminderId', sql.UniqueIdentifier, reminderId)
             .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('Notes', sql.NVarChar(sql.MAX), notes || null)
+            .input('Notes', sql.NVarChar(sql.MAX), notes ?? null)
             .execute('sp_CompleteReminder');
 
         return result.recordset[0];
     }
 
-    /**
-     * Get today's reminders
-     */
+    /** Get today's reminders */
     public async getTodayReminders(agentId: string): Promise<Reminder[]> {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -153,84 +243,7 @@ public async getAllReminders(
         return result.recordset;
     }
 
-    /**
-     * Get upcoming reminders
-     */
-    public async getUpcomingReminders(agentId: string, daysAhead: number = 7): Promise<Reminder[]> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('DaysAhead', sql.Int, daysAhead)
-            .execute('sp_GetUpcomingReminders');
-
-        return result.recordset;
-    }
-
-    /**
-     * Get completed reminders
-     */
-    public async getCompletedReminders(
-        agentId: string,
-        startDate?: Date,
-        endDate?: Date,
-        pageSize: number = 50,
-        pageNumber: number = 1
-    ): Promise<Reminder[]> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('StartDate', sql.Date, startDate || null)
-            .input('EndDate', sql.Date, endDate || null)
-            .input('PageSize', sql.Int, pageSize)
-            .input('PageNumber', sql.Int, pageNumber)
-            .execute('sp_GetCompletedReminders');
-
-        return result.recordset;
-    }
-
-    /**
-     * Get birthday reminders for today
-     */
-    public async getTodayBirthdayReminders(agentId: string): Promise<BirthdayReminder[]> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_GetTodayBirthdayReminders');
-
-        return result.recordset;
-    }
-
-    /**
-     * Get policy expiry reminders
-     */
-    public async getPolicyExpiryReminders(agentId: string, daysAhead: number = 30): Promise<PolicyExpiryReminder[]> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('DaysAhead', sql.Int, daysAhead)
-            .execute('sp_GetPolicyExpiryReminders');
-
-        return result.recordset;
-    }
-
-    /**
-     * Validate phone number
-     */
-    public async validatePhoneNumber(phoneNumber: string, countryCode: string = '+254'): Promise<PhoneValidationResult> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PhoneNumber', sql.NVarChar(20), phoneNumber)
-            .input('CountryCode', sql.NVarChar(5), countryCode)
-            .execute('sp_ValidatePhoneNumber');
-
-        return result.recordset[0];
-    }
-
-    // Reminder Settings Methods
-
-    /**
-     * Get reminder settings for an agent
-     */
+    /** Get reminder settings */
     public async getReminderSettings(agentId: string): Promise<ReminderSettings[]> {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -240,17 +253,8 @@ public async getAllReminders(
         return result.recordset;
     }
 
-    /**
-     * Update reminder settings
-     */
-    public async updateReminderSettings(
-        agentId: string,
-        reminderType: 'Policy Expiry' | 'Birthday' | 'Appointment' | 'Call' | 'Visit',
-        isEnabled: boolean,
-        daysBefore: number,
-        timeOfDay: string,
-        repeatDaily: boolean = false
-    ): Promise<void> {
+    /** Update reminder settings */
+    public async updateReminderSettings(agentId: string, reminderType: string, isEnabled: boolean, daysBefore: number, timeOfDay: string, repeatDaily: boolean = false): Promise<void> {
         const pool = await poolPromise;
         await pool.request()
             .input('AgentId', sql.UniqueIdentifier, agentId)
@@ -263,112 +267,66 @@ public async getAllReminders(
     }
 
     /**
-     * Create bulk reminders for policy expiries
+     * Get reminder statistics by AgentId
      */
-    public async createPolicyExpiryReminders(agentId: string, daysAhead: number = 30): Promise<number> {
-        const policyExpiries = await this.getPolicyExpiryReminders(agentId, daysAhead);
-        let reminderCount = 0;
+    public async getReminderStatistics(agentId: string): Promise<ReminderStatistics> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.request()
+                .input('AgentId', sql.UniqueIdentifier, agentId)
+                .execute('sp_GetReminderStatistics');
 
-        for (const policy of policyExpiries) {
-            try {
-                await this.createReminder(agentId, {
-                    ClientId: policy.ClientId,
-                    ReminderType: 'Policy Expiry',
-                    Title: `Policy Expiry: ${policy.PolicyName}`,
-                    Description: `${policy.PolicyType} policy from ${policy.CompanyName} expires on ${policy.EndDate.toDateString()}`,
-                    ReminderDate: new Date(policy.EndDate.getTime() - (7 * 24 * 60 * 60 * 1000)), // 7 days before
-                    ClientName: `${policy.FirstName} ${policy.Surname}`,
-                    Priority: policy.DaysUntilExpiry <= 7 ? 'High' : 'Medium',
-                    EnableSMS: true,
-                    EnableWhatsApp: true,
-                    CustomMessage: `Dear ${policy.FirstName}, your ${policy.PolicyType} policy expires in ${policy.DaysUntilExpiry} days. Please contact us to discuss renewal.`
-                });
-                reminderCount++;
-            } catch (error) {
-                console.error(`Failed to create reminder for policy ${policy.PolicyId}:`, error);
+            if (result.recordset.length === 0) {
+                return {
+                    TotalActive: 0,
+                    TotalCompleted: 0,
+                    TodayReminders: 0,
+                    UpcomingReminders: 0,
+                    HighPriority: 0,
+                    Overdue: 0
+                };
             }
-        }
 
-        return reminderCount;
+            return result.recordset[0] as ReminderStatistics;
+        } catch (error: unknown) {
+            console.error('Error fetching reminder statistics:', error);
+            throw error;
+        }
     }
 
     /**
-     * Create bulk reminders for birthdays
+     * Get reminders filtered by ReminderType
      */
-    public async createBirthdayReminders(agentId: string): Promise<number> {
-        const birthdays = await this.getTodayBirthdayReminders(agentId);
-        let reminderCount = 0;
+    async getRemindersByType(agentId: string, reminderType: string): Promise<Reminder[]> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.request()
+                .input('AgentId', sql.UniqueIdentifier, agentId)
+                .input('ReminderType', sql.NVarChar(50), reminderType)
+                .execute('spGetRemindersByType');
 
-        for (const birthday of birthdays) {
-            try {
-                await this.createReminder(agentId, {
-                    ClientId: birthday.ClientId,
-                    ReminderType: 'Birthday',
-                    Title: `Birthday: ${birthday.FirstName} ${birthday.Surname}`,
-                    Description: `${birthday.FirstName} ${birthday.Surname} turns ${birthday.Age} today`,
-                    ReminderDate: new Date(),
-                    ClientName: `${birthday.FirstName} ${birthday.Surname}`,
-                    Priority: 'Medium',
-                    EnableSMS: true,
-                    EnableWhatsApp: true,
-                    CustomMessage: `Happy Birthday ${birthday.FirstName}! Wishing you health, happiness and prosperity in the year ahead.`
-                });
-                reminderCount++;
-            } catch (error) {
-                console.error(`Failed to create birthday reminder for client ${birthday.ClientId}:`, error);
-            }
+            return result.recordset as Reminder[];
+        } catch (error: unknown) {
+            console.error('Error fetching reminders by type:', error);
+            throw error;
         }
-
-        return reminderCount;
     }
 
     /**
-     * Get reminder statistics
+     * Get reminders filtered by Status
      */
-    public async getReminderStatistics(agentId: string): Promise<{
-        totalActive: number;
-        totalCompleted: number;
-        todayReminders: number;
-        upcomingReminders: number;
-        highPriority: number;
-        overdue: number;
-    }> {
-        const pool = await poolPromise;
-        
-        // Get various counts in parallel
-        const [activeResult, completedResult, todayResult, upcomingResult, highPriorityResult, overdueResult] = await Promise.all([
-            pool.request()
+    async getRemindersByStatus(agentId: string, status: string): Promise<Reminder[]> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.request()
                 .input('AgentId', sql.UniqueIdentifier, agentId)
-                .query("SELECT COUNT(*) as count FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active'"),
-            
-            pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .query("SELECT COUNT(*) as count FROM Reminders WHERE AgentId = @AgentId AND Status = 'Completed'"),
-            
-            pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .query("SELECT COUNT(*) as count FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active' AND ReminderDate = CAST(GETDATE() AS DATE)"),
-            
-            pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .query("SELECT COUNT(*) as count FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active' AND ReminderDate BETWEEN CAST(GETDATE() AS DATE) AND DATEADD(DAY, 7, CAST(GETDATE() AS DATE))"),
-            
-            pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .query("SELECT COUNT(*) as count FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active' AND Priority = 'High'"),
-            
-            pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .query("SELECT COUNT(*) as count FROM Reminders WHERE AgentId = @AgentId AND Status = 'Active' AND ReminderDate < CAST(GETDATE() AS DATE)")
-        ]);
+                .input('Status', sql.NVarChar(20), status)
+                .execute('spGetRemindersByStatus');
 
-        return {
-            totalActive: activeResult.recordset[0].count,
-            totalCompleted: completedResult.recordset[0].count,
-            todayReminders: todayResult.recordset[0].count,
-            upcomingReminders: upcomingResult.recordset[0].count,
-            highPriority: highPriorityResult.recordset[0].count,
-            overdue: overdueResult.recordset[0].count
-        };
+            return result.recordset as Reminder[];
+        } catch (error: unknown) {
+            console.error('Error fetching reminders by status:', error);
+            throw error;
+        }
     }
 }

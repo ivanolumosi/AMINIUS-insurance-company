@@ -8,7 +8,7 @@ class EmailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      service: 'gmail', // change to 'smtp.example.com' if using custom SMTP
+      service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -19,7 +19,7 @@ class EmailService {
   async sendMail(to: string, subject: string, text: string, html?: string) {
     try {
       const info = await this.transporter.sendMail({
-        from: `"AminiUs Insurance" <${process.env.EMAIL_USER}>`,
+        from: `"AminiUs Insurance App" <${process.env.EMAIL_USER}>`,
         to,
         subject,
         text,

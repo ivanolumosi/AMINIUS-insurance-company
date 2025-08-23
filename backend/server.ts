@@ -11,7 +11,7 @@ import notesRoutes from './src/routes/notes.routes';
 import searchRoutes from './src/routes/search.routes';
 import utilityRoutes from './src/routes/utility.routes';
 import autocompleteRoutes from './src/routes/autocomplete.routes';
-
+import "./src/cronjobs/cronjobs"; 
 dotenv.config();
 
 const app = express();

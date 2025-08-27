@@ -1,3 +1,4 @@
+// controllers/notes.controller.ts
 import { Request, Response } from 'express';
 import * as notesService from '../services/notes.service';
 import { validate as isUuid } from 'uuid';
@@ -6,15 +7,25 @@ export class NotesController {
     async getDailyNotes(req: Request, res: Response) {
         try {
             const { agentId, noteDate } = req.params;
-
+            
             if (!isUuid(agentId)) {
-                return res.status(400).json({ error: 'Invalid AgentId GUID format' });
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Invalid AgentId GUID format' 
+                });
             }
 
             const notes = await notesService.getDailyNotes(agentId, noteDate);
-            res.json(notes);
+            res.json({ 
+                success: true, 
+                data: notes || [] 
+            });
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            console.error('Get daily notes error:', error);
+            res.status(500).json({ 
+                success: false, 
+                error: error.message 
+            });
         }
     }
 
@@ -24,13 +35,30 @@ export class NotesController {
             const { notes } = req.body;
 
             if (!isUuid(agentId)) {
-                return res.status(400).json({ error: 'Invalid AgentId GUID format' });
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Invalid AgentId GUID format' 
+                });
+            }
+
+            if (!notes || typeof notes !== 'string') {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Notes content is required and must be a string' 
+                });
             }
 
             const result = await notesService.saveDailyNotes(agentId, noteDate, notes);
-            res.json(result);
+            res.json({ 
+                success: true, 
+                data: result 
+            });
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            console.error('Save daily notes error:', error);
+            res.status(500).json({ 
+                success: false, 
+                error: error.message 
+            });
         }
     }
 
@@ -40,16 +68,28 @@ export class NotesController {
             const { StartDate, EndDate } = req.query;
 
             if (!isUuid(agentId)) {
-                return res.status(400).json({ error: 'Invalid AgentId GUID format' });
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Invalid AgentId GUID format' 
+                });
             }
 
-            const notes = await notesService.getAllNotes(agentId, {
+            const options = {
                 StartDate: StartDate ? String(StartDate) : undefined,
                 EndDate: EndDate ? String(EndDate) : undefined
+            };
+
+            const notes = await notesService.getAllNotes(agentId, options);
+            res.json({ 
+                success: true, 
+                data: notes || [] 
             });
-            res.json(notes);
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            console.error('Get all notes error:', error);
+            res.status(500).json({ 
+                success: false, 
+                error: error.message 
+            });
         }
     }
 
@@ -59,13 +99,30 @@ export class NotesController {
             const { searchTerm } = req.query;
 
             if (!isUuid(agentId)) {
-                return res.status(400).json({ error: 'Invalid AgentId GUID format' });
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Invalid AgentId GUID format' 
+                });
+            }
+
+            if (!searchTerm) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Search term is required' 
+                });
             }
 
             const notes = await notesService.searchNotes(agentId, String(searchTerm));
-            res.json(notes);
+            res.json({ 
+                success: true, 
+                data: notes || [] 
+            });
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            console.error('Search notes error:', error);
+            res.status(500).json({ 
+                success: false, 
+                error: error.message 
+            });
         }
     }
 
@@ -74,13 +131,23 @@ export class NotesController {
             const { agentId, noteDate } = req.params;
 
             if (!isUuid(agentId)) {
-                return res.status(400).json({ error: 'Invalid AgentId GUID format' });
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Invalid AgentId GUID format' 
+                });
             }
 
             const result = await notesService.deleteNotes(agentId, noteDate);
-            res.json(result);
+            res.json({ 
+                success: true, 
+                data: result 
+            });
         } catch (error: any) {
-            res.status(500).json({ error: error.message });
+            console.error('Delete notes error:', error);
+            res.status(500).json({ 
+                success: false, 
+                error: error.message 
+            });
         }
     }
 }

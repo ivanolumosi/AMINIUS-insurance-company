@@ -656,6 +656,18 @@ END;
 GO
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 -- ============================================
 -- Updated Stored Procedures for Policy Management
 -- Matching the updated table schema with foreign keys
@@ -1652,7 +1664,7 @@ BEGIN
         AND (@TypeId IS NULL OR cp.TypeId = @TypeId)
     ORDER BY cp.StartDate DESC;
 END;
-GO
+Go
 
 -- Create Client Policy (using PolicyCatalog)
 CREATE OR ALTER PROCEDURE sp_CreateClientPolicy

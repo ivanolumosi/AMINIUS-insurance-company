@@ -26,6 +26,25 @@ router.get('/:agentId/status/:status', (req, res) =>
   controller.getRemindersByStatus(req, res)
 );
 
+// Today's reminders - specific route
+router.get('/:agentId/today', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const reminders = await controller.reminderService.getTodayReminders(agentId);
+    res.json({
+      success: true,
+      data: reminders,
+      message: "Today's reminders retrieved successfully"
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to get today's reminders",
+      error: error.message
+    });
+  }
+});
+
 /**
  * =====================
  * Reminder CRUD (General parameterized routes come AFTER specific ones)
@@ -45,5 +64,19 @@ router.post('/:agentId/:reminderId/complete', controller.complete.bind(controlle
 router.get('/:agentId/:reminderId', controller.getById.bind(controller));
 router.put('/:agentId/:reminderId', controller.update.bind(controller));
 router.delete('/:agentId/:reminderId', controller.delete.bind(controller));
+
+/**
+ * =====================
+ * Middleware for request logging (optional)
+ * =====================
+ */
+
+// Log all reminder routes for debugging
+router.use((req, res, next) => {
+  console.log(`🛣️ Reminder Route: ${req.method} ${req.originalUrl}`);
+  console.log(`🛣️ Params:`, req.params);
+  console.log(`🛣️ Query:`, req.query);
+  next();
+});
 
 export default router;

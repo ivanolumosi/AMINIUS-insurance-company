@@ -5,33 +5,42 @@ const router = Router();
 const controller = new AppointmentController();
 
 // ==================
-// Specific routes first
+// Specific routes first (to avoid conflicts with general routes)
 // ==================
-router.get('/:agentId/today', controller.getToday.bind(controller));
-router.get('/:agentId/date', controller.getForDate.bind(controller));
+
+// Week view appointments
 router.get('/:agentId/week', controller.getWeekView.bind(controller));
+
+// Calendar appointments (requires month and year query params)
 router.get('/:agentId/calendar', controller.getCalendar.bind(controller));
+
+// Appointment statistics
 router.get('/:agentId/statistics', controller.getStatistics.bind(controller));
 
-// 🔍 Client search for autocomplete
+// Client search for autocomplete (requires 'q' query parameter)
 router.get('/:agentId/clients/search', controller.searchClients.bind(controller));
 
-// General search in appointments
-router.get('/:agentId/search', controller.search.bind(controller));
+// Time conflict checking
+router.post('/:agentId/check-conflicts', controller.checkConflicts.bind(controller));
 
 // ==================
 // CRUD routes
 // ==================
+
+// Create new appointment
 router.post('/:agentId', controller.create.bind(controller));
+
+// Update existing appointment
 router.put('/:agentId/:appointmentId', controller.update.bind(controller));
+
+// Get appointment by ID
 router.get('/:agentId/:appointmentId', controller.getById.bind(controller));
-router.get('/:agentId', controller.getAllAppointments.bind(controller));
+
+// Get all appointments with optional filters
+// Supports query params: startDate, endDate, status, type, priority, clientId, searchTerm, pageSize, pageNumber
+router.get('/:agentId', controller.getAll.bind(controller));
+
+// Delete appointment
 router.delete('/:agentId/:appointmentId', controller.delete.bind(controller));
-
-// Status update
-router.put('/:agentId/:appointmentId/status', controller.updateStatus.bind(controller));
-
-// Conflict check
-router.post('/:agentId/check-conflicts', controller.checkConflicts.bind(controller));
 
 export default router;

@@ -1,120 +1,200 @@
 import { Router } from 'express';
-import { PolicyController } from '../controllers/policy.controller';
+import {
+    // Health check
+    healthCheck,
+    
+    // Policy catalog
+    getPolicyCatalog,
+    createPolicyCatalogItem,
+    updatePolicyCatalogItem,
+    upsertPolicyCatalog,
+    softDeletePolicyCatalog,
+    
+    // Client policies
+    getClientPolicies,
+    getPolicyById,
+    createClientPolicy,
+    updateClientPolicy,
+    upsertClientPolicy,
+    softDeleteClientPolicy,
+    getClientsWithPolicies,
+    
+    // Search & filter
+    searchPolicies,
+    getPoliciesByStatus,
+    
+    // Expiration & renewal
+    getExpiringPolicies,
+    renewPolicy,
+    getPolicyRenewalCandidates,
+    
+    // Bulk operations
+    bulkUpdatePolicyStatus,
+    bulkCreatePolicies,
+    bulkUpdatePolicies,
+    batchExpirePolicies,
+    
+    // Policy templates
+    getPolicyTemplates,
+    createPolicyTemplate,
+    updatePolicyTemplate,
+    softDeletePolicyTemplate,
+    
+    // Reference data - insurance companies
+    getInsuranceCompanies,
+    createInsuranceCompany,
+    updateInsuranceCompany,
+    deleteInsuranceCompany,
+    softDeleteInsuranceCompany,
+    
+    // Reference data - policy types
+    getPolicyTypes,
+    createPolicyType,
+    updatePolicyType,
+    softDeletePolicyType,
+    
+    // Reference data - policy categories
+    getPolicyCategories,
+    createPolicyCategory,
+    updatePolicyCategory,
+    softDeletePolicyCategory,
+    
+    // Autocomplete
+    autocompleteInsuranceCompanies,
+    autocompletePolicyCatalog,
+    autocompletePolicyCategories,
+    autocompletePolicyTemplates,
+    autocompletePolicyTypes,
+    autocompleteClientPolicies,
+    
+    // Analytics & reporting
+    getPolicyStatistics,
+    getPolicyStatisticsDetailed,
+    getAgentDashboardSummary,
+    getPolicyHistory,
+    
+    // Validation
+    validatePolicy,
+    
+    // Export
+    exportPolicies,
+    
+    // Utility
+    cleanupSoftDeletedRecords
+} from '../controllers/policy.controller';
 
 const router = Router();
-const controller = new PolicyController();
 
 // ============================================
 // HEALTH CHECK
 // ============================================
-router.get('/health', controller.healthCheck.bind(controller));
+router.get('/health', healthCheck);
 
 // ============================================
 // POLICY CATALOG
 // ============================================
-router.get('/catalog', controller.getPolicyCatalog.bind(controller));
-router.post('/catalog', controller.createPolicyCatalogItem.bind(controller));
-router.put('/catalog/:id', controller.updatePolicyCatalogItem.bind(controller));
-router.post('/catalog/upsert', controller.upsertPolicyCatalog.bind(controller));
-router.delete('/catalog/:policyCatalogId/soft', controller.softDeletePolicyCatalog.bind(controller));
+router.get('/catalog', getPolicyCatalog);
+router.post('/catalog', createPolicyCatalogItem);
+router.put('/catalog/:id', updatePolicyCatalogItem);
+router.post('/catalog/upsert', upsertPolicyCatalog);
+router.delete('/catalog/:policyCatalogId/soft', softDeletePolicyCatalog);
 
 // ============================================
 // CLIENT POLICIES
 // ============================================
-router.get('/policies', controller.getClientPolicies.bind(controller));
-router.get('/policies/:id', controller.getPolicyById.bind(controller));
-router.post('/policies', controller.createClientPolicy.bind(controller));
-router.put('/policies/:id', controller.updateClientPolicy.bind(controller));
-router.post('/policies/upsert', controller.upsertClientPolicy.bind(controller));
-router.delete('/policies/:policyId/soft', controller.softDeleteClientPolicy.bind(controller));
-router.get('/clients-with-policies', controller.getClientsWithPolicies.bind(controller));
-
+router.get('/policies', getClientPolicies);
+router.get('/policies/:id', getPolicyById);
+router.post('/policies', createClientPolicy);
+router.put('/policies/:id', updateClientPolicy);
+router.post('/policies/upsert', upsertClientPolicy);
+router.delete('/policies/:policyId/soft', softDeleteClientPolicy);
+router.get('/clients-with-policies', getClientsWithPolicies);
 
 // ============================================
 // SEARCH & FILTER
 // ============================================
-router.get('/policies/search', controller.searchPolicies.bind(controller));
-router.get('/policies/status', controller.getPoliciesByStatus.bind(controller));
+router.get('/policies/search', searchPolicies);
+router.get('/policies/status', getPoliciesByStatus);
 
 // ============================================
 // EXPIRATION & RENEWAL
 // ============================================
-router.get('/policies/expiring', controller.getExpiringPolicies.bind(controller));
-router.post('/policies/:id/renew', controller.renewPolicy.bind(controller));
-router.get('/policies/renewal-candidates', controller.getPolicyRenewalCandidates.bind(controller));
+router.get('/policies/expiring', getExpiringPolicies);
+router.post('/policies/:id/renew', renewPolicy);
+router.get('/policies/renewal-candidates', getPolicyRenewalCandidates);
 
 // ============================================
 // BULK OPERATIONS
 // ============================================
-router.put('/policies/bulk/status', controller.bulkUpdatePolicyStatus.bind(controller));
-router.post('/policies/bulk/create', controller.bulkCreatePolicies.bind(controller));
-router.put('/policies/bulk/update', controller.bulkUpdatePolicies.bind(controller));
-router.post('/policies/bulk/expire', controller.batchExpirePolicies.bind(controller));
+router.put('/policies/bulk/status', bulkUpdatePolicyStatus);
+router.post('/policies/bulk/create', bulkCreatePolicies);
+router.put('/policies/bulk/update', bulkUpdatePolicies);
+router.post('/policies/bulk/expire', batchExpirePolicies);
 
 // ============================================
 // POLICY TEMPLATES
 // ============================================
-router.get('/templates', controller.getPolicyTemplates.bind(controller));
-router.post('/templates', controller.createPolicyTemplate.bind(controller));
-router.put('/templates/:id', controller.updatePolicyTemplate.bind(controller));
-router.delete('/templates/:id', controller.softDeletePolicyTemplate.bind(controller));
+router.get('/templates', getPolicyTemplates);
+router.post('/templates', createPolicyTemplate);
+router.put('/templates/:id', updatePolicyTemplate);
+router.delete('/templates/:templateId/soft', softDeletePolicyTemplate);
 
 // ============================================
 // REFERENCE DATA - INSURANCE COMPANIES
 // ============================================
-router.get('/companies', controller.getInsuranceCompanies.bind(controller));
-router.post('/companies', controller.createInsuranceCompany.bind(controller));
-router.put('/companies/:id', controller.updateInsuranceCompany.bind(controller));
-router.delete('/companies/:companyId', controller.deleteInsuranceCompany.bind(controller));
-router.delete('/companies/:companyId/soft', controller.softDeleteInsuranceCompany.bind(controller));
+router.get('/companies', getInsuranceCompanies);
+router.post('/companies', createInsuranceCompany);
+router.put('/companies/:id', updateInsuranceCompany);
+router.delete('/companies/:companyId', deleteInsuranceCompany);
+router.delete('/companies/:companyId/soft', softDeleteInsuranceCompany);
 
 // ============================================
 // REFERENCE DATA - POLICY TYPES
 // ============================================
-router.get('/types', controller.getPolicyTypes.bind(controller));
-router.post('/types', controller.createPolicyType.bind(controller));
-router.put('/types/:id', controller.updatePolicyType.bind(controller));
-router.delete('/types/:typeId/soft', controller.softDeletePolicyType.bind(controller));  // ✅ Added
+router.get('/types', getPolicyTypes);
+router.post('/types', createPolicyType);
+router.put('/types/:id', updatePolicyType);
+router.delete('/types/:typeId/soft', softDeletePolicyType);
 
 // ============================================
 // REFERENCE DATA - POLICY CATEGORIES
 // ============================================
-router.get('/categories', controller.getPolicyCategories.bind(controller));
-router.post('/categories', controller.createPolicyCategory.bind(controller));
-router.put('/categories/:id', controller.updatePolicyCategory.bind(controller));
-router.delete('/categories/:categoryId/soft', controller.softDeletePolicyCategory.bind(controller));
+router.get('/categories', getPolicyCategories);
+router.post('/categories', createPolicyCategory);
+router.put('/categories/:id', updatePolicyCategory);
+router.delete('/categories/:categoryId/soft', softDeletePolicyCategory);
 
 // ============================================
 // AUTOCOMPLETE ENDPOINTS
 // ============================================
-router.get('/autocomplete/companies', controller.autocompleteInsuranceCompanies.bind(controller));
-router.get('/autocomplete/catalog', controller.autocompletePolicyCatalog.bind(controller));
-router.get('/autocomplete/categories', controller.autocompletePolicyCategories.bind(controller));
-router.get('/autocomplete/templates', controller.autocompletePolicyTemplates.bind(controller));
-router.get('/autocomplete/types', controller.autocompletePolicyTypes.bind(controller));
-router.get('/autocomplete/client-policies', controller.autocompleteClientPolicies.bind(controller));
+router.get('/autocomplete/companies', autocompleteInsuranceCompanies);
+router.get('/autocomplete/catalog', autocompletePolicyCatalog);
+router.get('/autocomplete/categories', autocompletePolicyCategories);
+router.get('/autocomplete/templates', autocompletePolicyTemplates);
+router.get('/autocomplete/types', autocompletePolicyTypes);
+router.get('/autocomplete/client-policies', autocompleteClientPolicies);
 
 // ============================================
 // ANALYTICS & REPORTING
 // ============================================
-router.get('/statistics', controller.getPolicyStatistics.bind(controller));
-router.get('/statistics/detailed', controller.getPolicyStatisticsDetailed.bind(controller));
-router.get('/dashboard/:agentId', controller.getAgentDashboardSummary.bind(controller));
-router.get('/history/:clientId', controller.getPolicyHistory.bind(controller));
+router.get('/statistics', getPolicyStatistics);
+router.get('/statistics/detailed', getPolicyStatisticsDetailed);
+router.get('/dashboard/:agentId', getAgentDashboardSummary);
+router.get('/history/:clientId', getPolicyHistory);
 
 // ============================================
 // VALIDATION
 // ============================================
-router.post('/validate', controller.validatePolicy.bind(controller));
+router.post('/validate', validatePolicy);
 
 // ============================================
 // EXPORT
 // ============================================
-router.get('/export', controller.exportPolicies.bind(controller));
+router.get('/export', exportPolicies);
 
 // ============================================
 // UTILITY
 // ============================================
-router.post('/cleanup/soft-deleted', controller.cleanupSoftDeletedRecords.bind(controller));
+router.post('/cleanup/soft-deleted', cleanupSoftDeletedRecords);
 
 export default router;

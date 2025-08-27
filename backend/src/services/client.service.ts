@@ -1,6 +1,5 @@
 // services/client.service.ts
 import { poolPromise } from '../../db';
-import * as sql from 'mssql';
 import { 
     Client,
     ClientWithPolicy,
@@ -13,7 +12,8 @@ import {
     Birthday,
     Appointment
 } from '../interfaces/client';
-import emailService from '../nodemailer/emailservice'
+import emailService from '../nodemailer/emailservice';
+
 export class ClientService {
 
     /**
@@ -35,23 +35,12 @@ export class ClientService {
         notes?: string
     ): Promise<string> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ClientId', sql.UniqueIdentifier, clientId)
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('FirstName', sql.NVarChar(50), firstName)
-            .input('Surname', sql.NVarChar(50), surname)
-            .input('LastName', sql.NVarChar(50), lastName)
-            .input('PhoneNumber', sql.NVarChar(20), phoneNumber)
-            .input('Email', sql.NVarChar(100), email)
-            .input('Address', sql.NVarChar(500), address)
-            .input('NationalId', sql.NVarChar(20), nationalId)
-            .input('DateOfBirth', sql.Date, dateOfBirth)
-            .input('IsClient', sql.Bit, isClient)
-            .input('InsuranceType', sql.NVarChar(50), insuranceType)
-            .input('Notes', sql.NVarChar(sql.MAX), notes)
-            .execute('sp_UpsertClient');
+        const result = await pool.query(
+            'SELECT * FROM sp_upsert_client($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
+            [clientId, agentId, firstName, surname, lastName, phoneNumber, email, address, nationalId, dateOfBirth, isClient, insuranceType, notes]
+        );
 
-        return result.recordset[0].ClientId;
+        return result.rows[0].client_id;
     }
 
     /**
@@ -64,137 +53,175 @@ export class ClientService {
         insuranceType?: string
     ): Promise<ClientWithPolicy[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('SearchTerm', sql.NVarChar(100), searchTerm)
-            .input('FilterType', sql.NVarChar(20), filterType)
-            .input('InsuranceType', sql.NVarChar(50), insuranceType)
-            .execute('sp_GetClients');
+        const result = await pool.query(
+            'SELECT * FROM sp_get_clients($1, $2, $3, $4)',
+            [agentId, searchTerm, filterType, insuranceType]
+        );
 
-        return result.recordset;
+        return result.rows;
     }
 
     /**
      * Get single client with details
      */
-  public async getClient(
-    clientId: string,
-    agentId: string
-): Promise<{ client: ClientWithPolicy[]; appointments: Appointment[] }> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('ClientId', sql.UniqueIdentifier, clientId)
-        .input('AgentId', sql.UniqueIdentifier, agentId)
-        .execute('sp_GetClient');
+    public async getClient(
+        clientId: string,
+        agentId: string
+    ): Promise<{ client: ClientWithPolicy[]; appointments: Appointment[] }> {
+        const pool = await poolPromise;
+        
+        // Get client details
+        const clientResult = await pool.query(
+            'SELECT * FROM sp_get_client($1, $2)',
+            [clientId, agentId]
+        );
 
-    const recordsets = result.recordsets as sql.IRecordSet<any>[]; // Narrow type
+        // Get appointments
+        const appointmentsResult = await pool.query(
+            'SELECT * FROM sp_get_client_appointments($1, $2)',
+            [clientId, agentId]
+        );
 
-    return {
-        client: recordsets[0] as ClientWithPolicy[],
-        appointments: recordsets[1] as Appointment[],
-    };
-}
-
-
-
-   public async convertToClient(clientId: string, agentId: string): Promise<number> {
-    const pool = await poolPromise;
-
-    try {
-        // 1️⃣ Convert prospect to client in DB
-        const result = await pool.request()
-            .input('ClientId', sql.UniqueIdentifier, clientId)
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_ConvertToClient');
-
-        const rowsAffected = result.recordset[0]?.RowsAffected || 0;
-
-        // 2️⃣ Fetch client info for email
-        const clientResult = await pool.request()
-            .input('ClientId', sql.UniqueIdentifier, clientId)
-            .query(`SELECT FirstName, Surname, LastName, Email FROM Clients WHERE ClientId = @ClientId`);
-        const client = clientResult.recordset[0];
-
-        // 3️⃣ Fetch agent email dynamically
-        const agentResult = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .query(`SELECT FirstName, LastName, Email FROM Agent WHERE AgentId = @AgentId`);
-        const agent = agentResult.recordset[0];
-
-        // 4️⃣ Send email asynchronously (errors do not block function)
-        if (agent?.Email && client) {
-            emailService.sendMail(
-                agent.Email,
-                'Prospect Converted to Client',
-                `Client ${client.FirstName} ${client.Surname} was successfully converted to a client.`,
-                `<h3>Client Conversion</h3>
-                <p>Client Name: ${client.FirstName} ${client.Surname}</p>
-                <p>Email: ${client.Email}</p>
-                <p>Converted By: ${agent.FirstName} ${agent.LastName}</p>
-                <p>Date & Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}</p>`
-            ).catch(err => console.error('Email sending failed (non-blocking):', err));
-        }
-
-        return rowsAffected;
-
-    } catch (error) {
-        console.error('Failed to convert prospect to client:', error);
-        return 0; // return 0 to indicate no rows affected
+        return {
+            client: clientResult.rows,
+            appointments: appointmentsResult.rows,
+        };
     }
-}
 
+    public async convertToClient(clientId: string, agentId: string): Promise<number> {
+        const pool = await poolPromise;
+
+        try {
+            // 1️⃣ Convert prospect to client in DB
+            const result = await pool.query(
+                'SELECT * FROM sp_convert_to_client($1, $2)',
+                [clientId, agentId]
+            );
+
+            const rowsAffected = result.rows[0]?.rows_affected || 0;
+
+            // 2️⃣ Fetch client info for email
+            const clientResult = await pool.query(
+                `SELECT first_name, surname, last_name, email 
+                 FROM clients 
+                 WHERE client_id = $1`,
+                [clientId]
+            );
+            const client = clientResult.rows[0];
+
+            // 3️⃣ Fetch agent email dynamically
+            const agentResult = await pool.query(
+                `SELECT first_name, last_name, email 
+                 FROM agent 
+                 WHERE agent_id = $1`,
+                [agentId]
+            );
+            const agent = agentResult.rows[0];
+
+            // 4️⃣ Send email asynchronously (errors do not block function)
+            if (agent?.email && client) {
+                emailService.sendMail(
+                    agent.email,
+                    'Prospect Converted to Client',
+                    `Client ${client.first_name} ${client.surname} was successfully converted to a client.`,
+                    `<h3>Client Conversion</h3>
+                    <p>Client Name: ${client.first_name} ${client.surname}</p>
+                    <p>Email: ${client.email}</p>
+                    <p>Converted By: ${agent.first_name} ${agent.last_name}</p>
+                    <p>Date & Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}</p>`
+                ).catch(err => console.error('Email sending failed (non-blocking):', err));
+            }
+
+            return rowsAffected;
+
+        } catch (error) {
+            console.error('Failed to convert prospect to client:', error);
+            return 0; // return 0 to indicate no rows affected
+        }
+    }
 
     /**
      * Delete client (soft delete)
      */
     public async deleteClient(clientId: string, agentId: string): Promise<number> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ClientId', sql.UniqueIdentifier, clientId)
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_DeleteClient');
+        const result = await pool.query(
+            'SELECT * FROM sp_delete_client($1, $2)',
+            [clientId, agentId]
+        );
 
-        return result.recordset[0].RowsAffected;
+        return result.rows[0].rows_affected;
     }
 
     /**
      * Get client statistics
      */
-    public async getClientStatistics(agentId: string): Promise<ClientStatistics> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_GetClientStatistics');
+   public async getClientStatistics(agentId: string): Promise<ClientStatistics> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+        'SELECT * FROM sp_get_client_statistics($1)',
+        [agentId]
+    );
 
-        return result.recordset[0];
-    }
-
+    const dbResult = result.rows[0];
+    
+    // Convert BIGINT to number for the interface
+    return {
+        TotalContacts: Number(dbResult.total_contacts),
+        TotalClients: Number(dbResult.total_clients),
+        TotalProspects: Number(dbResult.total_prospects),
+        TodayBirthdays: Number(dbResult.today_birthdays)
+    };
+}
     /**
      * Get today's birthdays
      */
-  public async getTodaysBirthdays(agentId: string): Promise<Birthday[]> {
+   public async getTodaysBirthdays(agentId: string): Promise<Birthday[]> {
     const pool = await poolPromise;
 
     // 1. Fetch today's birthdays
-    const result = await pool.request()
-        .input('AgentId', sql.UniqueIdentifier, agentId)
-        .execute('sp_GetTodayBirthdays');
+    const result = await pool.query(
+        'SELECT * FROM sp_get_today_birthdays($1)',
+        [agentId]
+    );
 
-    const birthdays: Birthday[] = result.recordset;
+    // Map database results to Birthday interface format
+    const birthdays: Birthday[] = result.rows.map(row => ({
+        ClientId: row.client_id,
+        AgentId: agentId,
+        FirstName: row.first_name,
+        Surname: row.surname,
+        LastName: row.last_name,
+        PhoneNumber: row.phone_number,
+        Email: row.email,
+        Address: '', // Not returned by this SP
+        NationalId: '', // Not returned by this SP
+        DateOfBirth: row.date_of_birth,
+        IsClient: true, // Assuming these are clients
+        InsuranceType: row.insurance_type,
+        Notes: '',
+        CreatedDate: new Date(),
+        ModifiedDate: new Date(),
+        IsActive: true,
+        Age: row.age
+    }));
 
     // 2. Fetch agent email dynamically
-    const agentResult = await pool.request()
-        .input('AgentId', sql.UniqueIdentifier, agentId)
-        .query(`SELECT Email, FirstName, LastName FROM Agent WHERE AgentId = @AgentId`);
+    const agentResult = await pool.query(
+        `SELECT email, first_name, last_name 
+         FROM agent 
+         WHERE agent_id = $1`,
+        [agentId]
+    );
 
-    const agent = agentResult.recordset[0];
-    const agentEmail = agent?.Email;
+    const agent = agentResult.rows[0];
+    const agentEmail = agent?.email;
 
     if (birthdays.length > 0 && agentEmail) {
         // 3. Construct email content
-        let emailText = `🎉 Today's Client Birthdays for ${agent.FirstName} ${agent.LastName}:\n\n`;
+        let emailText = `🎉 Today's Client Birthdays for ${agent.first_name} ${agent.last_name}:\n\n`;
         birthdays.forEach(b => {
-            emailText += `• ${b.FirstName} ${b.Surname} (${b.Age} years old) - DOB: ${b.DateOfBirth.toDateString()}\n`;
+            emailText += `• ${b.FirstName} ${b.Surname} (${b.Age} years old) - DOB: ${b.DateOfBirth}\n`;
         });
 
         const subject = `Today's Client Birthdays - ${birthdays.length} 🎂`;
@@ -209,7 +236,8 @@ export class ClientService {
 
     return birthdays;
 }
-  public async sendBirthdayReminders(agentId: string, agentEmail: string) {
+
+    public async sendBirthdayReminders(agentId: string, agentEmail: string) {
     try {
         // 1. Get today's birthdays
         const birthdays: Birthday[] = await this.getTodaysBirthdays(agentId);
@@ -222,7 +250,7 @@ export class ClientService {
         // 2. Construct email content
         let emailText = `🎉 Today's Birthdays for your clients:\n\n`;
         birthdays.forEach(b => {
-            emailText += `• ${b.FirstName} ${b.Surname} (${b.Age} years old) - DOB: ${b.DateOfBirth.toDateString()}\n`;
+            emailText += `• ${b.FirstName} ${b.Surname} (${b.Age} years old) - DOB: ${b.DateOfBirth}\n`;
         });
 
         const subject = `Today's Client Birthdays - ${birthdays.length} 🎂`;
@@ -249,16 +277,12 @@ export class ClientService {
         pageSize: number = 50
     ): Promise<Client[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('SearchTerm', sql.NVarChar(100), searchTerm)
-            .input('InsuranceType', sql.NVarChar(50), insuranceType)
-            .input('IsClient', sql.Bit, isClient)
-            .input('PageNumber', sql.Int, pageNumber)
-            .input('PageSize', sql.Int, pageSize)
-            .execute('sp_GetAllClients');
+        const result = await pool.query(
+            'SELECT * FROM sp_get_all_clients($1, $2, $3, $4, $5, $6)',
+            [agentId, searchTerm, insuranceType, isClient, pageNumber, pageSize]
+        );
 
-        return result.recordset;
+        return result.rows;
     }
 
     /**
@@ -266,12 +290,12 @@ export class ClientService {
      */
     public async searchClients(agentId: string, searchTerm: string): Promise<Client[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('SearchTerm', sql.NVarChar(100), searchTerm)
-            .execute('sp_SearchClients');
+        const result = await pool.query(
+            'SELECT * FROM sp_search_clients($1, $2)',
+            [agentId, searchTerm]
+        );
 
-        return result.recordset;
+        return result.rows;
     }
 
     /**
@@ -282,58 +306,79 @@ export class ClientService {
         insuranceType: string
     ): Promise<Client[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('InsuranceType', sql.NVarChar(50), insuranceType)
-            .execute('sp_GetClientsByInsuranceType');
+        const result = await pool.query(
+            'SELECT * FROM sp_get_clients_by_insurance_type($1, $2)',
+            [agentId, insuranceType]
+        );
 
-        return result.recordset;
+        return result.rows;
     }
 
     /**
      * Get client with full details including policies
      */
     public async getClientWithPolicies(
-    clientId: string,
-    agentId: string
-): Promise<any> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('ClientId', sql.UniqueIdentifier, clientId)
-        .input('AgentId', sql.UniqueIdentifier, agentId)
-        .execute('sp_GetClientWithPolicies');
+        clientId: string,
+        agentId: string
+    ): Promise<any> {
+        const pool = await poolPromise;
+        
+        // Get client details
+        const clientResult = await pool.query(
+            'SELECT * FROM sp_get_client_with_policies_client($1, $2)',
+            [clientId, agentId]
+        );
 
-    const recordsets = result.recordsets as sql.IRecordSet<any>[]; // Narrow to array
+        // Get policies
+        const policiesResult = await pool.query(
+            'SELECT * FROM sp_get_client_with_policies_policies($1, $2)',
+            [clientId, agentId]
+        );
 
-    return {
-        client: recordsets[0]?.[0] || null,
-        policies: recordsets[1] || [],
-        recentAppointments: recordsets[2] || [],
-        activeReminders: recordsets[3] || []
-    };
-}
+        // Get recent appointments
+        const appointmentsResult = await pool.query(
+            'SELECT * FROM sp_get_client_with_policies_appointments($1, $2)',
+            [clientId, agentId]
+        );
+
+        // Get active reminders
+        const remindersResult = await pool.query(
+            'SELECT * FROM sp_get_client_with_policies_reminders($1, $2)',
+            [clientId, agentId]
+        );
+
+        return {
+            client: clientResult.rows[0] || null,
+            policies: policiesResult.rows || [],
+            recentAppointments: appointmentsResult.rows || [],
+            activeReminders: remindersResult.rows || []
+        };
+    }
 
     /**
      * Create new client
      */
     public async createClient(clientData: CreateClientRequest): Promise<ClientResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, clientData.AgentId)
-            .input('FirstName', sql.NVarChar(50), clientData.FirstName)
-            .input('Surname', sql.NVarChar(50), clientData.Surname)
-            .input('LastName', sql.NVarChar(50), clientData.LastName)
-            .input('PhoneNumber', sql.NVarChar(20), clientData.PhoneNumber)
-            .input('Email', sql.NVarChar(100), clientData.Email)
-            .input('Address', sql.NVarChar(500), clientData.Address)
-            .input('NationalId', sql.NVarChar(20), clientData.NationalId)
-            .input('DateOfBirth', sql.Date, clientData.DateOfBirth)
-            .input('IsClient', sql.Bit, clientData.IsClient || false)
-            .input('InsuranceType', sql.NVarChar(50), clientData.InsuranceType)
-            .input('Notes', sql.NVarChar(sql.MAX), clientData.Notes)
-            .execute('sp_CreateClient');
+        const result = await pool.query(
+            'SELECT * FROM sp_create_client($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
+            [
+                clientData.AgentId,
+                clientData.FirstName,
+                clientData.Surname,
+                clientData.LastName,
+                clientData.PhoneNumber,
+                clientData.Email,
+                clientData.Address,
+                clientData.NationalId,
+                clientData.DateOfBirth,
+                clientData.IsClient || false,
+                clientData.InsuranceType,
+                clientData.Notes
+            ]
+        );
 
-        return result.recordset[0];
+        return result.rows[0];
     }
 
     /**
@@ -341,22 +386,25 @@ export class ClientService {
      */
     public async updateClient(clientData: UpdateClientRequest): Promise<ClientResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ClientId', sql.UniqueIdentifier, clientData.ClientId)
-            .input('AgentId', sql.UniqueIdentifier, clientData.AgentId)
-            .input('FirstName', sql.NVarChar(50), clientData.FirstName)
-            .input('Surname', sql.NVarChar(50), clientData.Surname)
-            .input('LastName', sql.NVarChar(50), clientData.LastName)
-            .input('PhoneNumber', sql.NVarChar(20), clientData.PhoneNumber)
-            .input('Email', sql.NVarChar(100), clientData.Email)
-            .input('Address', sql.NVarChar(500), clientData.Address)
-            .input('NationalId', sql.NVarChar(20), clientData.NationalId)
-            .input('DateOfBirth', sql.Date, clientData.DateOfBirth)
-            .input('InsuranceType', sql.NVarChar(50), clientData.InsuranceType)
-            .input('Notes', sql.NVarChar(sql.MAX), clientData.Notes)
-            .execute('sp_UpdateClient');
+        const result = await pool.query(
+            'SELECT * FROM sp_update_client($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
+            [
+                clientData.ClientId,
+                clientData.AgentId,
+                clientData.FirstName,
+                clientData.Surname,
+                clientData.LastName,
+                clientData.PhoneNumber,
+                clientData.Email,
+                clientData.Address,
+                clientData.NationalId,
+                clientData.DateOfBirth,
+                clientData.InsuranceType,
+                clientData.Notes
+            ]
+        );
 
-        return result.recordset[0];
+        return result.rows[0];
     }
 
     /**
@@ -364,11 +412,12 @@ export class ClientService {
      */
     public async getEnhancedClientStatistics(agentId: string): Promise<ClientStatistics> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_GetEnhancedClientStatistics');
+        const result = await pool.query(
+            'SELECT * FROM sp_get_enhanced_client_statistics($1)',
+            [agentId]
+        );
 
-        return result.recordset[0];
+        return result.rows[0];
     }
 
     /**

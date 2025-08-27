@@ -5,7 +5,7 @@ export interface Agent {
     LastName: string;
     Email: string;
     Phone: string;
-    PasswordHash: string;
+    PasswordHash?: string;
     Avatar?: string;
     CreatedDate: Date;
     ModifiedDate: Date;
@@ -44,7 +44,7 @@ export interface LoginResponse {
     Message: string;
     AgentId?: string;
     Token?: string;
-    AgentProfile?: string;
+    AgentProfile?:  AgentProfile;
     StoredPasswordHash?: string;
 }
 

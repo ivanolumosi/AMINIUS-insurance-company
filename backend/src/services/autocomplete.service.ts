@@ -1,5 +1,4 @@
 import { poolPromise } from '../../db';
-import * as sql from 'mssql';
 import { Request, Response } from 'express';
 
 /**
@@ -11,12 +10,13 @@ import { Request, Response } from 'express';
 export const autocompleteCompanies = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request()
-      .query(`SELECT companyId, companyName 
-              FROM InsuranceCompanies 
-              WHERE isActive = 1 
-              ORDER BY companyName`);
-    res.json(result.recordset);
+    const result = await pool.query(
+      `SELECT company_id as "companyId", company_name as "companyName" 
+       FROM insurance_companies 
+       WHERE is_active = true 
+       ORDER BY company_name`
+    );
+    res.json(result.rows);
   } catch (err) {
     console.error('Error fetching companies', err);
     res.status(500).json({ error: 'Failed to fetch companies' });
@@ -27,12 +27,13 @@ export const autocompleteCompanies = async (req: Request, res: Response) => {
 export const autocompleteTypes = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request()
-      .query(`SELECT typeId, typeName 
-              FROM PolicyTypes 
-              WHERE isActive = 1 
-              ORDER BY typeName`);
-    res.json(result.recordset);
+    const result = await pool.query(
+      `SELECT type_id as "typeId", type_name as "typeName" 
+       FROM policy_types 
+       WHERE is_active = true 
+       ORDER BY type_name`
+    );
+    res.json(result.rows);
   } catch (err) {
     console.error('Error fetching types', err);
     res.status(500).json({ error: 'Failed to fetch policy types' });
@@ -43,56 +44,67 @@ export const autocompleteTypes = async (req: Request, res: Response) => {
 export const autocompleteCategories = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request()
-      .query(`SELECT categoryId, categoryName 
-              FROM PolicyCategories 
-              WHERE isActive = 1 
-              ORDER BY categoryName`);
-    res.json(result.recordset);
+    const result = await pool.query(
+      `SELECT category_id as "categoryId", category_name as "categoryName" 
+       FROM policy_categories 
+       WHERE is_active = true 
+       ORDER BY category_name`
+    );
+    res.json(result.rows);
   } catch (err) {
     console.error('Error fetching categories', err);
     res.status(500).json({ error: 'Failed to fetch categories' });
   }
 };
 
-
-
-
 /**
  * -------- DYNAMIC AUTOCOMPLETE --------
  * Depends on filters from query params.
  */
+
 // Policy Catalog
 export const autocompleteCatalog = async (req: Request, res: Response) => {
   const { agentId, companyId, typeId, searchTerm } = req.query;
   try {
     const pool = await poolPromise;
-    const request = pool.request();
+    
+    let query = `
+      SELECT policy_catalog_id as "policyCatalogId", policy_name as "policyName"
+      FROM policy_catalog
+      WHERE is_active = true
+    `;
+    
+    const params: any[] = [];
+    let paramCount = 0;
 
-    if (agentId) request.input('agentId', sql.UniqueIdentifier, agentId);
-    if (companyId) request.input('companyId', sql.UniqueIdentifier, companyId);
-    if (typeId) request.input('typeId', sql.UniqueIdentifier, typeId);
-
-    if (searchTerm && typeof searchTerm === 'string') {
-      const cleanTerm = `%${searchTerm.trim()}%`;
-      request.input('searchTerm', sql.NVarChar, cleanTerm);
+    if (agentId) {
+      paramCount++;
+      query += ` AND agent_id = $${paramCount}`;
+      params.push(agentId);
     }
 
-    let query = `
-      SELECT policyCatalogId, policyName
-      FROM PolicyCatalog
-      WHERE isActive = 1
-    `;
+    if (companyId) {
+      paramCount++;
+      query += ` AND company_id = $${paramCount}`;
+      params.push(companyId);
+    }
 
-    if (agentId) query += ' AND agentId = @agentId';
-    if (companyId) query += ' AND companyId = @companyId';
-    if (typeId) query += ' AND typeId = @typeId';
-    if (searchTerm) query += ' AND policyName COLLATE SQL_Latin1_General_CP1_CI_AS LIKE @searchTerm';
+    if (typeId) {
+      paramCount++;
+      query += ` AND type_id = $${paramCount}`;
+      params.push(typeId);
+    }
 
-    query += ' ORDER BY policyName';
+    if (searchTerm && typeof searchTerm === 'string') {
+      paramCount++;
+      query += ` AND policy_name ILIKE $${paramCount}`;
+      params.push(`%${searchTerm.trim()}%`);
+    }
 
-    const result = await request.query(query);
-    res.json(result.recordset);
+    query += ' ORDER BY policy_name';
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
   } catch (err) {
     console.error('Error fetching catalog autocomplete', err);
     res.status(500).json({ error: 'Failed to fetch catalog' });
@@ -104,32 +116,44 @@ export const autocompleteTemplates = async (req: Request, res: Response) => {
   const { agentId, typeId, categoryId, searchTerm } = req.query;
   try {
     const pool = await poolPromise;
-    const request = pool.request();
+    
+    let query = `
+      SELECT template_id as "templateId", template_name as "templateName"
+      FROM policy_templates
+      WHERE is_active = true
+    `;
+    
+    const params: any[] = [];
+    let paramCount = 0;
 
-    if (agentId) request.input('agentId', sql.UniqueIdentifier, agentId);
-    if (typeId) request.input('typeId', sql.UniqueIdentifier, typeId);
-    if (categoryId) request.input('categoryId', sql.UniqueIdentifier, categoryId);
-
-    if (searchTerm && typeof searchTerm === 'string') {
-      const cleanTerm = `%${searchTerm.trim()}%`;
-      request.input('searchTerm', sql.NVarChar, cleanTerm);
+    if (agentId) {
+      paramCount++;
+      query += ` AND agent_id = $${paramCount}`;
+      params.push(agentId);
     }
 
-    let query = `
-      SELECT templateId, templateName
-      FROM PolicyTemplates
-      WHERE isActive = 1
-    `;
+    if (typeId) {
+      paramCount++;
+      query += ` AND type_id = $${paramCount}`;
+      params.push(typeId);
+    }
 
-    if (agentId) query += ' AND agentId = @agentId';
-    if (typeId) query += ' AND typeId = @typeId';
-    if (categoryId) query += ' AND categoryId = @categoryId';
-    if (searchTerm) query += ' AND templateName COLLATE SQL_Latin1_General_CP1_CI_AS LIKE @searchTerm';
+    if (categoryId) {
+      paramCount++;
+      query += ` AND category_id = $${paramCount}`;
+      params.push(categoryId);
+    }
 
-    query += ' ORDER BY templateName';
+    if (searchTerm && typeof searchTerm === 'string') {
+      paramCount++;
+      query += ` AND template_name ILIKE $${paramCount}`;
+      params.push(`%${searchTerm.trim()}%`);
+    }
 
-    const result = await request.query(query);
-    res.json(result.recordset);
+    query += ' ORDER BY template_name';
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
   } catch (err) {
     console.error('Error fetching template autocomplete', err);
     res.status(500).json({ error: 'Failed to fetch templates' });
@@ -141,30 +165,38 @@ export const autocompleteClientPolicies = async (req: Request, res: Response) =>
   const { clientId, agentId, searchTerm } = req.query;
   try {
     const pool = await poolPromise;
-    const request = pool.request();
+    
+    let query = `
+      SELECT policy_id as "policyId", policy_name as "policyName"
+      FROM client_policies
+      WHERE is_active = true
+    `;
+    
+    const params: any[] = [];
+    let paramCount = 0;
 
-    if (clientId) request.input('clientId', sql.UniqueIdentifier, clientId);
-    if (agentId) request.input('agentId', sql.UniqueIdentifier, agentId);
-
-    if (searchTerm && typeof searchTerm === 'string') {
-      const cleanTerm = `%${searchTerm.trim()}%`;
-      request.input('searchTerm', sql.NVarChar, cleanTerm);
+    if (clientId) {
+      paramCount++;
+      query += ` AND client_id = $${paramCount}`;
+      params.push(clientId);
     }
 
-    let query = `
-      SELECT policyId, policyName
-      FROM ClientPolicies
-      WHERE isActive = 1
-    `;
+    if (agentId) {
+      paramCount++;
+      query += ` AND agent_id = $${paramCount}`;
+      params.push(agentId);
+    }
 
-    if (clientId) query += ' AND clientId = @clientId';
-    if (agentId) query += ' AND agentId = @agentId';
-    if (searchTerm) query += ' AND policyName COLLATE SQL_Latin1_General_CP1_CI_AS LIKE @searchTerm';
+    if (searchTerm && typeof searchTerm === 'string') {
+      paramCount++;
+      query += ` AND policy_name ILIKE $${paramCount}`;
+      params.push(`%${searchTerm.trim()}%`);
+    }
 
-    query += ' ORDER BY policyName';
+    query += ' ORDER BY policy_name';
 
-    const result = await request.query(query);
-    res.json(result.recordset);
+    const result = await pool.query(query, params);
+    res.json(result.rows);
   } catch (err) {
     console.error('Error fetching client policies autocomplete', err);
     res.status(500).json({ error: 'Failed to fetch client policies' });

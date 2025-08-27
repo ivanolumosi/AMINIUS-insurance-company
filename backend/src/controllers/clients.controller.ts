@@ -45,27 +45,29 @@ export class ClientController {
 
             res.json({ success: true, clientId: id });
         } catch (err: any) {
+            console.error('Upsert client error:', err);
             res.status(500).json({ success: false, error: err.message });
         }
     }
 
     async getAll(req: Request, res: Response) {
-  try {
-    const { agentId } = req.params;
-    const { searchTerm, filterType, insuranceType } = req.query;
+        try {
+            const { agentId } = req.params;
+            const { searchTerm, filterType, insuranceType } = req.query;
 
-    const clients = await this.service.getClients(
-      agentId,
-      searchTerm as string,
-      (filterType as any) || 'all',
-      insuranceType as string
-    );
+            const clients = await this.service.getClients(
+                agentId,
+                searchTerm as string,
+                (filterType as any) || 'all',
+                insuranceType as string
+            );
 
-    res.json(clients || []); // ✅ Always return array
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-}
+            res.json(clients || []); // ✅ Always return array
+        } catch (err: any) {
+            console.error('Get all clients error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
 
     async getById(req: Request, res: Response) {
         try {
@@ -73,6 +75,7 @@ export class ClientController {
             const data = await this.service.getClient(clientId, agentId);
             res.json(data);
         } catch (err: any) {
+            console.error('Get client by ID error:', err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -83,6 +86,7 @@ export class ClientController {
             const rows = await this.service.convertToClient(clientId, agentId);
             res.json({ success: rows > 0 });
         } catch (err: any) {
+            console.error('Convert client error:', err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -93,28 +97,32 @@ export class ClientController {
             const rows = await this.service.deleteClient(clientId, agentId);
             res.json({ success: rows > 0 });
         } catch (err: any) {
+            console.error('Delete client error:', err);
             res.status(500).json({ error: err.message });
         }
     }
-async statistics(req: Request, res: Response) {
-  try {
-    const { agentId } = req.params;
-    const stats = await this.service.getClientStatistics(agentId);
-    res.json(stats || {}); // ✅ Always return object
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-}
 
-async birthdays(req: Request, res: Response) {
-  try {
-    const { agentId } = req.params;
-    const data = await this.service.getTodaysBirthdays(agentId);
-    res.json(data || []); // ✅ Always return array
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-}
+    async statistics(req: Request, res: Response) {
+        try {
+            const { agentId } = req.params;
+            const stats = await this.service.getClientStatistics(agentId);
+            res.json(stats || {}); // ✅ Always return object
+        } catch (err: any) {
+            console.error('Get client statistics error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+
+    async birthdays(req: Request, res: Response) {
+        try {
+            const { agentId } = req.params;
+            const data = await this.service.getTodaysBirthdays(agentId);
+            res.json(data || []); // ✅ Always return array
+        } catch (err: any) {
+            console.error('Get birthdays error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
 
     async allClientsPaginated(req: Request, res: Response) {
         try {
@@ -128,8 +136,9 @@ async birthdays(req: Request, res: Response) {
                 Number(pageNumber) || 1,
                 Number(pageSize) || 50
             );
-            res.json(clients);
+            res.json(clients || []);
         } catch (err: any) {
+            console.error('Get all clients paginated error:', err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -139,8 +148,9 @@ async birthdays(req: Request, res: Response) {
             const { agentId } = req.params;
             const { searchTerm } = req.query;
             const results = await this.service.searchClients(agentId, searchTerm as string);
-            res.json(results);
+            res.json(results || []);
         } catch (err: any) {
+            console.error('Search clients error:', err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -149,8 +159,9 @@ async birthdays(req: Request, res: Response) {
         try {
             const { agentId, insuranceType } = req.params;
             const clients = await this.service.getClientsByInsuranceType(agentId, insuranceType);
-            res.json(clients);
+            res.json(clients || []);
         } catch (err: any) {
+            console.error('Get clients by insurance type error:', err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -161,6 +172,7 @@ async birthdays(req: Request, res: Response) {
             const data = await this.service.getClientWithPolicies(clientId, agentId);
             res.json(data);
         } catch (err: any) {
+            console.error('Get client with policies error:', err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -170,6 +182,7 @@ async birthdays(req: Request, res: Response) {
             const client = await this.service.createClient(req.body);
             res.json(client);
         } catch (err: any) {
+            console.error('Create client error:', err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -179,6 +192,7 @@ async birthdays(req: Request, res: Response) {
             const client = await this.service.updateClient(req.body);
             res.json(client);
         } catch (err: any) {
+            console.error('Update client error:', err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -187,8 +201,9 @@ async birthdays(req: Request, res: Response) {
         try {
             const { agentId } = req.params;
             const stats = await this.service.getEnhancedClientStatistics(agentId);
-            res.json(stats);
+            res.json(stats || {});
         } catch (err: any) {
+            console.error('Get enhanced statistics error:', err);
             res.status(500).json({ error: err.message });
         }
     }

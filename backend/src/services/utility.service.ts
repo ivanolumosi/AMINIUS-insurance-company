@@ -1,6 +1,5 @@
 // services/utility.service.ts
 import { poolPromise } from '../../db';
-import * as sql from 'mssql';
 import {
     ValidationResult,
     NationalIdValidationResult,
@@ -29,11 +28,8 @@ export class ValidationService {
      */
     public async validateEmail(email: string): Promise<ValidationResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Email', sql.NVarChar(100), email)
-            .execute('sp_ValidateEmail');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_validate_email($1)', [email]);
+        return result.rows[0];
     }
 
     /**
@@ -41,11 +37,8 @@ export class ValidationService {
      */
     public async validateNationalId(nationalId: string): Promise<NationalIdValidationResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('NationalId', sql.NVarChar(20), nationalId)
-            .execute('sp_ValidateNationalId');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_validate_national_id($1)', [nationalId]);
+        return result.rows[0];
     }
 
     /**
@@ -53,18 +46,11 @@ export class ValidationService {
      */
     public async validateDate(dateValue: string, minDate?: string, maxDate?: string): Promise<ValidationResult> {
         const pool = await poolPromise;
-        const request = pool.request()
-            .input('DateValue', sql.Date, dateValue);
-
-        if (minDate) {
-            request.input('MinDate', sql.Date, minDate);
-        }
-        if (maxDate) {
-            request.input('MaxDate', sql.Date, maxDate);
-        }
-
-        const result = await request.execute('sp_ValidateDate');
-        return result.recordset[0];
+        const result = await pool.query(
+            'SELECT * FROM sp_validate_date($1, $2, $3)', 
+            [dateValue, minDate || null, maxDate || null]
+        );
+        return result.rows[0];
     }
 
     /**
@@ -72,12 +58,8 @@ export class ValidationService {
      */
     public async validateTimeRange(startTime: string, endTime: string): Promise<ValidationResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('StartTime', sql.Time, startTime)
-            .input('EndTime', sql.Time, endTime)
-            .execute('sp_ValidateTimeRange');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_validate_time_range($1, $2)', [startTime, endTime]);
+        return result.rows[0];
     }
 
     /**
@@ -85,11 +67,8 @@ export class ValidationService {
      */
     public async checkDataIntegrity(agentId: string): Promise<DataIntegrityIssue[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_CheckDataIntegrity');
-
-        return result.recordset;
+        const result = await pool.query('SELECT * FROM sp_check_data_integrity($1)', [agentId]);
+        return result.rows;
     }
 
     /**
@@ -97,12 +76,8 @@ export class ValidationService {
      */
     public async formatPhoneNumber(phoneNumber: string, countryCode: string = '+254'): Promise<PhoneNumberFormatResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PhoneNumber', sql.NVarChar(20), phoneNumber)
-            .input('CountryCode', sql.NVarChar(5), countryCode)
-            .execute('sp_FormatPhoneNumber');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_format_phone_number($1, $2)', [phoneNumber, countryCode]);
+        return result.rows[0];
     }
 }
 
@@ -112,10 +87,8 @@ export class UtilityService {
      */
     public async getGreeting(): Promise<GreetingResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .execute('sp_GetGreeting');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_get_greeting()');
+        return result.rows[0];
     }
 
     /**
@@ -123,27 +96,18 @@ export class UtilityService {
      */
     public async parseTemplate(template: string, data?: TemplateData): Promise<ParsedTemplateResult> {
         const pool = await poolPromise;
-        const request = pool.request()
-            .input('Template', sql.NVarChar(sql.MAX), template);
-
-        if (data?.ClientName) {
-            request.input('ClientName', sql.NVarChar(150), data.ClientName);
-        }
-        if (data?.AgentName) {
-            request.input('AgentName', sql.NVarChar(100), data.AgentName);
-        }
-        if (data?.PolicyType) {
-            request.input('PolicyType', sql.NVarChar(50), data.PolicyType);
-        }
-        if (data?.ExpiryDate) {
-            request.input('ExpiryDate', sql.Date, data.ExpiryDate);
-        }
-        if (data?.CompanyName) {
-            request.input('CompanyName', sql.NVarChar(100), data.CompanyName);
-        }
-
-        const result = await request.execute('sp_ParseTemplate');
-        return result.recordset[0];
+        const result = await pool.query(
+            'SELECT * FROM sp_parse_template($1, $2, $3, $4, $5, $6)',
+            [
+                template,
+                data?.ClientName || null,
+                data?.AgentName || null,
+                data?.PolicyType || null,
+                data?.ExpiryDate || null,
+                data?.CompanyName || null
+            ]
+        );
+        return result.rows[0];
     }
 
     /**
@@ -151,11 +115,8 @@ export class UtilityService {
      */
     public async generateRandomPassword(length: number = 12): Promise<RandomPasswordResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Length', sql.Int, length)
-            .execute('sp_GenerateRandomPassword');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_generate_random_password($1)', [length]);
+        return result.rows[0];
     }
 
     /**
@@ -163,67 +124,44 @@ export class UtilityService {
      */
     public async calculateAge(dateOfBirth: string): Promise<number> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('DateOfBirth', sql.Date, dateOfBirth)
-            .query('SELECT dbo.fn_CalculateAge(@DateOfBirth) AS Age');
-
-        return result.recordset[0].Age;
+        const result = await pool.query('SELECT fn_calculate_age($1) AS age', [dateOfBirth]);
+        return result.rows[0].age;
     }
 
     public async daysUntilExpiry(expiryDate: string): Promise<number> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ExpiryDate', sql.Date, expiryDate)
-            .query('SELECT dbo.fn_DaysUntilExpiry(@ExpiryDate) AS DaysUntil');
-
-        return result.recordset[0].DaysUntil;
+        const result = await pool.query('SELECT fn_days_until_expiry($1) AS days_until', [expiryDate]);
+        return result.rows[0].days_until;
     }
 
     public async formatClientName(firstName: string, surname: string, lastName?: string): Promise<string> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('FirstName', sql.NVarChar(50), firstName)
-            .input('Surname', sql.NVarChar(50), surname)
-            .input('LastName', sql.NVarChar(50), lastName)
-            .query('SELECT dbo.fn_FormatClientName(@FirstName, @Surname, @LastName) AS FormattedName');
-
-        return result.recordset[0].FormattedName;
+        const result = await pool.query('SELECT fn_format_client_name($1, $2, $3) AS formatted_name', [firstName, surname, lastName || null]);
+        return result.rows[0].formatted_name;
     }
 
     public async formatCurrency(amount: number): Promise<string> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Amount', sql.Decimal(10, 2), amount)
-            .query('SELECT dbo.fn_FormatCurrency(@Amount) AS FormattedCurrency');
-
-        return result.recordset[0].FormattedCurrency;
+        const result = await pool.query('SELECT fn_format_currency($1) AS formatted_currency', [amount]);
+        return result.rows[0].formatted_currency;
     }
 
     public async getStatusColor(status: string): Promise<string> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Status', sql.NVarChar(20), status)
-            .query('SELECT dbo.fn_GetStatusColor(@Status) AS StatusColor');
-
-        return result.recordset[0].StatusColor;
+        const result = await pool.query('SELECT fn_get_status_color($1) AS status_color', [status]);
+        return result.rows[0].status_color;
     }
 
     public async getPriorityColor(priority: string): Promise<string> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Priority', sql.NVarChar(10), priority)
-            .query('SELECT dbo.fn_GetPriorityColor(@Priority) AS PriorityColor');
-
-        return result.recordset[0].PriorityColor;
+        const result = await pool.query('SELECT fn_get_priority_color($1) AS priority_color', [priority]);
+        return result.rows[0].priority_color;
     }
 
     public async getAppointmentTypeIcon(type: string): Promise<string> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Type', sql.NVarChar(50), type)
-            .query('SELECT dbo.fn_GetAppointmentTypeIcon(@Type) AS TypeIcon');
-
-        return result.recordset[0].TypeIcon;
+        const result = await pool.query('SELECT fn_get_appointment_type_icon($1) AS type_icon', [type]);
+        return result.rows[0].type_icon;
     }
 }
 
@@ -233,14 +171,8 @@ export class NotificationService {
      */
     public async sendEmailNotification(agentId: string, toEmail: string, subject: string, body: string): Promise<NotificationResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('ToEmail', sql.NVarChar(200), toEmail)
-            .input('Subject', sql.NVarChar(200), subject)
-            .input('Body', sql.NVarChar(sql.MAX), body)
-            .execute('sp_SendEmailNotification');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_send_email_notification($1, $2, $3, $4)', [agentId, toEmail, subject, body]);
+        return result.rows[0];
     }
 
     /**
@@ -248,13 +180,8 @@ export class NotificationService {
      */
     public async sendSMSNotification(agentId: string, phoneNumber: string, message: string): Promise<NotificationResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('PhoneNumber', sql.NVarChar(20), phoneNumber)
-            .input('Message', sql.NVarChar(sql.MAX), message)
-            .execute('sp_SendSMSNotification');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_send_sms_notification($1, $2, $3)', [agentId, phoneNumber, message]);
+        return result.rows[0];
     }
 
     /**
@@ -262,13 +189,8 @@ export class NotificationService {
      */
     public async sendWhatsAppNotification(agentId: string, phoneNumber: string, message: string): Promise<NotificationResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('PhoneNumber', sql.NVarChar(20), phoneNumber)
-            .input('Message', sql.NVarChar(sql.MAX), message)
-            .execute('sp_SendWhatsAppNotification');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_send_whatsapp_notification($1, $2, $3)', [agentId, phoneNumber, message]);
+        return result.rows[0];
     }
 
     /**
@@ -276,13 +198,8 @@ export class NotificationService {
      */
     public async sendPushNotification(agentId: string, title: string, body: string): Promise<NotificationResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('Title', sql.NVarChar(200), title)
-            .input('Body', sql.NVarChar(sql.MAX), body)
-            .execute('sp_SendPushNotification');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_send_push_notification($1, $2, $3)', [agentId, title, body]);
+        return result.rows[0];
     }
 
     /**
@@ -295,18 +212,13 @@ export class NotificationService {
         recipient: string,
         body: string,
         subject?: string
-    ): Promise<{ NotificationId: string }> {
+    ): Promise<{ notification_id: string }> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('ScheduledTime', sql.DateTime2, scheduledTime)
-            .input('NotificationType', sql.NVarChar(20), notificationType)
-            .input('Recipient', sql.NVarChar(200), recipient)
-            .input('Subject', sql.NVarChar(200), subject)
-            .input('Body', sql.NVarChar(sql.MAX), body)
-            .execute('sp_ScheduleNotification');
-
-        return result.recordset[0];
+        const result = await pool.query(
+            'SELECT * FROM sp_schedule_notification($1, $2, $3, $4, $5, $6)',
+            [agentId, scheduledTime, notificationType, recipient, subject || null, body]
+        );
+        return result.rows[0];
     }
 
     /**
@@ -314,12 +226,8 @@ export class NotificationService {
      */
     public async cancelScheduledNotification(notificationId: string, agentId: string): Promise<CancelNotificationResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('NotificationId', sql.UniqueIdentifier, notificationId)
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_CancelScheduledNotification');
-
-        return result.recordset[0];
+        const result = await pool.query('SELECT * FROM sp_cancel_scheduled_notification($1, $2)', [notificationId, agentId]);
+        return result.rows[0];
     }
 
     /**
@@ -327,50 +235,50 @@ export class NotificationService {
      */
     public async processScheduledNotifications(): Promise<ScheduledNotification[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .execute('sp_ProcessScheduledNotifications');
-
-        return result.recordset;
+        const result = await pool.query('SELECT * FROM sp_process_scheduled_notifications()');
+        return result.rows;
     }
 
-public async getNotificationHistory(
-    agentId: string,
-    options?: NotificationHistoryRequest
-): Promise<NotificationHistoryResult> {
-    const pool = await poolPromise;
-    const request = pool.request()
-        .input('AgentId', sql.UniqueIdentifier, agentId);
+    /**
+     * Get notification history
+     */
+    public async getNotificationHistory(
+        agentId: string,
+        options?: NotificationHistoryRequest
+    ): Promise<NotificationHistoryResult> {
+        const pool = await poolPromise;
+        
+        // First query for notifications
+        const notificationsResult = await pool.query(
+            'SELECT * FROM sp_get_notification_history($1, $2, $3, $4, $5, $6, $7)',
+            [
+                agentId,
+                options?.StartDate || null,
+                options?.EndDate || null,
+                options?.NotificationType || null,
+                options?.Status || null,
+                options?.PageSize || null,
+                options?.PageNumber || null
+            ]
+        );
 
-    if (options?.StartDate) {
-        request.input('StartDate', sql.Date, options.StartDate);
-    }
-    if (options?.EndDate) {
-        request.input('EndDate', sql.Date, options.EndDate);
-    }
-    if (options?.NotificationType) {
-        request.input('NotificationType', sql.NVarChar(20), options.NotificationType);
-    }
-    if (options?.Status) {
-        request.input('Status', sql.NVarChar(20), options.Status);
-    }
-    if (options?.PageSize) {
-        request.input('PageSize', sql.Int, options.PageSize);
-    }
-    if (options?.PageNumber) {
-        request.input('PageNumber', sql.Int, options.PageNumber);
-    }
+        // Second query for total count
+        const countResult = await pool.query(
+            'SELECT * FROM sp_get_notification_history_count($1, $2, $3, $4, $5)',
+            [
+                agentId,
+                options?.StartDate || null,
+                options?.EndDate || null,
+                options?.NotificationType || null,
+                options?.Status || null
+            ]
+        );
 
-    const result = await request.execute('sp_GetNotificationHistory');
-
-    // Narrow type so TS knows it's an array
-    const recordsets = result.recordsets as sql.IRecordSet<any>[];
-
-    return {
-        notifications: recordsets[0],
-        totalRecords: recordsets[1]?.[0]?.TotalRecords ?? 0
-    };
-}
-
+        return {
+            notifications: notificationsResult.rows,
+            totalRecords: countResult.rows[0]?.total_records || 0
+        };
+    }
 
     /**
      * Update notification status
@@ -381,13 +289,11 @@ public async getNotificationHistory(
         errorMessage?: string
     ): Promise<UpdateNotificationStatusResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('NotificationId', sql.UniqueIdentifier, notificationId)
-            .input('Status', sql.NVarChar(20), status)
-            .input('ErrorMessage', sql.NVarChar(500), errorMessage)
-            .execute('sp_UpdateNotificationStatus');
-
-        return result.recordset[0];
+        const result = await pool.query(
+            'SELECT * FROM sp_update_notification_status($1, $2, $3)',
+            [notificationId, status, errorMessage || null]
+        );
+        return result.rows[0];
     }
 }
 

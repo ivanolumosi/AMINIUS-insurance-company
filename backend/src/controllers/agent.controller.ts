@@ -25,6 +25,7 @@ export const upsertAgentProfile = async (req: Request, res: Response) => {
     );
     res.json({ agentId: newAgentId });
   } catch (err) {
+    console.error("❌ Error upserting agent:", err);
     res.status(500).json({ error: "Failed to upsert agent" });
   }
 };
@@ -35,6 +36,7 @@ export const getAgentProfile = async (req: Request, res: Response) => {
     if (!agent) return res.status(404).json({ error: "Agent not found" });
     res.json(agent);
   } catch (err) {
+    console.error("❌ Error getting agent profile:", err);
     res.status(500).json({ error: "Failed to get agent" });
   }
 };
@@ -44,6 +46,7 @@ export const updateAgentSettings = async (req: Request, res: Response) => {
     await agentService.updateAgentSettings(req.params.agentId, req.body);
     res.json({ message: "Settings updated successfully" });
   } catch (err) {
+    console.error("❌ Error updating agent settings:", err);
     res.status(500).json({ error: "Failed to update settings" });
   }
 };
@@ -55,6 +58,7 @@ export const authenticateAgent = async (req: Request, res: Response) => {
     if (!agent) return res.status(404).json({ error: "Agent not found" });
     res.json(agent);
   } catch (err) {
+    console.error("❌ Error authenticating agent:", err);
     res.status(500).json({ error: "Failed to authenticate" });
   }
 };
@@ -65,6 +69,7 @@ export const loginAgent = async (req: Request, res: Response) => {
     const result = await agentService.loginAgent(email, password);
     res.json(result);
   } catch (err) {
+    console.error("❌ Error logging in:", err);
     res.status(500).json({ error: "Login failed" });
   }
 };
@@ -74,6 +79,7 @@ export const registerAgent = async (req: Request, res: Response) => {
     const result = await agentService.registerAgent(req.body);
     res.json(result);
   } catch (err) {
+    console.error("❌ Error registering agent:", err);
     res.status(500).json({ error: "Registration failed" });
   }
 };
@@ -88,6 +94,7 @@ export const changeAgentPassword = async (req: Request, res: Response) => {
     );
     res.json(result);
   } catch (err) {
+    console.error("❌ Error changing password:", err);
     res.status(500).json({ error: "Failed to change password" });
   }
 };
@@ -98,6 +105,7 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
     const result = await agentService.requestPasswordReset(email);
     res.json(result);
   } catch (err) {
+    console.error("❌ Error requesting password reset:", err);
     res.status(500).json({ error: "Failed to request password reset" });
   }
 };
@@ -111,7 +119,19 @@ export const resetAgentPassword = async (req: Request, res: Response) => {
     );
     res.json(result);
   } catch (err) {
+    console.error("❌ Error resetting password:", err);
     res.status(500).json({ error: "Failed to reset password" });
+  }
+};
+
+export const sendTemporaryPassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    const result = await agentService.sendTemporaryPassword(email);
+    res.json(result);
+  } catch (err) {
+    console.error("❌ Error sending temporary password:", err);
+    res.status(500).json({ error: "Failed to send temporary password" });
   }
 };
 
@@ -120,6 +140,7 @@ export const getInsuranceCompanies = async (_req: Request, res: Response) => {
     const companies = await agentService.getInsuranceCompanies();
     res.json(companies);
   } catch (err) {
+    console.error("❌ Error getting insurance companies:", err);
     res.status(500).json({ error: "Failed to get insurance companies" });
   }
 };
@@ -129,16 +150,18 @@ export const getPolicyTypes = async (_req: Request, res: Response) => {
     const types = await agentService.getPolicyTypes();
     res.json(types);
   } catch (err) {
+    console.error("❌ Error getting policy types:", err);
     res.status(500).json({ error: "Failed to get policy types" });
   }
 };
+
 export const getNavbarBadgeCounts = async (req: Request, res: Response) => {
   try {
     const { agentId } = req.params;
     const counts = await agentService.getNavbarBadgeCounts(agentId);
     res.json(counts);
   } catch (err) {
-    console.error("Error getting navbar badge counts:", err);
+    console.error("❌ Error getting navbar badge counts:", err);
     res.status(500).json({ error: "Failed to get navbar badge counts" });
   }
 };

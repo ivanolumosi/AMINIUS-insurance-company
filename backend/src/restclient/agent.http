@@ -13,7 +13,7 @@ Content-Type: application/json
 }
 
 ### 2. Get Agent Profile
-GET http://localhost:3000/api/agent/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD
+GET http://localhost:3000/api/agent/7b407c2d-3145-40b0-8c47-1d6f62351b2c
 
 ### 3. Update Agent Settings
 PUT http://localhost:3000/api/agent/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD/settings
@@ -33,7 +33,7 @@ POST http://localhost:3000/api/agent/authenticate
 Content-Type: application/json
 
 {
-  "email": "john@example.com"
+  "email": "ivanolumosi@gmail.com"
 }
 
 ### 5. Login Agent
@@ -41,8 +41,8 @@ POST http://localhost:3000/api/agent/login
 Content-Type: application/json
 
 {
-  "email": "john@example.com",
-  "password": "plaintextpassword"
+  "email": "ivanolumosi@gmail.com",
+  "password": "securepass123"
 }
 
 ### 6. Register Agent
@@ -52,7 +52,7 @@ Content-Type: application/json
 {
   "FirstName": "Ivan",
   "LastName": "olumosi",
-  "Email": "ivanolumosi@gmail.com",
+  "Email": "ivan1olumosi@gmail.com",
   "Phone": "0748706470",
   "PasswordHash": "SecurePass1234",
   "Avatar": "https://example.com/avatar2.jpg"
@@ -91,5 +91,5 @@ GET http://localhost:3000/api/policy-types
 
 
 ### Get Navbar Badge Counts
-GET http://localhost:3000/api/agent/730080DD-742C-4934-8974-30AC3495E468/navbar-counts
+GET http://localhost:3000/api/agent/7b407c2d-3145-40b0-8c47-1d6f62351b2c/navbar-counts
 Content-Type: application/json

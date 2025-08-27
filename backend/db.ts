@@ -1,32 +1,44 @@
 // db.ts
-import sql from 'mssql';
+import { Pool, PoolClient } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const dbConfig: sql.config = {
+const dbConfig = {
     user: process.env.DB_USER as string,
     password: process.env.DB_PASSWORD as string,
-    server: process.env.DB_SERVER as string,
+    host: process.env.DB_SERVER as string,
     database: process.env.DB_DATABASE as string,
-    pool: {
-        max: 10,
-        min: 0,
-        idleTimeoutMillis: 30000,
-    },
-    options: {
-        encrypt: false,
-        trustServerCertificate: true,
-    },
+    port: 5432,
+    max: 10, // max number of clients in the pool
+    min: 0,  // min number of clients in the pool
+    idleTimeoutMillis: 30000,
+    ssl: {
+        require: true,
+        rejectUnauthorized: false
+    }
 };
 
-let pool: sql.ConnectionPool | null = null;
+// Alternative: Use connection string directly
+// const dbConfig = {
+//     connectionString: process.env.DATABASE_URL as string,
+//     ssl: {
+//         require: true,
+//         rejectUnauthorized: false
+//     }
+// };
 
-export async function getDbPool(): Promise<sql.ConnectionPool> {
+let pool: Pool | null = null;
+
+export async function getDbPool(): Promise<Pool> {
     try {
         if (!pool) {
-            pool = await sql.connect(dbConfig);
+            pool = new Pool(dbConfig);
+            
+            // Test the connection
+            const client = await pool.connect();
             console.log('✅ Database connected successfully');
+            client.release();
         }
         return pool;
     } catch (error) {
@@ -36,6 +48,15 @@ export async function getDbPool(): Promise<sql.ConnectionPool> {
 }
 
 export const poolPromise = getDbPool();
+
+// Helper function for queries (optional but useful)
+export async function query(text: string, params?: any[]): Promise<any> {
+    const pool = await getDbPool();
+    const result = await pool.query(text, params);
+    return result;
+}
+
 export default {
-  sql
+    Pool,
+    query
 };

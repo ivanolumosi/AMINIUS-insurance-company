@@ -1,6 +1,5 @@
 // services/policy.service.ts
 import { poolPromise } from '../../db';
-import * as sql from 'mssql';
 import {
     PolicyCatalog,
     ClientPolicy,
@@ -51,6 +50,7 @@ import {
     PolicyValidationRequest,
     PolicyValidationResponse
 } from '../interfaces/policy';
+
 export interface ClientWithPolicies {
   clientId: string;
   agentId: string;
@@ -95,9 +95,6 @@ export interface ClientWithPoliciesFilterRequest {
 }
 
 export class PolicyService {
-    static softDeletePolicyType(typeId: string) {
-        throw new Error('Method not implemented.');
-    }
 
     // ============================================
     // POLICY CATALOG MANAGEMENT
@@ -105,131 +102,136 @@ export class PolicyService {
 
     public async getPolicyCatalog(request: PolicyCatalogFilterRequest): Promise<PolicyCatalog[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId || null)
-            .input('CategoryId', sql.UniqueIdentifier, request.categoryId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : 1)
-            .execute('GetPolicyCatalog');
-
-        return result.recordset.map(this.mapPolicyCatalogFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_catalog($1,$2,$3,$4,$5)',
+            [
+                request.agentId || null,
+                request.companyId || null,
+                request.categoryId || null,
+                request.typeId || null,
+                request.isActive !== undefined ? request.isActive : true
+            ]
+        );
+        return result.rows.map(this.mapPolicyCatalogFromDb);
     }
+
     public async getClientsWithPolicies(
-    request: ClientWithPoliciesFilterRequest
-  ): Promise<ClientWithPolicies[]> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-      .input('ClientId', sql.UniqueIdentifier, request.clientId || null)
-      .input('IncludeInactive', sql.Bit, request.includeInactive ? 1 : 0)
-      .execute('GetClientsWithPolicies');
+        request: ClientWithPoliciesFilterRequest
+    ): Promise<ClientWithPolicies[]> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_get_clients_with_policies($1,$2,$3)',
+            [
+                request.agentId || null,
+                request.clientId || null,
+                request.includeInactive || false
+            ]
+        );
+        return result.rows.map(this.mapClientWithPoliciesFromDb);
+    }
 
-    return result.recordset.map(this.mapClientWithPoliciesFromDb);
-  }
-  
-  private mapClientWithPoliciesFromDb(record: any): ClientWithPolicies {
-    return {
-      clientId: record.ClientId,
-      agentId: record.AgentId,
-      firstName: record.FirstName,
-      surname: record.Surname,
-      lastName: record.LastName,
-      fullName: record.FullName,
-      phoneNumber: record.PhoneNumber,
-      email: record.Email,
-      address: record.Address,
-      nationalId: record.NationalId,
-      dateOfBirth: record.DateOfBirth,
-      isClient: record.IsClient,
-      insuranceType: record.InsuranceType,
-      clientNotes: record.ClientNotes,
-      clientCreatedDate: record.ClientCreatedDate,
-      clientModifiedDate: record.ClientModifiedDate,
-      clientIsActive: record.ClientIsActive,
-
-      policyId: record.PolicyId,
-      policyName: record.PolicyName,
-      status: record.Status,
-      startDate: record.StartDate,
-      endDate: record.EndDate,
-      policyNotes: record.PolicyNotes,
-      policyCreatedDate: record.PolicyCreatedDate,
-      policyModifiedDate: record.PolicyModifiedDate,
-      policyIsActive: record.PolicyIsActive,
-      policyCatalogId: record.PolicyCatalogId,
-      catalogPolicyName: record.CatalogPolicyName,
-      typeId: record.TypeId,
-      typeName: record.TypeName,
-      companyId: record.CompanyId,
-      companyName: record.CompanyName,
-      daysUntilExpiry: record.DaysUntilExpiry,
-    };
-  }
-
-
-
+    private mapClientWithPoliciesFromDb(record: any): ClientWithPolicies {
+        return {
+            clientId: record.clientid,
+            agentId: record.agentid,
+            firstName: record.firstname,
+            surname: record.surname,
+            lastName: record.lastname,
+            fullName: record.fullname,
+            phoneNumber: record.phonenumber,
+            email: record.email,
+            address: record.address,
+            nationalId: record.nationalid,
+            dateOfBirth: record.dateofbirth,
+            isClient: record.isclient,
+            insuranceType: record.insurancetype,
+            clientNotes: record.clientnotes,
+            clientCreatedDate: record.clientcreateddate,
+            clientModifiedDate: record.clientmodifieddate,
+            clientIsActive: record.clientisactive,
+            policyId: record.policyid,
+            policyName: record.policyname,
+            status: record.status,
+            startDate: record.startdate,
+            endDate: record.enddate,
+            policyNotes: record.policynotes,
+            policyCreatedDate: record.policycreateddate,
+            policyModifiedDate: record.policymodifieddate,
+            policyIsActive: record.policyisactive,
+            policyCatalogId: record.policycatalogid,
+            catalogPolicyName: record.catalogpolicyname,
+            typeId: record.typeid,
+            typeName: record.typename,
+            companyId: record.companyid,
+            companyName: record.companyname,
+            daysUntilExpiry: record.daysuntilexpiry,
+        };
+    }
 
     public async createPolicyCatalogItem(request: CreatePolicyCatalogRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, request.agentId)
-            .input('PolicyName', sql.NVarChar(100), request.policyName)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId)
-            .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
-            .input('CategoryId', sql.UniqueIdentifier, request.categoryId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .output('PolicyCatalogId', sql.UniqueIdentifier)
-            .execute('CreatePolicyCatalogItem');
-
+        const result = await pool.query(
+            'SELECT sp_create_policy_catalog_item($1,$2,$3,$4,$5,$6) AS policy_catalog_id',
+            [
+                request.agentId,
+                request.policyName,
+                request.companyId,
+                request.notes || null,
+                request.categoryId || null,
+                request.typeId || null
+            ]
+        );
         return {
-            id: result.recordset[0].PolicyCatalogId
+            id: result.rows[0].policy_catalog_id
         };
     }
 
     public async updatePolicyCatalogItem(request: UpdatePolicyCatalogRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId)
-            .input('PolicyName', sql.NVarChar(100), request.policyName || null)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId || null)
-            .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
-            .input('CategoryId', sql.UniqueIdentifier, request.categoryId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : null)
-            .execute('UpdatePolicyCatalogItem');
-
+        const result = await pool.query(
+            'SELECT sp_update_policy_catalog_item($1,$2,$3,$4,$5,$6,$7) AS rows_affected',
+            [
+                request.policyCatalogId,
+                request.policyName || null,
+                request.companyId || null,
+                request.notes || null,
+                request.categoryId || null,
+                request.typeId || null,
+                request.isActive !== undefined ? request.isActive : null
+            ]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
     public async deletePolicyCatalogItem(policyCatalogId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PolicyCatalogId', sql.UniqueIdentifier, policyCatalogId)
-            .input('HardDelete', sql.Bit, hardDelete)
-            .execute('DeletePolicyCatalogItem');
-
+        const result = await pool.query(
+            'SELECT sp_delete_policy_catalog_item($1,$2) AS rows_affected',
+            [policyCatalogId, hardDelete]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
     public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId || null)
-            .input('AgentId', sql.UniqueIdentifier, request.agentId)
-            .input('PolicyName', sql.NVarChar(100), request.policyName)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId)
-            .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
-            .input('CategoryId', sql.UniqueIdentifier, request.categoryId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .execute('UpsertPolicyCatalog');
-
+        const result = await pool.query(
+            'SELECT sp_upsert_policy_catalog($1,$2,$3,$4,$5,$6,$7) AS policy_catalog_id',
+            [
+                request.policyCatalogId || null,
+                request.agentId,
+                request.policyName,
+                request.companyId,
+                request.notes || null,
+                request.categoryId || null,
+                request.typeId || null
+            ]
+        );
         return {
-            id: result.recordset[0].PolicyCatalogId
+            id: result.rows[0].policy_catalog_id
         };
     }
 
@@ -239,134 +241,142 @@ export class PolicyService {
 
     public async getClientPolicies(request: ClientPolicyFilterRequest): Promise<ClientPolicy[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ClientId', sql.UniqueIdentifier, request.clientId || null)
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('Status', sql.NVarChar(20), request.status || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : 1)
-            .execute('GetClientPolicies');
-
-        return result.recordset.map(this.mapClientPolicyFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_client_policies($1,$2,$3,$4)',
+            [
+                request.clientId || null,
+                request.agentId || null,
+                request.status || null,
+                request.isActive !== undefined ? request.isActive : true
+            ]
+        );
+        return result.rows.map(this.mapClientPolicyFromDb);
     }
 
     public async getPolicyById(policyId: string): Promise<ClientPolicy | null> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PolicyId', sql.UniqueIdentifier, policyId)
-            .execute('GetPolicyById');
-
-        return result.recordset.length > 0 ? this.mapClientPolicyFromDb(result.recordset[0]) : null;
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_by_id($1)',
+            [policyId]
+        );
+        return result.rows.length > 0 ? this.mapClientPolicyFromDb(result.rows[0]) : null;
     }
 
     public async createClientPolicy(request: CreateClientPolicyRequest): Promise<CreateResponse> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('ClientId', sql.UniqueIdentifier, request.clientId)
-        .input('PolicyName', sql.NVarChar(100), request.policyName)
-        .input('Status', sql.NVarChar(20), request.status || 'Active')
-        .input('StartDate', sql.Date, request.startDate)
-        .input('EndDate', sql.Date, request.endDate)
-        .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
-        .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId) // required
-        .output('PolicyId', sql.UniqueIdentifier)
-        .execute('CreateClientPolicy');
-
-    return {
-        id: result.recordset[0].PolicyId
-    };
-}
-
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT sp_create_client_policy($1,$2,$3,$4,$5,$6,$7) AS policy_id',
+            [
+                request.clientId,
+                request.policyName,
+                request.status || 'Active',
+                request.startDate,
+                request.endDate,
+                request.notes || null,
+                request.policyCatalogId
+            ]
+        );
+        return {
+            id: result.rows[0].policy_id
+        };
+    }
 
     public async updateClientPolicy(request: UpdateClientPolicyRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PolicyId', sql.UniqueIdentifier, request.policyId)
-            .input('PolicyName', sql.NVarChar(100), request.policyName || null)
-            .input('Status', sql.NVarChar(20), request.status || null)
-            .input('StartDate', sql.Date, request.startDate || null)
-            .input('EndDate', sql.Date, request.endDate || null)
-            .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
-            .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : null)
-            .execute('UpdateClientPolicy');
-
+        const result = await pool.query(
+            'SELECT sp_update_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS rows_affected',
+            [
+                request.policyId,
+                request.policyName || null,
+                request.status || null,
+                request.startDate || null,
+                request.endDate || null,
+                request.notes || null,
+                request.policyCatalogId || null,
+                request.typeId || null,
+                request.companyId || null,
+                request.isActive !== undefined ? request.isActive : null
+            ]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
     public async deleteClientPolicy(policyId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PolicyId', sql.UniqueIdentifier, policyId)
-            .input('HardDelete', sql.Bit, hardDelete)
-            .execute('DeleteClientPolicy');
-
+        const result = await pool.query(
+            'SELECT sp_delete_client_policy($1,$2) AS rows_affected',
+            [policyId, hardDelete]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
     public async upsertClientPolicy(request: UpsertClientPolicyRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PolicyId', sql.UniqueIdentifier, request.policyId || null)
-            .input('ClientId', sql.UniqueIdentifier, request.clientId)
-            .input('PolicyName', sql.NVarChar(100), request.policyName)
-            .input('Status', sql.NVarChar(20), request.status || 'Active')
-            .input('StartDate', sql.Date, request.startDate)
-            .input('EndDate', sql.Date, request.endDate)
-            .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
-            .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId || null)
-            .execute('UpsertClientPolicy');
-
+        const result = await pool.query(
+            'SELECT sp_upsert_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS policy_id',
+            [
+                request.policyId || null,
+                request.clientId,
+                request.policyName,
+                request.status || 'Active',
+                request.startDate,
+                request.endDate,
+                request.notes || null,
+                request.policyCatalogId || null,
+                request.typeId || null,
+                request.companyId || null
+            ]
+        );
         return {
-            id: result.recordset[0].PolicyId
+            id: result.rows[0].policy_id
         };
     }
 
     public async getExpiringPolicies(request: ExpiringPoliciesRequest): Promise<ClientPolicy[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('DaysAhead', sql.Int, request.daysAhead || 30)
-            .input('Status', sql.NVarChar(20), request.status || 'Active')
-            .execute('GetExpiringPolicies');
-
-        return result.recordset.map(this.mapClientPolicyFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_expiring_policies($1,$2,$3)',
+            [
+                request.agentId || null,
+                request.daysAhead || 30,
+                request.status || 'Active'
+            ]
+        );
+        return result.rows.map(this.mapClientPolicyFromDb);
     }
 
     public async renewPolicy(request: PolicyRenewalRequest): Promise<RenewalResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PolicyId', sql.UniqueIdentifier, request.policyId)
-            .input('NewStartDate', sql.Date, request.newStartDate)
-            .input('NewEndDate', sql.Date, request.newEndDate)
-            .input('NewPolicyName', sql.NVarChar(100), request.newPolicyName || null)
-            .input('Notes', sql.NVarChar(sql.MAX), request.notes || null)
-            .execute('RenewPolicy');
-
+        const result = await pool.query(
+            'SELECT * FROM sp_renew_policy($1,$2,$3,$4,$5)',
+            [
+                request.policyId,
+                request.newStartDate,
+                request.newEndDate,
+                request.newPolicyName || null,
+                request.notes || null
+            ]
+        );
         return {
-            newPolicyId: result.recordset[0].NewPolicyId,
-            rowsAffected: result.recordset[0].RowsAffected
+            newPolicyId: result.rows[0].new_policy_id,
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
     public async bulkUpdatePolicyStatus(request: BulkUpdatePolicyStatusRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
-        const policyIdsString = request.policyIds.join(',');
+        const policyIdsArray = `{${request.policyIds.join(',')}}`;
         
-        const result = await pool.request()
-            .input('PolicyIds', sql.NVarChar(sql.MAX), policyIdsString)
-            .input('NewStatus', sql.NVarChar(20), request.newStatus)
-            .execute('BulkUpdatePolicyStatus');
-
+        const result = await pool.query(
+            'SELECT sp_bulk_update_policy_status($1,$2) AS rows_affected',
+            [policyIdsArray, request.newStatus]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
@@ -376,20 +386,23 @@ export class PolicyService {
 
     public async searchPolicies(request: SearchPoliciesRequest): Promise<PaginatedResponse<ClientPolicy>> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('SearchTerm', sql.NVarChar(100), request.searchTerm || null)
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('ClientId', sql.UniqueIdentifier, request.clientId || null)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('Status', sql.NVarChar(20), request.status || null)
-            .input('StartDate', sql.Date, request.startDate || null)
-            .input('EndDate', sql.Date, request.endDate || null)
-            .input('PageSize', sql.Int, request.pageSize || 50)
-            .input('PageNumber', sql.Int, request.pageNumber || 1)
-            .execute('SearchPolicies');
+        const result = await pool.query(
+            'SELECT * FROM sp_search_policies($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+            [
+                request.searchTerm || null,
+                request.agentId || null,
+                request.clientId || null,
+                request.companyId || null,
+                request.typeId || null,
+                request.status || null,
+                request.startDate || null,
+                request.endDate || null,
+                request.pageSize || 50,
+                request.pageNumber || 1
+            ]
+        );
 
-        const policies = result.recordset.map(this.mapClientPolicyFromDb);
+        const policies = result.rows.map(this.mapClientPolicyFromDb);
         
         // Get total count for pagination
         const countResult = await this.getSearchCount(request);
@@ -409,12 +422,11 @@ export class PolicyService {
 
     public async getPoliciesByStatus(request: GetPoliciesByStatusRequest): Promise<ClientPolicy[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Status', sql.NVarChar(20), request.status)
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .execute('GetPoliciesByStatus');
-
-        return result.recordset.map(this.mapClientPolicyFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policies_by_status($1,$2)',
+            [request.status, request.agentId || null]
+        );
+        return result.rows.map(this.mapClientPolicyFromDb);
     }
 
     // ============================================
@@ -423,65 +435,69 @@ export class PolicyService {
 
     public async getPolicyTemplates(request: PolicyTemplateFilterRequest): Promise<PolicyTemplate[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('CategoryId', sql.UniqueIdentifier, request.categoryId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : 1)
-            .execute('GetPolicyTemplates');
-
-        return result.recordset.map(this.mapPolicyTemplateFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_templates($1,$2,$3,$4)',
+            [
+                request.agentId || null,
+                request.categoryId || null,
+                request.typeId || null,
+                request.isActive !== undefined ? request.isActive : true
+            ]
+        );
+        return result.rows.map(this.mapPolicyTemplateFromDb);
     }
 
     public async createPolicyTemplate(request: CreatePolicyTemplateRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, request.agentId)
-            .input('TemplateName', sql.NVarChar(100), request.templateName)
-            .input('DefaultTermMonths', sql.Int, request.defaultTermMonths || null)
-            .input('DefaultPremium', sql.Decimal(18, 2), request.defaultPremium || null)
-            .input('CoverageDescription', sql.NVarChar(sql.MAX), request.coverageDescription || null)
-            .input('Terms', sql.NVarChar(sql.MAX), request.terms || null)
-            .input('CategoryId', sql.UniqueIdentifier, request.categoryId || null)
-            .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .output('TemplateId', sql.UniqueIdentifier)
-            .execute('CreatePolicyTemplate');
-
+        const result = await pool.query(
+            'SELECT sp_create_policy_template($1,$2,$3,$4,$5,$6,$7,$8,$9) AS template_id',
+            [
+                request.agentId,
+                request.templateName,
+                request.defaultTermMonths || null,
+                request.defaultPremium || null,
+                request.coverageDescription || null,
+                request.terms || null,
+                request.categoryId || null,
+                request.policyCatalogId || null,
+                request.typeId || null
+            ]
+        );
         return {
-            id: result.recordset[0].TemplateId
+            id: result.rows[0].template_id
         };
     }
 
     public async updatePolicyTemplate(request: UpdatePolicyTemplateRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('TemplateId', sql.UniqueIdentifier, request.templateId)
-            .input('TemplateName', sql.NVarChar(100), request.templateName || null)
-            .input('DefaultTermMonths', sql.Int, request.defaultTermMonths || null)
-            .input('DefaultPremium', sql.Decimal(18, 2), request.defaultPremium || null)
-            .input('CoverageDescription', sql.NVarChar(sql.MAX), request.coverageDescription || null)
-            .input('Terms', sql.NVarChar(sql.MAX), request.terms || null)
-            .input('CategoryId', sql.UniqueIdentifier, request.categoryId || null)
-            .input('PolicyCatalogId', sql.UniqueIdentifier, request.policyCatalogId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : null)
-            .execute('UpdatePolicyTemplate');
-
+        const result = await pool.query(
+            'SELECT sp_update_policy_template($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS rows_affected',
+            [
+                request.templateId,
+                request.templateName || null,
+                request.defaultTermMonths || null,
+                request.defaultPremium || null,
+                request.coverageDescription || null,
+                request.terms || null,
+                request.categoryId || null,
+                request.policyCatalogId || null,
+                request.typeId || null,
+                request.isActive !== undefined ? request.isActive : null
+            ]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
     public async deletePolicyTemplate(templateId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('TemplateId', sql.UniqueIdentifier, templateId)
-            .input('HardDelete', sql.Bit, hardDelete)
-            .execute('DeletePolicyTemplate');
-
+        const result = await pool.query(
+            'SELECT sp_delete_policy_template($1,$2) AS rows_affected',
+            [templateId, hardDelete]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
@@ -491,105 +507,107 @@ export class PolicyService {
 
     public async getInsuranceCompanies(isActive: boolean = true): Promise<InsuranceCompany[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('IsActive', sql.Bit, isActive)
-            .execute('GetInsuranceCompanies');
-
-        return result.recordset.map(this.mapInsuranceCompanyFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_insurance_companies($1)',
+            [isActive]
+        );
+        return result.rows.map(this.mapInsuranceCompanyFromDb);
     }
 
     public async createInsuranceCompany(request: CreateInsuranceCompanyRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('CompanyName', sql.NVarChar(100), request.companyName)
-            .output('CompanyId', sql.UniqueIdentifier)
-            .execute('CreateInsuranceCompany');
-
+        const result = await pool.query(
+            'SELECT sp_create_insurance_company($1) AS company_id',
+            [request.companyName]
+        );
         return {
-            id: result.recordset[0].CompanyId
+            id: result.rows[0].company_id
         };
     }
 
     public async updateInsuranceCompany(request: UpdateInsuranceCompanyRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId)
-            .input('CompanyName', sql.NVarChar(100), request.companyName || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : null)
-            .execute('UpdateInsuranceCompany');
-
+        const result = await pool.query(
+            'SELECT sp_update_insurance_company($1,$2,$3) AS rows_affected',
+            [
+                request.companyId,
+                request.companyName || null,
+                request.isActive !== undefined ? request.isActive : null
+            ]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
     public async getPolicyTypes(isActive: boolean = true): Promise<PolicyType[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('IsActive', sql.Bit, isActive)
-            .execute('GetPolicyTypes');
-
-        return result.recordset.map(this.mapPolicyTypeFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_types($1)',
+            [isActive]
+        );
+        return result.rows.map(this.mapPolicyTypeFromDb);
     }
 
     public async createPolicyType(request: CreatePolicyTypeRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('TypeName', sql.NVarChar(50), request.typeName)
-            .output('TypeId', sql.UniqueIdentifier)
-            .execute('CreatePolicyType');
-
+        const result = await pool.query(
+            'SELECT sp_create_policy_type($1) AS type_id',
+            [request.typeName]
+        );
         return {
-            id: result.recordset[0].TypeId
+            id: result.rows[0].type_id
         };
     }
 
     public async updatePolicyType(request: UpdatePolicyTypeRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('TypeId', sql.UniqueIdentifier, request.typeId)
-            .input('TypeName', sql.NVarChar(50), request.typeName || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : null)
-            .execute('UpdatePolicyType');
-
+        const result = await pool.query(
+            'SELECT sp_update_policy_type($1,$2,$3) AS rows_affected',
+            [
+                request.typeId,
+                request.typeName || null,
+                request.isActive !== undefined ? request.isActive : null
+            ]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
     public async getPolicyCategories(isActive: boolean = true): Promise<PolicyCategory[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('IsActive', sql.Bit, isActive)
-            .execute('GetPolicyCategories');
-
-        return result.recordset.map(this.mapPolicyCategoryFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_categories($1)',
+            [isActive]
+        );
+        return result.rows.map(this.mapPolicyCategoryFromDb);
     }
 
     public async createPolicyCategory(request: CreatePolicyCategoryRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('CategoryName', sql.NVarChar(50), request.categoryName)
-            .input('Description', sql.NVarChar(200), request.description || null)
-            .output('CategoryId', sql.UniqueIdentifier)
-            .execute('CreatePolicyCategory');
-
+        const result = await pool.query(
+            'SELECT sp_create_policy_category($1,$2) AS category_id',
+            [request.categoryName, request.description || null]
+        );
         return {
-            id: result.recordset[0].CategoryId
+            id: result.rows[0].category_id
         };
     }
 
     public async updatePolicyCategory(request: UpdatePolicyCategoryRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('CategoryId', sql.UniqueIdentifier, request.categoryId)
-            .input('CategoryName', sql.NVarChar(50), request.categoryName || null)
-            .input('Description', sql.NVarChar(200), request.description || null)
-            .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : null)
-            .execute('UpdatePolicyCategory');
-
+        const result = await pool.query(
+            'SELECT sp_update_policy_category($1,$2,$3,$4) AS rows_affected',
+            [
+                request.categoryId,
+                request.categoryName || null,
+                request.description || null,
+                request.isActive !== undefined ? request.isActive : null
+            ]
+        );
         return {
-            rowsAffected: result.recordset[0].RowsAffected
+            rowsAffected: result.rows[0].rows_affected
         };
     }
 
@@ -599,53 +617,55 @@ export class PolicyService {
 
     public async getPolicyStatistics(request: PolicyStatisticsRequest): Promise<PolicyStatistics> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('StartDate', sql.Date, request.startDate || null)
-            .input('EndDate', sql.Date, request.endDate || null)
-            .execute('GetPolicyStatistics');
-
-        return this.mapPolicyStatisticsFromDb(result.recordset[0]);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_statistics($1,$2,$3)',
+            [
+                request.agentId || null,
+                request.startDate || null,
+                request.endDate || null
+            ]
+        );
+        return this.mapPolicyStatisticsFromDb(result.rows[0]);
     }
 
     public async getPolicyStatisticsDetailed(request: PolicyStatisticsRequest): Promise<PolicyStatisticsDetailed[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('StartDate', sql.Date, request.startDate || null)
-            .input('EndDate', sql.Date, request.endDate || null)
-            .execute('GetPolicyStatisticsDetailed');
-
-        return result.recordset.map(this.mapPolicyStatisticsDetailedFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_statistics_detailed($1,$2,$3)',
+            [
+                request.agentId || null,
+                request.startDate || null,
+                request.endDate || null
+            ]
+        );
+        return result.rows.map(this.mapPolicyStatisticsDetailedFromDb);
     }
 
     public async getAgentDashboardSummary(agentId: string): Promise<AgentDashboardSummary> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('GetAgentDashboardSummary');
-
-        return this.mapAgentDashboardSummaryFromDb(result.recordset[0]);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_agent_dashboard_summary($1)',
+            [agentId]
+        );
+        return this.mapAgentDashboardSummaryFromDb(result.rows[0]);
     }
 
     public async getPolicyRenewalCandidates(request: GetRenewalCandidatesRequest): Promise<PolicyRenewalCandidate[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('DaysAhead', sql.Int, request.daysAhead || 60)
-            .execute('GetPolicyRenewalCandidates');
-
-        return result.recordset.map(this.mapPolicyRenewalCandidateFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_renewal_candidates($1,$2)',
+            [request.agentId || null, request.daysAhead || 60]
+        );
+        return result.rows.map(this.mapPolicyRenewalCandidateFromDb);
     }
 
     public async getPolicyHistory(request: GetPolicyHistoryRequest): Promise<PolicyHistory[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ClientId', sql.UniqueIdentifier, request.clientId)
-            .input('IncludeInactive', sql.Bit, request.includeInactive || false)
-            .execute('GetPolicyHistoryForClient');
-
-        return result.recordset.map(this.mapPolicyHistoryFromDb);
+        const result = await pool.query(
+            'SELECT * FROM sp_get_policy_history_for_client($1,$2)',
+            [request.clientId, request.includeInactive || false]
+        );
+        return result.rows.map(this.mapPolicyHistoryFromDb);
     }
 
     // ============================================
@@ -654,26 +674,25 @@ export class PolicyService {
 
     public async batchExpirePolicies(request: BatchExpirePoliciesRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AsOfDate', sql.Date, request.asOfDate || null)
-            .execute('BatchExpirePolicies');
-
+        const result = await pool.query(
+            'SELECT sp_batch_expire_policies($1) AS policies_expired',
+            [request.asOfDate || null]
+        );
         return {
-            rowsAffected: result.recordset[0].PoliciesExpired
+            rowsAffected: result.rows[0].policies_expired
         };
     }
 
     public async cleanupSoftDeletedRecords(request: CleanupSoftDeletedRequest): Promise<CleanupResponse[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('DaysOld', sql.Int, request.daysOld || 365)
-            .input('DryRun', sql.Bit, request.dryRun !== undefined ? request.dryRun : true)
-            .execute('CleanupSoftDeletedRecords');
-
-        return result.recordset.map(row => ({
-            tableName: row.TableName,
-            recordsToDelete: row.RecordsToDelete,
-            totalRecordsDeleted: row.TotalRecordsDeleted
+        const result = await pool.query(
+            'SELECT * FROM sp_cleanup_soft_deleted_records($1,$2)',
+            [request.daysOld || 365, request.dryRun !== undefined ? request.dryRun : true]
+        );
+        return result.rows.map(row => ({
+            tableName: row.table_name,
+            recordsToDelete: row.records_to_delete,
+            totalRecordsDeleted: row.total_records_deleted
         }));
     }
 
@@ -683,158 +702,158 @@ export class PolicyService {
 
     private mapPolicyCatalogFromDb(row: any): PolicyCatalog {
         return {
-            policyId: row.PolicyCatalogId,
-            agentId: row.AgentId,
-            policyName: row.PolicyName,
-            companyId: row.CompanyId,
-            companyName: row.CompanyName,
-            notes: row.Notes,
-            isActive: row.IsActive,
-            createdDate: new Date(row.CreatedDate),
-            modifiedDate: row.ModifiedDate ? new Date(row.ModifiedDate) : undefined,
-            categoryId: row.CategoryId,
-            categoryName: row.CategoryName,
-            typeId: row.TypeId,
-            typeName: row.TypeName
+            policyId: row.policycatalogid || row.policy_catalog_id,
+            agentId: row.agentid || row.agent_id,
+            policyName: row.policyname || row.policy_name,
+            companyId: row.companyid || row.company_id,
+            companyName: row.companyname || row.company_name,
+            notes: row.notes,
+            isActive: row.isactive || row.is_active,
+            createdDate: new Date(row.createddate || row.created_date),
+            modifiedDate: row.modifieddate || row.modified_date ? new Date(row.modifieddate || row.modified_date) : undefined,
+            categoryId: row.categoryid || row.category_id,
+            categoryName: row.categoryname || row.category_name,
+            typeId: row.typeid || row.type_id,
+            typeName: row.typename || row.type_name
         };
     }
 
     private mapClientPolicyFromDb(row: any): ClientPolicy {
         return {
-            policyId: row.PolicyId,
-            clientId: row.ClientId,
-            policyName: row.PolicyName,
-            status: row.Status,
-            startDate: new Date(row.StartDate),
-            endDate: new Date(row.EndDate),
-            notes: row.Notes,
-            createdDate: new Date(row.CreatedDate),
-            modifiedDate: row.ModifiedDate ? new Date(row.ModifiedDate) : undefined,
-            isActive: row.IsActive,
-            policyCatalogId: row.PolicyCatalogId,
-            catalogPolicyName: row.CatalogPolicyName,
-            typeId: row.TypeId,
-            typeName: row.TypeName,
-            companyId: row.CompanyId,
-            companyName: row.CompanyName,
-            daysUntilExpiry: row.DaysUntilExpiry
+            policyId: row.policyid || row.policy_id,
+            clientId: row.clientid || row.client_id,
+            policyName: row.policyname || row.policy_name,
+            status: row.status,
+            startDate: new Date(row.startdate || row.start_date),
+            endDate: new Date(row.enddate || row.end_date),
+            notes: row.notes,
+            createdDate: new Date(row.createddate || row.created_date),
+            modifiedDate: row.modifieddate || row.modified_date ? new Date(row.modifieddate || row.modified_date) : undefined,
+            isActive: row.isactive || row.is_active,
+            policyCatalogId: row.policycatalogid || row.policy_catalog_id,
+            catalogPolicyName: row.catalogpolicyname || row.catalog_policy_name,
+            typeId: row.typeid || row.type_id,
+            typeName: row.typename || row.type_name,
+            companyId: row.companyid || row.company_id,
+            companyName: row.companyname || row.company_name,
+            daysUntilExpiry: row.daysuntilexpiry || row.days_until_expiry
         };
     }
 
     private mapPolicyTemplateFromDb(row: any): PolicyTemplate {
         return {
-            templateId: row.TemplateId,
-            agentId: row.AgentId,
-            templateName: row.TemplateName,
-            defaultTermMonths: row.DefaultTermMonths,
-            defaultPremium: row.DefaultPremium,
-            coverageDescription: row.CoverageDescription,
-            terms: row.Terms,
-            isActive: row.IsActive,
-            createdDate: new Date(row.CreatedDate),
-            categoryId: row.CategoryId,
-            categoryName: row.CategoryName,
-            policyCatalogId: row.PolicyCatalogId,
-            catalogPolicyName: row.CatalogPolicyName,
-            typeId: row.TypeId,
-            typeName: row.TypeName
+            templateId: row.templateid || row.template_id,
+            agentId: row.agentid || row.agent_id,
+            templateName: row.templatename || row.template_name,
+            defaultTermMonths: row.defaulttermmonths || row.default_term_months,
+            defaultPremium: row.defaultpremium || row.default_premium,
+            coverageDescription: row.coveragedescription || row.coverage_description,
+            terms: row.terms,
+            isActive: row.isactive || row.is_active,
+            createdDate: new Date(row.createddate || row.created_date),
+            categoryId: row.categoryid || row.category_id,
+            categoryName: row.categoryname || row.category_name,
+            policyCatalogId: row.policycatalogid || row.policy_catalog_id,
+            catalogPolicyName: row.catalogpolicyname || row.catalog_policy_name,
+            typeId: row.typeid || row.type_id,
+            typeName: row.typename || row.type_name
         };
     }
 
     private mapInsuranceCompanyFromDb(row: any): InsuranceCompany {
         return {
-            companyId: row.CompanyId,
-            companyName: row.CompanyName,
-            isActive: row.IsActive,
-            createdDate: new Date(row.CreatedDate)
+            companyId: row.companyid || row.company_id,
+            companyName: row.companyname || row.company_name,
+            isActive: row.isactive || row.is_active,
+            createdDate: new Date(row.createddate || row.created_date)
         };
     }
 
     private mapPolicyTypeFromDb(row: any): PolicyType {
         return {
-            typeId: row.TypeId,
-            typeName: row.TypeName,
-            isActive: row.IsActive,
-            createdDate: new Date(row.CreatedDate)
+            typeId: row.typeid || row.type_id,
+            typeName: row.typename || row.type_name,
+            isActive: row.isactive || row.is_active,
+            createdDate: new Date(row.createddate || row.created_date)
         };
     }
 
     private mapPolicyCategoryFromDb(row: any): PolicyCategory {
         return {
-            categoryId: row.CategoryId,
-            categoryName: row.CategoryName,
-            description: row.Description,
-            isActive: row.IsActive,
-            createdDate: new Date(row.CreatedDate)
+            categoryId: row.categoryid || row.category_id,
+            categoryName: row.categoryname || row.category_name,
+            description: row.description,
+            isActive: row.isactive || row.is_active,
+            createdDate: new Date(row.createddate || row.created_date)
         };
     }
 
     private mapPolicyStatisticsFromDb(row: any): PolicyStatistics {
         return {
-            totalPolicies: row.TotalPolicies,
-            activePolicies: row.ActivePolicies,
-            expiredPolicies: row.ExpiredPolicies,
-            cancelledPolicies: row.CancelledPolicies,
-            expiringIn30Days: row.ExpiringIn30Days,
-            expiringIn60Days: row.ExpiringIn60Days
+            totalPolicies: row.totalpolicies || row.total_policies,
+            activePolicies: row.activepolicies || row.active_policies,
+            expiredPolicies: row.expiredpolicies || row.expired_policies,
+            cancelledPolicies: row.cancelledpolicies || row.cancelled_policies,
+            expiringIn30Days: row.expiringin30days || row.expiring_in_30_days,
+            expiringIn60Days: row.expiringin60days || row.expiring_in_60_days
         };
     }
 
     private mapPolicyStatisticsDetailedFromDb(row: any): PolicyStatisticsDetailed {
         return {
-            groupType: row.GroupType,
-            groupName: row.GroupName,
-            policyCount: row.PolicyCount,
-            activeCount: row.ActiveCount
+            groupType: row.grouptype || row.group_type,
+            groupName: row.groupname || row.group_name,
+            policyCount: row.policycount || row.policy_count,
+            activeCount: row.activecount || row.active_count
         };
     }
 
     private mapAgentDashboardSummaryFromDb(row: any): AgentDashboardSummary {
         return {
-            totalPolicies: row.TotalPolicies,
-            activePolicies: row.ActivePolicies,
-            expiringIn30Days: row.ExpiringIn30Days,
-            expiringIn60Days: row.ExpiringIn60Days,
-            totalCompanies: row.TotalCompanies,
-            totalClients: row.TotalClients,
-            inactivePolicies: row.InactivePolicies
+            totalPolicies: row.totalpolicies || row.total_policies,
+            activePolicies: row.activepolicies || row.active_policies,
+            expiringIn30Days: row.expiringin30days || row.expiring_in_30_days,
+            expiringIn60Days: row.expiringin60days || row.expiring_in_60_days,
+            totalCompanies: row.totalcompanies || row.total_companies,
+            totalClients: row.totalclients || row.total_clients,
+            inactivePolicies: row.inactivepolicies || row.inactive_policies
         };
     }
 
     private mapPolicyRenewalCandidateFromDb(row: any): PolicyRenewalCandidate {
         return {
-            policyId: row.PolicyId,
-            clientId: row.ClientId,
-            policyName: row.PolicyName,
-            status: row.Status,
-            startDate: new Date(row.StartDate),
-            endDate: new Date(row.EndDate),
-            companyId: row.CompanyId,
-            companyName: row.CompanyName,
-            typeId: row.TypeId,
-            typeName: row.TypeName,
-            daysUntilExpiry: row.DaysUntilExpiry,
-            renewalPriority: row.RenewalPriority as 'Urgent' | 'Soon' | 'Upcoming'
+            policyId: row.policyid || row.policy_id,
+            clientId: row.clientid || row.client_id,
+            policyName: row.policyname || row.policy_name,
+            status: row.status,
+            startDate: new Date(row.startdate || row.start_date),
+            endDate: new Date(row.enddate || row.end_date),
+            companyId: row.companyid || row.company_id,
+            companyName: row.companyname || row.company_name,
+            typeId: row.typeid || row.type_id,
+            typeName: row.typename || row.type_name,
+            daysUntilExpiry: row.daysuntilexpiry || row.days_until_expiry,
+            renewalPriority: row.renewalpriority || row.renewal_priority as 'Urgent' | 'Soon' | 'Upcoming'
         };
     }
 
     private mapPolicyHistoryFromDb(row: any): PolicyHistory {
         return {
-            policyId: row.PolicyId,
-            clientId: row.ClientId,
-            policyName: row.PolicyName,
-            status: row.Status,
-            startDate: new Date(row.StartDate),
-            endDate: new Date(row.EndDate),
-            notes: row.Notes,
-            createdDate: new Date(row.CreatedDate),
-            modifiedDate: row.ModifiedDate ? new Date(row.ModifiedDate) : undefined,
-            companyId: row.CompanyId,
-            companyName: row.CompanyName,
-            typeId: row.TypeId,
-            typeName: row.TypeName,
-            policyDurationDays: row.PolicyDurationDays,
-            policyState: row.PolicyState
+            policyId: row.policyid || row.policy_id,
+            clientId: row.clientid || row.client_id,
+            policyName: row.policyname || row.policy_name,
+            status: row.status,
+            startDate: new Date(row.startdate || row.start_date),
+            endDate: new Date(row.enddate || row.end_date),
+            notes: row.notes,
+            createdDate: new Date(row.createddate || row.created_date),
+            modifiedDate: row.modifieddate || row.modified_date ? new Date(row.modifieddate || row.modified_date) : undefined,
+            companyId: row.companyid || row.company_id,
+            companyName: row.companyname || row.company_name,
+            typeId: row.typeid || row.type_id,
+            typeName: row.typename || row.type_name,
+            policyDurationDays: row.policydurationdays || row.policy_duration_days,
+            policyState: row.policystate || row.policy_state
         };
     }
 
@@ -843,36 +862,21 @@ export class PolicyService {
     // ============================================
 
     private async getSearchCount(request: SearchPoliciesRequest): Promise<number> {
-        // This would typically be a separate stored procedure or a modified version of SearchPolicies
-        // For now, we'll use a simple count query
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('SearchTerm', sql.NVarChar(100), request.searchTerm || null)
-            .input('AgentId', sql.UniqueIdentifier, request.agentId || null)
-            .input('ClientId', sql.UniqueIdentifier, request.clientId || null)
-            .input('CompanyId', sql.UniqueIdentifier, request.companyId || null)
-            .input('TypeId', sql.UniqueIdentifier, request.typeId || null)
-            .input('Status', sql.NVarChar(20), request.status || null)
-            .input('StartDate', sql.Date, request.startDate || null)
-            .input('EndDate', sql.Date, request.endDate || null)
-            .query(`
-                SELECT COUNT(*) as TotalCount
-                FROM ClientPolicies cp
-                    LEFT JOIN PolicyCatalog pc ON cp.PolicyCatalogId = pc.PolicyCatalogId
-                    LEFT JOIN PolicyTypes pt ON cp.TypeId = pt.TypeId
-                    LEFT JOIN InsuranceCompanies ic ON cp.CompanyId = ic.CompanyId
-                WHERE cp.IsActive = 1
-                    AND (@SearchTerm IS NULL OR cp.PolicyName LIKE '%' + @SearchTerm + '%' OR cp.Notes LIKE '%' + @SearchTerm + '%')
-                    AND (@AgentId IS NULL OR pc.AgentId = @AgentId)
-                    AND (@ClientId IS NULL OR cp.ClientId = @ClientId)
-                    AND (@CompanyId IS NULL OR cp.CompanyId = @CompanyId)
-                    AND (@TypeId IS NULL OR cp.TypeId = @TypeId)
-                    AND (@Status IS NULL OR cp.Status = @Status)
-                    AND (@StartDate IS NULL OR cp.StartDate >= @StartDate)
-                    AND (@EndDate IS NULL OR cp.EndDate <= @EndDate)
-            `);
-
-        return result.recordset[0].TotalCount;
+        const result = await pool.query(
+            'SELECT sp_get_search_policies_count($1,$2,$3,$4,$5,$6,$7,$8) AS total_count',
+            [
+                request.searchTerm || null,
+                request.agentId || null,
+                request.clientId || null,
+                request.companyId || null,
+                request.typeId || null,
+                request.status || null,
+                request.startDate || null,
+                request.endDate || null
+            ]
+        );
+        return result.rows[0].total_count;
     }
 
     // ============================================
@@ -934,36 +938,33 @@ export class PolicyService {
         const results: CreateResponse[] = [];
         const pool = await poolPromise;
         
-        const transaction = pool.transaction();
-        
         try {
-            await transaction.begin();
+            await pool.query('BEGIN');
             
             for (const policyRequest of policies) {
-                const request = transaction.request();
-                const result = await request
-                    .input('ClientId', sql.UniqueIdentifier, policyRequest.clientId)
-                    .input('PolicyName', sql.NVarChar(100), policyRequest.policyName)
-                    .input('Status', sql.NVarChar(20), policyRequest.status || 'Active')
-                    .input('StartDate', sql.Date, policyRequest.startDate)
-                    .input('EndDate', sql.Date, policyRequest.endDate)
-                    .input('Notes', sql.NVarChar(sql.MAX), policyRequest.notes || null)
-                    .input('PolicyCatalogId', sql.UniqueIdentifier, policyRequest.policyCatalogId || null)
-                    .input('TypeId', sql.UniqueIdentifier, policyRequest.typeId || null)
-                    .input('CompanyId', sql.UniqueIdentifier, policyRequest.companyId || null)
-                    .output('PolicyId', sql.UniqueIdentifier)
-                    .execute('CreateClientPolicy');
+                const result = await pool.query(
+                    'SELECT sp_create_client_policy($1,$2,$3,$4,$5,$6,$7) AS policy_id',
+                    [
+                        policyRequest.clientId,
+                        policyRequest.policyName,
+                        policyRequest.status || 'Active',
+                        policyRequest.startDate,
+                        policyRequest.endDate,
+                        policyRequest.notes || null,
+                        policyRequest.policyCatalogId
+                    ]
+                );
 
                 results.push({
-                    id: result.recordset[0].PolicyId
+                    id: result.rows[0].policy_id
                 });
             }
 
-            await transaction.commit();
+            await pool.query('COMMIT');
             return results;
             
         } catch (error) {
-            await transaction.rollback();
+            await pool.query('ROLLBACK');
             throw error;
         }
     }
@@ -972,36 +973,36 @@ export class PolicyService {
         const results: UpdateResponse[] = [];
         const pool = await poolPromise;
         
-        const transaction = pool.transaction();
-        
         try {
-            await transaction.begin();
+            await pool.query('BEGIN');
             
             for (const updateRequest of updates) {
-                const request = transaction.request();
-                const result = await request
-                    .input('PolicyId', sql.UniqueIdentifier, updateRequest.policyId)
-                    .input('PolicyName', sql.NVarChar(100), updateRequest.policyName || null)
-                    .input('Status', sql.NVarChar(20), updateRequest.status || null)
-                    .input('StartDate', sql.Date, updateRequest.startDate || null)
-                    .input('EndDate', sql.Date, updateRequest.endDate || null)
-                    .input('Notes', sql.NVarChar(sql.MAX), updateRequest.notes || null)
-                    .input('PolicyCatalogId', sql.UniqueIdentifier, updateRequest.policyCatalogId || null)
-                    .input('TypeId', sql.UniqueIdentifier, updateRequest.typeId || null)
-                    .input('CompanyId', sql.UniqueIdentifier, updateRequest.companyId || null)
-                    .input('IsActive', sql.Bit, updateRequest.isActive !== undefined ? updateRequest.isActive : null)
-                    .execute('UpdateClientPolicy');
+                const result = await pool.query(
+                    'SELECT sp_update_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS rows_affected',
+                    [
+                        updateRequest.policyId,
+                        updateRequest.policyName || null,
+                        updateRequest.status || null,
+                        updateRequest.startDate || null,
+                        updateRequest.endDate || null,
+                        updateRequest.notes || null,
+                        updateRequest.policyCatalogId || null,
+                        updateRequest.typeId || null,
+                        updateRequest.companyId || null,
+                        updateRequest.isActive !== undefined ? updateRequest.isActive : null
+                    ]
+                );
 
                 results.push({
-                    rowsAffected: result.recordset[0].RowsAffected
+                    rowsAffected: result.rows[0].rows_affected
                 });
             }
 
-            await transaction.commit();
+            await pool.query('COMMIT');
             return results;
             
         } catch (error) {
-            await transaction.rollback();
+            await pool.query('ROLLBACK');
             throw error;
         }
     }
@@ -1076,115 +1077,115 @@ export class PolicyService {
             };
         }
     }
+
     // ============================================
-// AUTOCOMPLETE FUNCTIONS
-// ============================================
+    // AUTOCOMPLETE FUNCTIONS
+    // ============================================
 
-/**
- * Search Insurance Companies by partial name
- */
-public async searchInsuranceCompanies(term: string): Promise<InsuranceCompany[]> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('SearchTerm', sql.NVarChar(100), `%${term}%`)
-        .query(`
-            SELECT TOP 20 CompanyId, CompanyName
-            FROM InsuranceCompanies
-            WHERE IsActive = 1 AND CompanyName LIKE @SearchTerm
-            ORDER BY CompanyName
-        `);
-    return result.recordset;
-}
+    /**
+     * Search Insurance Companies by partial name
+     */
+    public async searchInsuranceCompanies(term: string): Promise<InsuranceCompany[]> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            `SELECT "CompanyId" as companyid, "CompanyName" as companyname
+             FROM "InsuranceCompanies"
+             WHERE "IsActive" = true AND "CompanyName" ILIKE $1
+             ORDER BY "CompanyName"
+             LIMIT 20`,
+            [`%${term}%`]
+        );
+        return result.rows.map(this.mapInsuranceCompanyFromDb);
+    }
 
-/**
- * Search Policy Catalog entries by partial name
- */
-public async searchPolicyCatalog(agentId: string, term: string): Promise<PolicyCatalog[]> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('AgentId', sql.UniqueIdentifier, agentId)
-        .input('SearchTerm', sql.NVarChar(100), `%${term}%`)
-        .query(`
-            SELECT TOP 20 PolicyCatalogId, PolicyName, CompanyId, TypeId, CategoryId
-            FROM PolicyCatalog
-            WHERE IsActive = 1 
-              AND AgentId = @AgentId
-              AND PolicyName LIKE @SearchTerm
-            ORDER BY PolicyName
-        `);
-    return result.recordset;
-}
+    /**
+     * Search Policy Catalog entries by partial name
+     */
+    public async searchPolicyCatalog(agentId: string, term: string): Promise<PolicyCatalog[]> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            `SELECT "PolicyCatalogId" as policycatalogid, "PolicyName" as policyname, 
+                    "CompanyId" as companyid, "TypeId" as typeid, "CategoryId" as categoryid
+             FROM "PolicyCatalog"
+             WHERE "IsActive" = true 
+               AND "AgentId" = $1
+               AND "PolicyName" ILIKE $2
+             ORDER BY "PolicyName"
+             LIMIT 20`,
+            [agentId, `%${term}%`]
+        );
+        return result.rows.map(this.mapPolicyCatalogFromDb);
+    }
 
-/**
- * Search Policy Categories by partial name
- */
-public async searchPolicyCategories(term: string): Promise<PolicyCategory[]> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('SearchTerm', sql.NVarChar(50), `%${term}%`)
-        .query(`
-            SELECT TOP 20 CategoryId, CategoryName
-            FROM PolicyCategories
-            WHERE IsActive = 1 AND CategoryName LIKE @SearchTerm
-            ORDER BY CategoryName
-        `);
-    return result.recordset;
-}
+    /**
+     * Search Policy Categories by partial name
+     */
+    public async searchPolicyCategories(term: string): Promise<PolicyCategory[]> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            `SELECT "CategoryId" as categoryid, "CategoryName" as categoryname
+             FROM "PolicyCategories"
+             WHERE "IsActive" = true AND "CategoryName" ILIKE $1
+             ORDER BY "CategoryName"
+             LIMIT 20`,
+            [`%${term}%`]
+        );
+        return result.rows.map(this.mapPolicyCategoryFromDb);
+    }
 
-/**
- * Search Policy Templates by partial name
- */
-public async searchPolicyTemplates(agentId: string, term: string): Promise<PolicyTemplate[]> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('AgentId', sql.UniqueIdentifier, agentId)
-        .input('SearchTerm', sql.NVarChar(100), `%${term}%`)
-        .query(`
-            SELECT TOP 20 TemplateId, TemplateName, PolicyCatalogId, CategoryId, TypeId
-            FROM PolicyTemplates
-            WHERE IsActive = 1 
-              AND AgentId = @AgentId
-              AND TemplateName LIKE @SearchTerm
-            ORDER BY TemplateName
-        `);
-    return result.recordset;
-}
+    /**
+     * Search Policy Templates by partial name
+     */
+    public async searchPolicyTemplates(agentId: string, term: string): Promise<PolicyTemplate[]> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            `SELECT "TemplateId" as templateid, "TemplateName" as templatename, 
+                    "PolicyCatalogId" as policycatalogid, "CategoryId" as categoryid, "TypeId" as typeid
+             FROM "PolicyTemplates"
+             WHERE "IsActive" = true 
+               AND "AgentId" = $1
+               AND "TemplateName" ILIKE $2
+             ORDER BY "TemplateName"
+             LIMIT 20`,
+            [agentId, `%${term}%`]
+        );
+        return result.rows.map(this.mapPolicyTemplateFromDb);
+    }
 
-/**
- * Search Policy Types by partial name
- */
-public async searchPolicyTypes(term: string): Promise<PolicyType[]> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('SearchTerm', sql.NVarChar(50), `%${term}%`)
-        .query(`
-            SELECT TOP 20 TypeId, TypeName
-            FROM PolicyTypes
-            WHERE IsActive = 1 AND TypeName LIKE @SearchTerm
-            ORDER BY TypeName
-        `);
-    return result.recordset;
-}
+    /**
+     * Search Policy Types by partial name
+     */
+    public async searchPolicyTypes(term: string): Promise<PolicyType[]> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            `SELECT "TypeId" as typeid, "TypeName" as typename
+             FROM "PolicyTypes"
+             WHERE "IsActive" = true AND "TypeName" ILIKE $1
+             ORDER BY "TypeName"
+             LIMIT 20`,
+            [`%${term}%`]
+        );
+        return result.rows.map(this.mapPolicyTypeFromDb);
+    }
 
-/**
- * Search Client Policies by partial name
- */
-public async searchClientPolicies(clientId: string, term: string): Promise<ClientPolicy[]> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('ClientId', sql.UniqueIdentifier, clientId)
-        .input('SearchTerm', sql.NVarChar(100), `%${term}%`)
-        .query(`
-            SELECT TOP 20 PolicyId, PolicyName, Status, StartDate, EndDate
-            FROM ClientPolicies
-            WHERE IsActive = 1 
-              AND ClientId = @ClientId
-              AND PolicyName LIKE @SearchTerm
-            ORDER BY PolicyName
-        `);
-    return result.recordset;
-}
-
+    /**
+     * Search Client Policies by partial name
+     */
+    public async searchClientPolicies(clientId: string, term: string): Promise<ClientPolicy[]> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            `SELECT "PolicyId" as policyid, "PolicyName" as policyname, 
+                    "Status" as status, "StartDate" as startdate, "EndDate" as enddate
+             FROM "ClientPolicies"
+             WHERE "IsActive" = true 
+               AND "ClientId" = $1
+               AND "PolicyName" ILIKE $2
+             ORDER BY "PolicyName"
+             LIMIT 20`,
+            [clientId, `%${term}%`]
+        );
+        return result.rows.map(this.mapClientPolicyFromDb);
+    }
 
     // ============================================
     // PUBLIC WRAPPER METHODS WITH ERROR HANDLING
@@ -1217,96 +1218,50 @@ public async searchClientPolicies(clientId: string, term: string): Promise<Clien
             'Update Client Policy'
         );
     }
-// ============================================
-// INSURANCE COMPANY MANAGEMENT
-// ============================================
 
-// public async getInsuranceCompanies(): Promise<InsuranceCompany[]> {
-//     const pool = await poolPromise;
-//     const result = await pool.request()
-//         .execute('GetInsuranceCompanies'); // Stored Procedure name
-//     return result.recordset as InsuranceCompany[];
-// }
+    // ============================================
+    // SOFT DELETE METHODS
+    // ============================================
 
-// public async createInsuranceCompany(request: CreateInsuranceCompanyRequest): Promise<CreateResponse> {
-//     const pool = await poolPromise;
-//     const result = await pool.request()
-//         .input('CompanyName', sql.NVarChar(100), request.companyName)
-//         .output('CompanyId', sql.UniqueIdentifier)
-//         .execute('CreateInsuranceCompany');
-
-//     return {
-//         id: result.output.CompanyId
-//     };
-// }
-
-// public async updateInsuranceCompany(request: UpdateInsuranceCompanyRequest): Promise<UpdateResponse> {
-//     const pool = await poolPromise;
-//     const result = await pool.request()
-//         .input('CompanyId', sql.UniqueIdentifier, request.companyId)
-//         .input('CompanyName', sql.NVarChar(100), request.companyName || null)
-//         .input('IsActive', sql.Bit, request.isActive !== undefined ? request.isActive : null)
-//         .execute('UpdateInsuranceCompany');
-
-//     return {
-//         rowsAffected: result.recordset[0]?.RowsAffected || 0
-//     };
-// }
-
-public async deleteInsuranceCompany(companyId: string, request?: DeleteRequest): Promise<DeleteResponse> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('CompanyId', sql.UniqueIdentifier, companyId)
-        .input('HardDelete', sql.Bit, request?.hardDelete ? 1 : 0)
-        .execute('DeleteInsuranceCompany');
-
-    return {
-        rowsAffected: result.recordset[0]?.RowsAffected || 0
-    };
-}
-
+    public async deleteInsuranceCompany(companyId: string, request?: DeleteRequest): Promise<DeleteResponse> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT sp_delete_insurance_company($1,$2) AS rows_affected',
+            [companyId, request?.hardDelete ? true : false]
+        );
+        return {
+            rowsAffected: result.rows[0].rows_affected
+        };
+    }
 
     public async softDeletePolicyTemplate(templateId: string): Promise<void> {
         const pool = await poolPromise;
-        await pool.request()
-            .input('TemplateId', sql.UniqueIdentifier, templateId)
-            .execute('sp_SoftDeletePolicyTemplate');
+        await pool.query('SELECT sp_soft_delete_policy_template($1)', [templateId]);
     }
 
     public async softDeletePolicyCatalog(policyCatalogId: string): Promise<void> {
         const pool = await poolPromise;
-        await pool.request()
-            .input('PolicyCatalogId', sql.UniqueIdentifier, policyCatalogId)
-            .execute('sp_SoftDeletePolicyCatalog');
+        await pool.query('SELECT sp_soft_delete_policy_catalog($1)', [policyCatalogId]);
     }
 
     public async softDeletePolicyCategory(categoryId: string): Promise<void> {
         const pool = await poolPromise;
-        await pool.request()
-            .input('CategoryId', sql.UniqueIdentifier, categoryId)
-            .execute('sp_SoftDeletePolicyCategory');
+        await pool.query('SELECT sp_soft_delete_policy_category($1)', [categoryId]);
     }
 
     public async softDeleteInsuranceCompany(companyId: string): Promise<void> {
         const pool = await poolPromise;
-        await pool.request()
-            .input('CompanyId', sql.UniqueIdentifier, companyId)
-            .execute('sp_SoftDeleteInsuranceCompany');
+        await pool.query('SELECT sp_soft_delete_insurance_company($1)', [companyId]);
     }
 
     public async softDeleteClientPolicy(policyId: string): Promise<void> {
         const pool = await poolPromise;
-        await pool.request()
-            .input('PolicyId', sql.UniqueIdentifier, policyId)
-            .execute('sp_SoftDeleteClientPolicy');
+        await pool.query('SELECT sp_soft_delete_client_policy($1)', [policyId]);
     }
     
- async softDeletePolicyType(typeId: string) {
-    const pool = await poolPromise;
-    await pool.request()
-        .input('TypeId', sql.UniqueIdentifier, typeId)
-        .execute('PolicyTypes_SoftDelete');
-    return { message: 'PolicyType soft deleted successfully' };
-}
-
+    public async softDeletePolicyType(typeId: string): Promise<{ message: string }> {
+        const pool = await poolPromise;
+        await pool.query('SELECT sp_soft_delete_policy_type($1)', [typeId]);
+        return { message: 'PolicyType soft deleted successfully' };
+    }
 }

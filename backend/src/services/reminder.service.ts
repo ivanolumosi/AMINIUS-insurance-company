@@ -1,6 +1,6 @@
 // services/reminders.service.ts
-import { poolPromise } from '../../db';
-import * as sql from 'mssql';
+import { Pool } from 'pg';
+import { poolPromise } from '../../db'; // Assuming this now returns a PostgreSQL pool
 import {
     Reminder,
     ReminderSettings,
@@ -32,43 +32,53 @@ export class ReminderService {
             let validatedTime: string | null = null;
             
             if (reminderData.ReminderTime) {
-                validatedTime = this.validateAndFormatSQLTime(reminderData.ReminderTime);
+                validatedTime = this.validateAndFormatPostgreSQLTime(reminderData.ReminderTime);
                 console.log('📝 Backend: Time validated:', reminderData.ReminderTime, '->', validatedTime);
             }
             
-            const pool = await poolPromise;
-            const request = pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .input('ClientId', sql.UniqueIdentifier, reminderData.ClientId ?? null)
-                .input('AppointmentId', sql.UniqueIdentifier, reminderData.AppointmentId ?? null)
-                .input('ReminderType', sql.NVarChar(50), reminderData.ReminderType)
-                .input('Title', sql.NVarChar(200), reminderData.Title)
-                .input('Description', sql.NVarChar(sql.MAX), reminderData.Description ?? null)
-                .input('ReminderDate', sql.Date, reminderData.ReminderDate)
-                .input('ClientName', sql.NVarChar(150), reminderData.ClientName ?? null)
-                .input('Priority', sql.NVarChar(10), reminderData.Priority ?? 'Medium')
-                .input('EnableSMS', sql.Bit, reminderData.EnableSMS ?? false)
-                .input('EnableWhatsApp', sql.Bit, reminderData.EnableWhatsApp ?? false)
-                .input('EnablePushNotification', sql.Bit, reminderData.EnablePushNotification ?? true)
-                .input('AdvanceNotice', sql.NVarChar(20), reminderData.AdvanceNotice ?? '1 day')
-                .input('CustomMessage', sql.NVarChar(sql.MAX), reminderData.CustomMessage ?? null)
-                .input('AutoSend', sql.Bit, reminderData.AutoSend ?? false)
-                .input('Notes', sql.NVarChar(sql.MAX), reminderData.Notes ?? null);
+            const pool = await poolPromise as Pool;
+            const client = await pool.connect();
+            
+            try {
+                const query = `
+                    SELECT sp_create_reminder(
+                        $1::uuid, $2::uuid, $3::uuid, $4::varchar(50), $5::varchar(200),
+                        $6::text, $7::date, $8::time, $9::varchar(150), $10::varchar(10),
+                        $11::boolean, $12::boolean, $13::boolean, $14::varchar(20),
+                        $15::text, $16::boolean, $17::text
+                    ) as reminder_id
+                `;
+                
+                const values = [
+                    agentId,
+                    reminderData.ClientId || null,
+                    reminderData.AppointmentId || null,
+                    reminderData.ReminderType,
+                    reminderData.Title,
+                    reminderData.Description || null,
+                    reminderData.ReminderDate,
+                    validatedTime,
+                    reminderData.ClientName || null,
+                    reminderData.Priority || 'Medium',
+                    reminderData.EnableSMS || false,
+                    reminderData.EnableWhatsApp || false,
+                    reminderData.EnablePushNotification || true,
+                    reminderData.AdvanceNotice || '1 day',
+                    reminderData.CustomMessage || null,
+                    reminderData.AutoSend || false,
+                    reminderData.Notes || null
+                ];
 
-            // Only add ReminderTime parameter if we have a valid time
-            if (validatedTime) {
-                request.input('ReminderTime', sql.Time, validatedTime);
-            } else {
-                // Pass null if no time provided
-                request.input('ReminderTime', sql.Time, null);
+                console.log('📝 Backend: Executing query with validated time:', validatedTime);
+                
+                const result = await client.query(query, values);
+                
+                console.log('✅ Backend: Reminder created successfully');
+                return { ReminderId: result.rows[0].reminder_id };
+                
+            } finally {
+                client.release();
             }
-
-            console.log('📝 Backend: Executing stored procedure with validated time:', validatedTime);
-            
-            const result = await request.execute('sp_CreateReminder');
-            
-            console.log('✅ Backend: Reminder created successfully');
-            return result.recordset[0];
             
         } catch (error: unknown) {
             console.error('❌ Backend: Error creating reminder:', error);
@@ -79,9 +89,9 @@ export class ReminderService {
         }
     }
 
-    // Add this robust time validation method to your ReminderService class
-    private validateAndFormatSQLTime(timeString: string | null | undefined): string | null {
-        console.log('🕐 Backend: Validating SQL time:', timeString, typeof timeString);
+    // PostgreSQL time validation method
+    private validateAndFormatPostgreSQLTime(timeString: string | null | undefined): string | null {
+        console.log('🕐 Backend: Validating PostgreSQL time:', timeString, typeof timeString);
         
         if (!timeString || timeString === 'null' || timeString === 'undefined') {
             console.log('🕐 Backend: No valid time provided, returning null');
@@ -154,116 +164,195 @@ export class ReminderService {
 
     /** Get all reminders with filters and pagination */
     public async getAllReminders(agentId: string, filters: ReminderFilters = {}): Promise<PaginatedReminderResponse> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('StartDate', sql.Date, filters.StartDate ?? null)
-            .input('EndDate', sql.Date, filters.EndDate ?? null)
-            .input('PageSize', sql.Int, filters.PageSize ?? 20)
-            .input('PageNumber', sql.Int, filters.PageNumber ?? 1)
-            .execute('sp_GetAllReminders');
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM get_all_reminders(
+                    $1::uuid, $2::date, $3::date, $4::integer, $5::integer
+                )
+            `;
+            
+            const values = [
+                agentId,
+                filters.StartDate || null,
+                filters.EndDate || null,
+                filters.PageSize || 20,
+                filters.PageNumber || 1
+            ];
+            
+            const result = await client.query(query, values);
+            const reminders: Reminder[] = result.rows;
+            const pageSize = filters.PageSize || 20;
 
-        const reminders: Reminder[] = result.recordset;
-        const pageSize = filters.PageSize ?? 20;
+            // Get total count for pagination
+            const countQuery = `
+                SELECT COUNT(*) as total FROM reminders 
+                WHERE agent_id = $1 
+                AND ($2::date IS NULL OR reminder_date >= $2)
+                AND ($3::date IS NULL OR reminder_date <= $3)
+            `;
+            const countResult = await client.query(countQuery, [
+                agentId, 
+                filters.StartDate || null, 
+                filters.EndDate || null
+            ]);
+            const totalRecords = parseInt(countResult.rows[0].total);
 
-        return {
-            reminders,
-            totalRecords: reminders.length, // ideally add COUNT(*) in SP for accuracy
-            currentPage: filters.PageNumber ?? 1,
-            totalPages: Math.ceil(reminders.length / pageSize),
-            pageSize
-        };
+            return {
+                reminders,
+                totalRecords,
+                currentPage: filters.PageNumber || 1,
+                totalPages: Math.ceil(totalRecords / pageSize),
+                pageSize
+            };
+        } finally {
+            client.release();
+        }
     }
 
     /** Get reminder by ID */
     public async getReminderById(reminderId: string, agentId: string): Promise<Reminder | null> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ReminderId', sql.UniqueIdentifier, reminderId)
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_GetReminderById');
-
-        return result.recordset.length ? result.recordset[0] : null;
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM get_reminder_by_id($1::uuid, $2::uuid)
+            `;
+            
+            const result = await client.query(query, [reminderId, agentId]);
+            return result.rows.length ? result.rows[0] : null;
+        } finally {
+            client.release();
+        }
     }
 
     /** Update a reminder */
     public async updateReminder(reminderId: string, agentId: string, updateData: UpdateReminderRequest): Promise<{ RowsAffected: number }> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ReminderId', sql.UniqueIdentifier, reminderId)
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('Title', sql.NVarChar(200), updateData.Title ?? null)
-            .input('Description', sql.NVarChar(sql.MAX), updateData.Description ?? null)
-            .input('ReminderDate', sql.Date, updateData.ReminderDate ?? null)
-            .input('ReminderTime', sql.Time, updateData.ReminderTime ?? null)
-            .input('Priority', sql.NVarChar(10), updateData.Priority ?? null)
-            .input('Status', sql.NVarChar(20), updateData.Status ?? null)
-            .input('EnableSMS', sql.Bit, updateData.EnableSMS ?? false)
-            .input('EnableWhatsApp', sql.Bit, updateData.EnableWhatsApp ?? false)
-            .input('EnablePushNotification', sql.Bit, updateData.EnablePushNotification ?? false)
-            .input('AdvanceNotice', sql.NVarChar(20), updateData.AdvanceNotice ?? null)
-            .input('CustomMessage', sql.NVarChar(sql.MAX), updateData.CustomMessage ?? null)
-            .input('AutoSend', sql.Bit, updateData.AutoSend ?? false)
-            .input('Notes', sql.NVarChar(sql.MAX), updateData.Notes ?? null)
-            .execute('sp_UpdateReminder');
-
-        return result.recordset[0];
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT update_reminder(
+                    $1::uuid, $2::uuid, $3::varchar(200), $4::text, $5::date,
+                    $6::time, $7::varchar(10), $8::varchar(20), $9::boolean,
+                    $10::boolean, $11::boolean, $12::varchar(20), $13::text,
+                    $14::boolean, $15::text
+                ) as rows_affected
+            `;
+            
+            const values = [
+                reminderId,
+                agentId,
+                updateData.Title || null,
+                updateData.Description || null,
+                updateData.ReminderDate || null,
+                updateData.ReminderTime || null,
+                updateData.Priority || null,
+                updateData.Status || null,
+                updateData.EnableSMS || false,
+                updateData.EnableWhatsApp || false,
+                updateData.EnablePushNotification || false,
+                updateData.AdvanceNotice || null,
+                updateData.CustomMessage || null,
+                updateData.AutoSend || false,
+                updateData.Notes || null
+            ];
+            
+            const result = await client.query(query, values);
+            return { RowsAffected: result.rows[0].rows_affected };
+        } finally {
+            client.release();
+        }
     }
 
     /** Delete a reminder */
     public async deleteReminder(reminderId: string, agentId: string): Promise<{ RowsAffected: number }> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ReminderId', sql.UniqueIdentifier, reminderId)
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_DeleteReminder');
-
-        return result.recordset[0];
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT delete_reminder($1::uuid, $2::uuid) as rows_affected
+            `;
+            
+            const result = await client.query(query, [reminderId, agentId]);
+            return { RowsAffected: result.rows[0].rows_affected };
+        } finally {
+            client.release();
+        }
     }
 
     /** Complete a reminder */
     public async completeReminder(reminderId: string, agentId: string, notes?: string): Promise<{ RowsAffected: number }> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('ReminderId', sql.UniqueIdentifier, reminderId)
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('Notes', sql.NVarChar(sql.MAX), notes ?? null)
-            .execute('sp_CompleteReminder');
-
-        return result.recordset[0];
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT complete_reminder($1::uuid, $2::uuid, $3::text) as rows_affected
+            `;
+            
+            const result = await client.query(query, [reminderId, agentId, notes || null]);
+            return { RowsAffected: result.rows[0].rows_affected };
+        } finally {
+            client.release();
+        }
     }
 
     /** Get today's reminders */
     public async getTodayReminders(agentId: string): Promise<Reminder[]> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_GetTodayReminders');
-
-        return result.recordset;
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM get_today_reminders($1::uuid)
+            `;
+            
+            const result = await client.query(query, [agentId]);
+            return result.rows;
+        } finally {
+            client.release();
+        }
     }
 
     /** Get reminder settings */
     public async getReminderSettings(agentId: string): Promise<ReminderSettings[]> {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .execute('sp_GetReminderSettings');
-
-        return result.recordset;
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT * FROM get_reminder_settings($1::uuid)
+            `;
+            
+            const result = await client.query(query, [agentId]);
+            return result.rows;
+        } finally {
+            client.release();
+        }
     }
 
     /** Update reminder settings */
     public async updateReminderSettings(agentId: string, reminderType: string, isEnabled: boolean, daysBefore: number, timeOfDay: string, repeatDaily: boolean = false): Promise<void> {
-        const pool = await poolPromise;
-        await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('ReminderType', sql.NVarChar(50), reminderType)
-            .input('IsEnabled', sql.Bit, isEnabled)
-            .input('DaysBefore', sql.Int, daysBefore)
-            .input('TimeOfDay', sql.Time, timeOfDay)
-            .input('RepeatDaily', sql.Bit, repeatDaily)
-            .execute('sp_UpdateReminderSettings');
+        const pool = await poolPromise as Pool;
+        const client = await pool.connect();
+        
+        try {
+            const query = `
+                SELECT update_reminder_settings(
+                    $1::uuid, $2::varchar(50), $3::boolean, $4::integer, $5::time, $6::boolean
+                )
+            `;
+            
+            await client.query(query, [agentId, reminderType, isEnabled, daysBefore, timeOfDay, repeatDaily]);
+        } finally {
+            client.release();
+        }
     }
 
     /**
@@ -271,23 +360,39 @@ export class ReminderService {
      */
     public async getReminderStatistics(agentId: string): Promise<ReminderStatistics> {
         try {
-            const pool = await poolPromise;
-            const result = await pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .execute('sp_GetReminderStatistics');
+            const pool = await poolPromise as Pool;
+            const client = await pool.connect();
+            
+            try {
+                const query = `
+                    SELECT * FROM get_reminder_statistics($1::uuid)
+                `;
+                
+                const result = await client.query(query, [agentId]);
 
-            if (result.recordset.length === 0) {
+                if (result.rows.length === 0) {
+                    return {
+                        TotalActive: 0,
+                        TotalCompleted: 0,
+                        TodayReminders: 0,
+                        UpcomingReminders: 0,
+                        HighPriority: 0,
+                        Overdue: 0
+                    };
+                }
+
+                const row = result.rows[0];
                 return {
-                    TotalActive: 0,
-                    TotalCompleted: 0,
-                    TodayReminders: 0,
-                    UpcomingReminders: 0,
-                    HighPriority: 0,
-                    Overdue: 0
+                    TotalActive: parseInt(row.total_active) || 0,
+                    TotalCompleted: parseInt(row.total_completed) || 0,
+                    TodayReminders: parseInt(row.today_reminders) || 0,
+                    UpcomingReminders: parseInt(row.upcoming_reminders) || 0,
+                    HighPriority: parseInt(row.high_priority) || 0,
+                    Overdue: parseInt(row.overdue) || 0
                 };
+            } finally {
+                client.release();
             }
-
-            return result.recordset[0] as ReminderStatistics;
         } catch (error: unknown) {
             console.error('Error fetching reminder statistics:', error);
             throw error;
@@ -299,13 +404,19 @@ export class ReminderService {
      */
     async getRemindersByType(agentId: string, reminderType: string): Promise<Reminder[]> {
         try {
-            const pool = await poolPromise;
-            const result = await pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .input('ReminderType', sql.NVarChar(50), reminderType)
-                .execute('spGetRemindersByType');
-
-            return result.recordset as Reminder[];
+            const pool = await poolPromise as Pool;
+            const client = await pool.connect();
+            
+            try {
+                const query = `
+                    SELECT * FROM get_reminders_by_type($1::uuid, $2::varchar(50))
+                `;
+                
+                const result = await client.query(query, [agentId, reminderType]);
+                return result.rows;
+            } finally {
+                client.release();
+            }
         } catch (error: unknown) {
             console.error('Error fetching reminders by type:', error);
             throw error;
@@ -317,13 +428,19 @@ export class ReminderService {
      */
     async getRemindersByStatus(agentId: string, status: string): Promise<Reminder[]> {
         try {
-            const pool = await poolPromise;
-            const result = await pool.request()
-                .input('AgentId', sql.UniqueIdentifier, agentId)
-                .input('Status', sql.NVarChar(20), status)
-                .execute('spGetRemindersByStatus');
-
-            return result.recordset as Reminder[];
+            const pool = await poolPromise as Pool;
+            const client = await pool.connect();
+            
+            try {
+                const query = `
+                    SELECT * FROM get_reminders_by_status($1::uuid, $2::varchar(20))
+                `;
+                
+                const result = await client.query(query, [agentId, status]);
+                return result.rows;
+            } finally {
+                client.release();
+            }
         } catch (error: unknown) {
             console.error('Error fetching reminders by status:', error);
             throw error;

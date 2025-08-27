@@ -3,7 +3,7 @@ POST http://localhost:3000/api/clients
 Content-Type: application/json
 
 {
-  "AgentId": "730080DD-742C-4934-8974-30AC3495E468",
+  "AgentId": "7b407c2d-3145-40b0-8c47-1d6f62351b2c",
   "FirstName": "John",
   "Surname": "M",
   "LastName": "Doe",
@@ -13,7 +13,7 @@ Content-Type: application/json
   "NationalId": "AB12345",
   "DateOfBirth": "1990-01-01",
   "IsClient": true,
-  "InsuranceType": "Life",
+  "InsuranceType": true,
   "Notes": "Test note"
 }
 
@@ -23,7 +23,7 @@ Content-Type: application/json
 
 {
   "ClientId": "22222222-2222-2222-2222-222222222222",
-  "AgentId": "730080DD-742C-4934-8974-30AC3495E468",
+  "AgentId": "7b407c2d-3145-40b0-8c47-1d6f62351b2c",
   "FirstName": "Updated",
   "Surname": "M",
   "LastName": "Doe",
@@ -37,34 +37,34 @@ Content-Type: application/json
 }
 
 ### Get All Clients
-GET http://localhost:3000/api/clients/730080DD-742C-4934-8974-30AC3495E468
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c
 
 ### Get Client By ID
-GET http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/ba849305-c1d6-49b6-8494-6666d732e70a
 
 ### Convert Prospect to Client
-PUT http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222/convert
+PUT http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/ba849305-c1d6-49b6-8494-6666d732e70a/convert
 
 ### Delete Client
 DELETE http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222
 
 ### Client Statistics
-GET http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/statistics
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/statistics
 
 ### Enhanced Statistics
-GET http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/statistics/enhanced
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/statistics/enhanced
 
 ### Today's Birthdays
-GET http://localhost:3000/api/clients/16A19146-5792-4549-9765-623E227DA62A/birthdays
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/birthdays
 
 ### Search Clients
-GET http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/search?searchTerm=john
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/search?searchTerm=john
 
 ### Get Clients by Insurance Type
-GET http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/insurance/Life
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/insurance/Life
 
 ### Get Client with Policies
 GET http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222/policies
 
 ### Get All Clients with Pagination
-GET http://localhost:3000/api/clients/11111111-1111-1111-1111-111111111111/all/paginated?pageNumber=1&pageSize=10
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/all/paginated?pageNumber=1&pageSize=10

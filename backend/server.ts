@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 3000;
 // Allow requests from Angular dev server
 
 app.use(cors({
-  origin: 'http://localhost:4200',
+  origin: 'https://aminius.netlify.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -43,7 +43,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/utility', utilityRoutes);
 app.use('/api/autocomplete', autocompleteRoutes);
 
-// ✅ Root Route
+// // ✅ Root Route
 app.get('/', (_req: Request, res: Response) => {
   res.send('🚀 Welcome to the API!');
 });
@@ -64,5 +64,5 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 
 /* ------------------  Start Server ------------------ */
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server running at https://aminius.netlify.app`);
 });

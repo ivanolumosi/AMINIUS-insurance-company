@@ -1,6 +1,5 @@
 // services/notes.service.ts
 import { poolPromise } from '../../db';
-import * as sql from 'mssql';
 import { DailyNote, SaveNotesResult, DeleteNotesResult, NotesDateRange } from '../interfaces/notes';
 
 export class NotesService {
@@ -9,12 +8,11 @@ export class NotesService {
      */
     public async getDailyNotes(agentId: string, noteDate: string): Promise<DailyNote[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('NoteDate', sql.Date, noteDate)
-            .execute('sp_GetDailyNotes');
-
-        return result.recordset;
+        const result = await pool.query(
+            'SELECT * FROM sp_get_daily_notes($1, $2)',
+            [agentId, noteDate]
+        );
+        return result.rows;
     }
 
     /**
@@ -22,13 +20,11 @@ export class NotesService {
      */
     public async saveDailyNotes(agentId: string, noteDate: string, notes: string): Promise<SaveNotesResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('NoteDate', sql.Date, noteDate)
-            .input('Notes', sql.NVarChar(sql.MAX), notes)
-            .execute('sp_SaveDailyNotes');
-
-        return result.recordset[0];
+        const result = await pool.query(
+            'SELECT * FROM sp_save_daily_notes($1, $2, $3)',
+            [agentId, noteDate, notes]
+        );
+        return result.rows[0];
     }
 
     /**
@@ -36,18 +32,31 @@ export class NotesService {
      */
     public async getAllNotes(agentId: string, options?: NotesDateRange): Promise<DailyNote[]> {
         const pool = await poolPromise;
-        const request = pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId);
+        
+        let query = 'SELECT * FROM sp_get_all_notes($1';
+        const params: any[] = [agentId];
+        let paramCount = 1;
 
         if (options?.StartDate) {
-            request.input('StartDate', sql.Date, options.StartDate);
-        }
-        if (options?.EndDate) {
-            request.input('EndDate', sql.Date, options.EndDate);
+            paramCount++;
+            query += `, $${paramCount}`;
+            params.push(options.StartDate);
+        } else {
+            query += ', null';
         }
 
-        const result = await request.execute('sp_GetAllNotes');
-        return result.recordset;
+        if (options?.EndDate) {
+            paramCount++;
+            query += `, $${paramCount}`;
+            params.push(options.EndDate);
+        } else {
+            query += ', null';
+        }
+
+        query += ')';
+
+        const result = await pool.query(query, params);
+        return result.rows;
     }
 
     /**
@@ -55,12 +64,11 @@ export class NotesService {
      */
     public async searchNotes(agentId: string, searchTerm: string): Promise<DailyNote[]> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('SearchTerm', sql.NVarChar(500), searchTerm)
-            .execute('sp_SearchNotes');
-
-        return result.recordset;
+        const result = await pool.query(
+            'SELECT * FROM sp_search_notes($1, $2)',
+            [agentId, searchTerm]
+        );
+        return result.rows;
     }
 
     /**
@@ -68,12 +76,11 @@ export class NotesService {
      */
     public async deleteNotes(agentId: string, noteDate: string): Promise<DeleteNotesResult> {
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('AgentId', sql.UniqueIdentifier, agentId)
-            .input('NoteDate', sql.Date, noteDate)
-            .execute('sp_DeleteNotes');
-
-        return result.recordset[0];
+        const result = await pool.query(
+            'SELECT * FROM sp_delete_notes($1, $2)',
+            [agentId, noteDate]
+        );
+        return result.rows[0];
     }
 }
 

@@ -1,132 +1,146 @@
 export interface Client {
-  clientId: string;
-  agentId: string;
-  firstName: string;
-  surname: string;
-  lastName: string;
-  phoneNumber: string;
-  email: string;
-  address: string;
-  nationalId: string;
-  dateOfBirth: string; // ISO string
-  isClient: boolean;
-  insuranceType: string;
-  notes?: string;
-  createdDate: string;
-  modifiedDate: string;
-  isActive: boolean;
-  age?: number;
-  policyCount?: number;
-  nextExpiryDate?: string;
+  ClientId: string;
+  AgentId: string;
+  FirstName: string;
+  Surname: string;
+  LastName: string;
+  PhoneNumber: string;
+  Email: string;
+  Address: string;
+  NationalId: string;
+  DateOfBirth: string; // ISO string
+  IsClient: boolean;
+  InsuranceType: string;
+  Notes?: string;
+  CreatedDate: string;
+  ModifiedDate: string;
+  IsActive: boolean;
+  Age?: number;
+  PolicyCount?: number;
+  NextExpiryDate?: string;
 }
 
 export interface ClientPolicy {
-  policyId: string;
-  clientId: string;
-  policyName: string;
-  policyType: string;
-  companyName: string;
-  status: 'Active' | 'Inactive' | 'Expired' | 'Lapsed';
-  startDate: string;
-  endDate: string;
-  daysToExpiry?: number;
-  notes?: string;
-  createdDate: string;
-  modifiedDate: string;
-  isActive: boolean;
+  PolicyId: string;
+  ClientId: string;
+  PolicyName: string;
+  PolicyType: string;
+  CompanyName: string;
+  Status: 'Active' | 'Inactive' | 'Expired' | 'Lapsed';
+  StartDate: string;
+  EndDate: string;
+  DaysToExpiry?: number;
+  Notes?: string;
+  CreatedDate: string;
+  ModifiedDate: string;
+  IsActive: boolean;
 }
 
 export interface ClientWithPolicy extends Client {
-  policyId?: string;
-  policyName?: string;
-  policyType?: string;
-  policyCompany?: string;
-  policyStatus?: string;
-  policyStartDate?: string;
-  policyEndDate?: string;
-  policyNotes?: string;
+  PolicyId?: string;
+  PolicyName?: string;
+  PolicyType?: string;
+  PolicyCompany?: string;
+  PolicyStatus?: string;
+  PolicyStartDate?: string;
+  PolicyEndDate?: string;
+  PolicyNotes?: string;
 }
 
 export interface ClientWithDetails extends Client {
-  policies?: ClientPolicy[];
-  recentAppointments?: Appointment[];
-  activeReminders?: Reminder[];
+  Policies?: ClientPolicy[];
+  RecentAppointments?: Appointment[];
+  ActiveReminders?: Reminder[];
 }
 
 export interface Appointment {
-  appointmentId: string;
-  title: string;
-  appointmentDate: string;
-  startTime: string;
-  endTime?: string;
-  type: string;
-  status: string;
-  location?: string;
+  AppointmentId: string;
+  Title: string;
+  AppointmentDate: string;
+  StartTime: string;
+  EndTime?: string;
+  Type: string;
+  Status: string;
+  Location?: string;
 }
 
 export interface Reminder {
-  reminderId: string;
-  title: string;
-  reminderDate: string;
-  reminderTime?: string;
-  reminderType: string;
-  priority: string;
-  status: string;
+  ReminderId: string;
+  Title: string;
+  ReminderDate: string;
+  ReminderTime?: string;
+  ReminderType: string;
+  Priority: string;
+  Status: string;
 }
 
 export interface CreateClientRequest {
-  agentId: string;
-  firstName: string;
-  surname: string;
-  lastName: string;
-  phoneNumber: string;
-  email: string;
-  address: string;
-  nationalId: string;
-  dateOfBirth: string; // ISO string
-  isClient?: boolean;
-  insuranceType: string;
-  notes?: string;
+  AgentId: string;
+  FirstName: string;
+  Surname: string;
+  LastName: string;
+  PhoneNumber: string;
+  Email: string;
+  Address: string;
+  NationalId: string;
+  DateOfBirth: string; // ISO string
+  IsClient?: boolean;
+  InsuranceType: string;
+  Notes?: string;
 }
 
 export interface UpdateClientRequest extends CreateClientRequest {
-  clientId: string;
+  ClientId: string;
 }
 
 export interface ClientSearchFilters {
-  searchTerm?: string;
-  insuranceType?: string;
-  filterType?: 'all' | 'clients' | 'prospects';
-  isClient?: boolean;
-  pageNumber?: number;
-  pageSize?: number;
+  SearchTerm?: string;
+  InsuranceType?: string;
+  FilterType?: 'all' | 'clients' | 'prospects';
+  IsClient?: boolean;
+  PageNumber?: number;
+  PageSize?: number;
 }
 
 export interface ClientStatistics {
-  totalContacts: number;
-  totalClients: number;
-  totalProspects: number;
-  todayBirthdays: number;
-  activePolicies?: number;
-  expiringPolicies?: number;
-  monthBirthdays?: number;
-  newThisWeek?: number;
-  newThisMonth?: number;
-  insuranceTypeBreakdown?: string;
+  TotalContacts: number;
+  TotalClients: number;
+  TotalProspects: number;
+  TodayBirthdays: number;
+  ActivePolicies?: number;
+  ExpiringPolicies?: number;
+  MonthBirthdays?: number;
+  NewThisWeek?: number;
+  NewThisMonth?: number;
+  InsuranceTypeBreakdown?: string;
 }
 
 export interface ClientResponse {
-  success: boolean;
-  message: string;
-  clientId?: string;
+  Success: boolean;
+  Message: string;
+  ClientId?: string;
 }
 
 export interface Birthday extends Client {
-  age: number;
+  Age: number;
 }
 
 export interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data?: T;
+  Success: boolean;
+  Message: string;
+  Data?: T;
+}
+
+export interface EnhancedClientStatistics extends ClientStatistics {
+  ExpiringSoon?: number;
+  InactiveClients?: number;
+  TopInsuranceType?: string;
+  ConversionRate?: number;
+}
+
+export interface PagedClients {
+  Clients: Client[];
+  TotalCount: number;
+  PageNumber: number;
+  PageSize: number;
 }

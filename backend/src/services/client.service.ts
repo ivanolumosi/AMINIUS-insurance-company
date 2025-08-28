@@ -12,85 +12,77 @@ import {
     Birthday,
     Appointment,
     Reminder,
-    ClientPolicy
+    ClientPolicy,
+    PagedClients,
+    EnhancedClientStatistics
 } from '../interfaces/client';
 import emailService from '../nodemailer/emailservice';
 
-/**
- * Utility: normalize DB dates to ISO string
- */
+/** Utility: normalize DB dates to ISO string */
 const toIsoString = (date: any): string | null =>
     date ? new Date(date).toISOString() : null;
 
-/**
- * Utility: map DB row → Client DTO
- */
+/** Utility: map DB row → Client DTO (PascalCase for frontend) */
 const mapClient = (row: any): Client => ({
-    clientId: row.client_id,
-    agentId: row.agent_id,
-    firstName: row.first_name,
-    surname: row.surname,
-    lastName: row.last_name,
-    phoneNumber: row.phone_number,
-    email: row.email,
-    address: row.address,
-    nationalId: row.national_id,
-    dateOfBirth: toIsoString(row.date_of_birth) as string,
-    isClient: row.isclient,
-    insuranceType: row.insurance_type,
-    notes: row.notes,
-    createdDate: toIsoString(row.created_date) as string,
-    modifiedDate: toIsoString(row.modified_date) as string,
-    isActive: row.is_active,
-    age: row.age ? Number(row.age) : undefined,
-    policyCount: row.policy_count ? Number(row.policy_count) : undefined,
-    nextExpiryDate: toIsoString(row.next_expiry_date) as string | undefined
+    ClientId: row.client_id,
+    AgentId: row.agent_id,
+    FirstName: row.first_name,
+    Surname: row.surname,
+    LastName: row.last_name,
+    PhoneNumber: row.phone_number,
+    Email: row.email,
+    Address: row.address,
+    NationalId: row.national_id,
+    DateOfBirth: toIsoString(row.date_of_birth) as string,
+    IsClient: row.isclient,
+    InsuranceType: row.insurance_type,
+    Notes: row.notes,
+    CreatedDate: toIsoString(row.created_date) as string,
+    ModifiedDate: toIsoString(row.modified_date) as string,
+    IsActive: row.is_active,
+    Age: row.age ? Number(row.age) : undefined,
+    PolicyCount: row.policy_count ? Number(row.policy_count) : undefined,
+    NextExpiryDate: toIsoString(row.next_expiry_date) as string | undefined
 });
 
-/**
- * Utility: map DB row → ClientPolicy DTO
- */
+/** Utility: map DB row → ClientPolicy DTO */
 const mapPolicy = (row: any): ClientPolicy => ({
-    policyId: row.policy_id,
-    clientId: row.client_id,
-    policyName: row.policy_name,
-    policyType: row.policy_type,
-    companyName: row.company_name,
-    status: row.status,
-    startDate: toIsoString(row.start_date) as string,
-    endDate: toIsoString(row.end_date) as string,
-    daysToExpiry: row.days_to_expiry ? Number(row.days_to_expiry) : undefined,
-    notes: row.notes,
-    createdDate: toIsoString(row.created_date) as string,
-    modifiedDate: toIsoString(row.modified_date) as string,
-    isActive: row.is_active
+    PolicyId: row.policy_id,
+    ClientId: row.client_id,
+    PolicyName: row.policy_name,
+    PolicyType: row.policy_type,
+    CompanyName: row.company_name,
+    Status: row.status,
+    StartDate: toIsoString(row.start_date) as string,
+    EndDate: toIsoString(row.end_date) as string,
+    DaysToExpiry: row.days_to_expiry ? Number(row.days_to_expiry) : undefined,
+    Notes: row.notes,
+    CreatedDate: toIsoString(row.created_date) as string,
+    ModifiedDate: toIsoString(row.modified_date) as string,
+    IsActive: row.is_active
 });
 
-/**
- * Utility: map DB row → Appointment DTO
- */
+/** Utility: map DB row → Appointment DTO */
 const mapAppointment = (row: any): Appointment => ({
-    appointmentId: row.appointment_id,
-    title: row.title,
-    appointmentDate: toIsoString(row.appointment_date) as string,
-    startTime: row.start_time,
-    endTime: row.end_time,
-    type: row.type,
-    status: row.status,
-    location: row.location
+    AppointmentId: row.appointment_id,
+    Title: row.title,
+    AppointmentDate: toIsoString(row.appointment_date) as string,
+    StartTime: row.start_time,
+    EndTime: row.end_time,
+    Type: row.type,
+    Status: row.status,
+    Location: row.location
 });
 
-/**
- * Utility: map DB row → Reminder DTO
- */
+/** Utility: map DB row → Reminder DTO */
 const mapReminder = (row: any): Reminder => ({
-    reminderId: row.reminder_id,
-    title: row.title,
-    reminderDate: toIsoString(row.reminder_date) as string,
-    reminderTime: row.reminder_time,
-    reminderType: row.reminder_type,
-    priority: row.priority,
-    status: row.status
+    ReminderId: row.reminder_id,
+    Title: row.title,
+    ReminderDate: toIsoString(row.reminder_date) as string,
+    ReminderTime: row.reminder_time,
+    ReminderType: row.reminder_type,
+    Priority: row.priority,
+    Status: row.status
 });
 
 export class ClientService {
@@ -130,7 +122,7 @@ export class ClientService {
             'SELECT * FROM sp_get_clients($1,$2,$3,$4)',
             [agentId, searchTerm, filterType, insuranceType]
         );
-        return result.rows.map(r => ({ ...mapClient(r), ...r }));
+        return result.rows.map(r => mapClient(r));
     }
 
     /** Get single client with details */
@@ -150,6 +142,7 @@ export class ClientService {
         try {
             const result = await pool.query('SELECT * FROM sp_convert_to_client($1,$2)', [clientId, agentId]);
             const rowsAffected = result.rows[0]?.rows_affected || 0;
+
             // Send notification email
             const client = (await pool.query('SELECT first_name, surname, last_name, email FROM clients WHERE client_id=$1', [clientId])).rows[0];
             const agent = (await pool.query('SELECT first_name,last_name,email FROM agent WHERE agent_id=$1', [agentId])).rows[0];
@@ -181,10 +174,10 @@ export class ClientService {
         const result = await pool.query('SELECT * FROM sp_get_client_statistics($1)', [agentId]);
         const r = result.rows[0];
         return {
-            totalContacts: Number(r.total_contacts),
-            totalClients: Number(r.total_clients),
-            totalProspects: Number(r.total_prospects),
-            todayBirthdays: Number(r.today_birthdays)
+            TotalContacts: Number(r.total_contacts),
+            TotalClients: Number(r.total_clients),
+            TotalProspects: Number(r.total_prospects),
+            TodayBirthdays: Number(r.today_birthdays)
         };
     }
 
@@ -192,7 +185,7 @@ export class ClientService {
     public async getTodaysBirthdays(agentId: string): Promise<Birthday[]> {
         const pool = await poolPromise;
         const result = await pool.query('SELECT * FROM sp_get_today_birthdays($1)', [agentId]);
-        return result.rows.map(r => ({ ...mapClient(r), age: r.age }));
+        return result.rows.map(r => ({ ...mapClient(r), Age: r.age }));
     }
 
     /** Search clients */
@@ -218,9 +211,9 @@ export class ClientService {
         const reminders = (await pool.query('SELECT * FROM sp_get_client_with_policies_reminders($1,$2)', [clientId, agentId])).rows;
         return {
             ...mapClient(client),
-            policies: policies.map(r => mapPolicy(r)),
-            recentAppointments: appointments.map(r => mapAppointment(r)),
-            activeReminders: reminders.map(r => mapReminder(r))
+            Policies: policies.map(r => mapPolicy(r)),
+            RecentAppointments: appointments.map(r => mapAppointment(r)),
+            ActiveReminders: reminders.map(r => mapReminder(r))
         };
     }
 
@@ -230,21 +223,21 @@ export class ClientService {
         const result = await pool.query(
             'SELECT * FROM sp_create_client($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
             [
-                clientData.agentId,
-                clientData.firstName,
-                clientData.surname,
-                clientData.lastName,
-                clientData.phoneNumber,
-                clientData.email,
-                clientData.address,
-                clientData.nationalId,
-                clientData.dateOfBirth,
-                clientData.isClient ?? false,
-                clientData.insuranceType,
-                clientData.notes
+                clientData.AgentId,
+                clientData.FirstName,
+                clientData.Surname,
+                clientData.LastName,
+                clientData.PhoneNumber,
+                clientData.Email,
+                clientData.Address,
+                clientData.NationalId,
+                clientData.DateOfBirth,
+                clientData.IsClient ?? false,
+                clientData.InsuranceType,
+                clientData.Notes
             ]
         );
-        return { success: true, message: 'Client created', clientId: result.rows[0].client_id };
+        return { Success: true, Message: 'Client created', ClientId: result.rows[0].client_id };
     }
 
     /** Update client */
@@ -253,20 +246,101 @@ export class ClientService {
         const result = await pool.query(
             'SELECT * FROM sp_update_client($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
             [
-                clientData.clientId,
-                clientData.agentId,
-                clientData.firstName,
-                clientData.surname,
-                clientData.lastName,
-                clientData.phoneNumber,
-                clientData.email,
-                clientData.address,
-                clientData.nationalId,
-                clientData.dateOfBirth,
-                clientData.insuranceType,
-                clientData.notes
+                clientData.ClientId,
+                clientData.AgentId,
+                clientData.FirstName,
+                clientData.Surname,
+                clientData.LastName,
+                clientData.PhoneNumber,
+                clientData.Email,
+                clientData.Address,
+                clientData.NationalId,
+                clientData.DateOfBirth,
+                clientData.InsuranceType,
+                clientData.Notes
             ]
         );
-        return { success: true, message: 'Client updated', clientId: result.rows[0].client_id };
+        return { Success: true, Message: 'Client updated', ClientId: result.rows[0].client_id };
+    }
+
+    /** Get all clients with advanced filters & pagination */
+    public async getAllClients(
+        agentId: string,
+        searchTerm?: string,
+        insuranceType?: string,
+        isClient?: boolean,
+        pageNumber: number = 1,
+        pageSize: number = 50
+    ): Promise<PagedClients> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_get_all_clients($1,$2,$3,$4,$5,$6)',
+            [agentId, searchTerm, insuranceType, isClient, pageNumber, pageSize]
+        );
+
+        const clients = result.rows.map(r => mapClient(r));
+        const totalCount = result.rows.length > 0 && result.rows[0].total_count
+            ? Number(result.rows[0].total_count)
+            : clients.length;
+
+        return {
+            Clients: clients,
+            TotalCount: totalCount,
+            PageNumber: pageNumber,
+            PageSize: pageSize
+        };
+    }
+
+    /** Get enhanced client statistics */
+    public async getEnhancedClientStatistics(agentId: string): Promise<EnhancedClientStatistics> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_get_enhanced_client_statistics($1)',
+            [agentId]
+        );
+
+        const r = result.rows[0];
+        return {
+            TotalContacts: Number(r.total_contacts),
+            TotalClients: Number(r.total_clients),
+            TotalProspects: Number(r.total_prospects),
+            TodayBirthdays: Number(r.today_birthdays),
+            ActivePolicies: r.active_policies ? Number(r.active_policies) : undefined,
+            ExpiringPolicies: r.expiring_policies ? Number(r.expiring_policies) : undefined,
+            MonthBirthdays: r.month_birthdays ? Number(r.month_birthdays) : undefined,
+            NewThisWeek: r.new_this_week ? Number(r.new_this_week) : undefined,
+            NewThisMonth: r.new_this_month ? Number(r.new_this_month) : undefined,
+            InsuranceTypeBreakdown: r.insurance_type_breakdown,
+            ExpiringSoon: r.expiring_soon ? Number(r.expiring_soon) : undefined,
+            InactiveClients: r.inactive_clients ? Number(r.inactive_clients) : undefined,
+            TopInsuranceType: r.top_insurance_type,
+            ConversionRate: r.conversion_rate ? Number(r.conversion_rate) : undefined
+        };
+    }
+
+    /** Send birthday reminders */
+    public async sendBirthdayReminders(agentId: string, agentEmail: string) {
+        try {
+            const birthdays: Birthday[] = await this.getTodaysBirthdays(agentId);
+
+            if (birthdays.length === 0) {
+                console.log('No birthdays today.');
+                return;
+            }
+
+            let emailText = `🎉 Today's Client Birthdays:\n\n`;
+            birthdays.forEach(b => {
+                emailText += `• ${b.FirstName} ${b.Surname} (${b.Age} years) - DOB: ${b.DateOfBirth}\n`;
+            });
+
+            const subject = `Today's Client Birthdays - ${birthdays.length} 🎂`;
+
+            await emailService.sendMail(agentEmail, subject, emailText)
+                .then(info => console.log('Birthday reminders sent:', info.messageId))
+                .catch(err => console.error('Birthday reminder email failed:', err));
+
+        } catch (err) {
+            console.error('Error sending birthday reminders:', err);
+        }
     }
 }

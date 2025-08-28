@@ -4,15 +4,15 @@ Content-Type: application/json
 
 {
   "AgentId": "7b407c2d-3145-40b0-8c47-1d6f62351b2c",
-  "FirstName": "John",
+  "FirstName": "Derrick",
   "Surname": "M",
-  "LastName": "Doe",
-  "PhoneNumber": "0748654344",
-  "Email": "john@example.com",
+  "LastName": "Kioko",
+  "PhoneNumber": "0748554844",
+  "Email": "patrick@example.com",
   "Address": "123 Street",
-  "NationalId": "AB12345",
-  "DateOfBirth": "1990-01-01",
-  "IsClient": true,
+  "NationalId": "40079654",
+  "DateOfBirth": "1990-08-27",
+  "IsClient": false,
   "InsuranceType": true,
   "Notes": "Test note"
 }

@@ -255,79 +255,80 @@ public async loginAgent(email: string, password: string): Promise<LoginResponse>
     return response;
   }
 
-  /**
-   * Send temporary password
-   */
-  public async sendTemporaryPassword(email: string): Promise<{ Success: boolean; Message: string }> {
-    const pool = await poolPromise;
+/**
+ * Get insurance companies
+ */
+public async getInsuranceCompanies(): Promise<InsuranceCompany[]> {
+  const pool = await poolPromise;
+  const result = await pool.query('SELECT * FROM sp_get_insurance_companies()');
+  return result.rows;
+}
 
-    const agentResult = await pool.query('SELECT * FROM sp_authenticate_agent($1)', [email]);
-    const agent = agentResult.rows[0];
-    if (!agent) return { Success: false, Message: 'Email not found' };
+/**
+ * Get policy types
+ */
+public async getPolicyTypes(): Promise<PolicyType[]> {
+  const pool = await poolPromise;
+  const result = await pool.query('SELECT * FROM sp_get_policy_types()');
+  return result.rows;
+}
 
-    const tempPassword = crypto.randomBytes(4).toString('hex');
-    const tempHash = await bcrypt.hash(tempPassword, 10);
 
-    await pool.query('SELECT sp_reset_password($1,$2)', [agent.agentid, tempHash]);
-
-    await emailService.sendMail(
-      email,
-      'Temporary Password for Aminius App',
-      `Hi ${agent.firstname},\n\nYour temporary password is: ${tempPassword}`,
-      `<p>Hi ${agent.firstname},</p><p>Your temporary password is: <strong>${tempPassword}</strong></p>`
-    );
-
-    return { Success: true, Message: 'Temporary password sent to email' };
-  }
-
-  /**
-   * Get insurance companies
-   */
-  public async getInsuranceCompanies(): Promise<InsuranceCompany[]> {
-    const pool = await poolPromise;
-    const result = await pool.query('SELECT * FROM sp_get_insurance_companies()');
-    return result.rows;
-  }
-
-  /**
-   * Get policy types
-   */
-  public async getPolicyTypes(): Promise<PolicyType[]> {
-    const pool = await poolPromise;
-    const result = await pool.query('SELECT * FROM sp_get_policy_types()');
-    return result.rows;
-  }
-
-  /**
-   * Get navbar badge counts
-   */
-// Updated method in agent.service.ts
-public async getNavbarBadgeCounts(agentId: string): Promise<{ 
-    clients: number; 
-    policies: number; 
-    reminders: number; 
-    appointments: number 
+/**
+ * Get navbar badge counts
+ */
+public async getNavbarBadgeCounts(agentId: string): Promise<{
+  clients: number;
+  policies: number;
+  reminders: number;
+  appointments: number;
 }> {
-    const pool = await poolPromise;
-    
-    try {
-        const result = await pool.query('SELECT * FROM get_navbar_badge_counts($1)', [agentId]);
+  const pool = await poolPromise;
+  
+  try {
+const result = await pool.query('SELECT * FROM sp_getnavbarbadgecounts($1)', [agentId]);
 
-        if (!result.rows.length) {
-            return { clients: 0, policies: 0, reminders: 0, appointments: 0 };
-        }
-
-        const row = result.rows[0];
-        return {
-            clients: row.clientscount ?? 0,
-            policies: row.policiescount ?? 0,
-            reminders: row.reminderscount ?? 0,
-            appointments: row.appointmentscount ?? 0
-        };
-    } catch (error) {
-        console.error('Error getting navbar badge counts:', error);
-        // Return default values in case of error
-        return { clients: 0, policies: 0, reminders: 0, appointments: 0 };
+    if (!result.rows.length) {
+      return { clients: 0, policies: 0, reminders: 0, appointments: 0 };
     }
+
+    const row = result.rows[0];
+    return {
+      clients: row.clientscount ?? 0,
+      policies: row.policiescount ?? 0,
+      reminders: row.reminderscount ?? 0,
+      appointments: row.appointmentscount ?? 0
+    };
+  } catch (error) {
+    console.error('Error getting navbar badge counts:', error);
+    // Return default values in case of error
+    return { clients: 0, policies: 0, reminders: 0, appointments: 0 };
+  }
 }
+  /**
+ * Send temporary password
+ */
+public async sendTemporaryPassword(email: string): Promise<{ Success: boolean; Message: string }> {
+  const pool = await poolPromise;
+
+  const agentResult = await pool.query('SELECT * FROM sp_authenticate_agent($1)', [email]);
+  const agent = agentResult.rows[0];
+  if (!agent) return { Success: false, Message: 'Email not found' };
+
+  const tempPassword = crypto.randomBytes(4).toString('hex');
+  const tempHash = await bcrypt.hash(tempPassword, 10);
+
+  await pool.query('SELECT sp_reset_password($1,$2)', [agent.agentid, tempHash]);
+
+  await emailService.sendMail(
+    email,
+    'Temporary Password for Aminius App',
+    `Hi ${agent.firstname},\n\nYour temporary password is: ${tempPassword}`,
+    `<p>Hi ${agent.firstname},</p><p>Your temporary password is: <strong>${tempPassword}</strong></p>`
+  );
+
+  return { Success: true, Message: 'Temporary password sent to email' };
 }
+
+    }
+  

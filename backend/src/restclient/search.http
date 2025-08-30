@@ -1,3 +1,8 @@
+### Base URL
+@baseUrl = http://localhost:3000/api/policies
+
+### Sample IDs (replace with actual IDs from your database)
+@AGENT_ID = 7b407c2d-3145-40b0-8c47-1d6f62351b2c
 ### Global Search
 GET http://localhost:3000/api/search/{AGENT_ID}/global?searchTerm=life insurance
 Content-Type: application/json

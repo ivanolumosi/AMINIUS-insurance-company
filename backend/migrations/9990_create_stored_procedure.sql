@@ -1,12 +1,11 @@
-
-
 -- ============================================
 -- REFERENCE DATA FUNCTIONS
 -- ============================================
 
 -- Get Insurance Companies
 CREATE OR REPLACE FUNCTION sp_get_insurance_companies(p_is_active BOOLEAN DEFAULT TRUE)
-RETURNS TABLE(company_id UUID, company_name VARCHAR(100), is_active BOOLEAN, created_date TIMESTAMPTZ) AS $
+RETURNS TABLE(company_id UUID, company_name VARCHAR(100), is_active BOOLEAN, created_date TIMESTAMPTZ) 
+LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY
     SELECT 
@@ -18,11 +17,12 @@ BEGIN
     WHERE (p_is_active IS NULL OR ic.is_active = p_is_active)
     ORDER BY ic.company_name;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Get Policy Types
 CREATE OR REPLACE FUNCTION sp_get_policy_types_list(p_is_active BOOLEAN DEFAULT TRUE)
-RETURNS TABLE(type_id UUID, type_name VARCHAR(100), is_active BOOLEAN, created_date TIMESTAMPTZ) AS $
+RETURNS TABLE(type_id UUID, type_name VARCHAR(100), is_active BOOLEAN, created_date TIMESTAMPTZ) 
+LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY
     SELECT 
@@ -34,7 +34,7 @@ BEGIN
     WHERE (p_is_active IS NULL OR pt.is_active = p_is_active)
     ORDER BY pt.type_name;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Get Policy Categories
 CREATE OR REPLACE FUNCTION sp_get_policy_categories_list(p_is_active BOOLEAN DEFAULT TRUE)
@@ -44,7 +44,8 @@ RETURNS TABLE(
     description TEXT, 
     is_active BOOLEAN, 
     created_date TIMESTAMPTZ
-) AS $
+) 
+LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY
     SELECT 
@@ -57,14 +58,15 @@ BEGIN
     WHERE (p_is_active IS NULL OR pc.is_active = p_is_active)
     ORDER BY pc.category_name;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Create Policy Category
 CREATE OR REPLACE FUNCTION sp_create_policy_category(
     p_category_name VARCHAR(100),
     p_description TEXT DEFAULT NULL
 )
-RETURNS TABLE(category_id UUID) AS $
+RETURNS TABLE(category_id UUID) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_category_id UUID := gen_random_uuid();
 BEGIN
@@ -77,7 +79,7 @@ BEGIN
     
     RETURN QUERY SELECT v_category_id;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- ============================================
 -- ADDITIONAL RECOMMENDED FUNCTIONS
@@ -85,7 +87,8 @@ $ LANGUAGE plpgsql;
 
 -- Create Insurance Company
 CREATE OR REPLACE FUNCTION sp_create_insurance_company(p_company_name VARCHAR(100))
-RETURNS TABLE(company_id UUID) AS $
+RETURNS TABLE(company_id UUID) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_company_id UUID := gen_random_uuid();
 BEGIN
@@ -98,11 +101,12 @@ BEGIN
     
     RETURN QUERY SELECT v_company_id;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Create Policy Type
 CREATE OR REPLACE FUNCTION sp_create_policy_type_new(p_type_name VARCHAR(100))
-RETURNS TABLE(type_id UUID) AS $
+RETURNS TABLE(type_id UUID) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_type_id UUID := gen_random_uuid();
 BEGIN
@@ -115,7 +119,7 @@ BEGIN
     
     RETURN QUERY SELECT v_type_id;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Get Policy Renewal Candidates
 CREATE OR REPLACE FUNCTION sp_get_policy_renewal_candidates(
@@ -135,7 +139,8 @@ RETURNS TABLE (
     type_name VARCHAR(100),
     days_until_expiry INTEGER,
     renewal_priority VARCHAR(10)
-) AS $
+) 
+LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY
     SELECT 
@@ -149,10 +154,10 @@ BEGIN
         ic.company_name,
         cp.type_id,
         pt.type_name,
-        EXTRACT(DAYS FROM (cp.end_date - CURRENT_DATE))::INTEGER as days_until_expiry,
+        EXTRACT(DAY FROM (cp.end_date - CURRENT_DATE))::INTEGER as days_until_expiry,
         CASE 
-            WHEN EXTRACT(DAYS FROM (cp.end_date - CURRENT_DATE)) <= 30 THEN 'Urgent'
-            WHEN EXTRACT(DAYS FROM (cp.end_date - CURRENT_DATE)) <= 45 THEN 'Soon'
+            WHEN EXTRACT(DAY FROM (cp.end_date - CURRENT_DATE)) <= 30 THEN 'Urgent'
+            WHEN EXTRACT(DAY FROM (cp.end_date - CURRENT_DATE)) <= 45 THEN 'Soon'
             ELSE 'Upcoming'
         END::VARCHAR(10) as renewal_priority
     FROM client_policies cp
@@ -161,11 +166,11 @@ BEGIN
         LEFT JOIN insurance_companies ic ON cp.company_id = ic.company_id
     WHERE cp.is_active = TRUE
         AND cp.status = 'Active'
-        AND cp.end_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '%s days')
+        AND cp.end_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + (p_days_ahead || ' days')::INTERVAL)
         AND (p_agent_id IS NULL OR pc.agent_id = p_agent_id)
     ORDER BY cp.end_date, renewal_priority;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Get Agent Dashboard Summary
 CREATE OR REPLACE FUNCTION sp_get_agent_dashboard_summary(p_agent_id UUID)
@@ -177,7 +182,8 @@ RETURNS TABLE (
     total_companies BIGINT,
     total_clients BIGINT,
     inactive_policies BIGINT
-) AS $
+) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_total_policies BIGINT := 0;
     v_active_policies BIGINT := 0;
@@ -205,7 +211,7 @@ BEGIN
         INNER JOIN policy_catalog pc ON cp.policy_catalog_id = pc.policy_catalog_id
     WHERE pc.agent_id = p_agent_id;
 
-    -- Get company count (companies actually used in policies for this agent)
+    -- Get company count
     SELECT COUNT(DISTINCT cp.company_id)
     INTO v_total_companies
     FROM client_policies cp
@@ -214,7 +220,7 @@ BEGIN
       AND cp.is_active = TRUE
       AND cp.company_id IS NOT NULL;
 
-    -- Get client count (all clients of the agent, regardless of policy)
+    -- Get client count
     SELECT COUNT(*)
     INTO v_total_clients
     FROM clients c
@@ -231,7 +237,7 @@ BEGIN
         v_total_clients,
         (v_total_policies - v_active_policies) as inactive_policies;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Update Policy Category
 CREATE OR REPLACE FUNCTION sp_update_policy_category_details(
@@ -240,7 +246,8 @@ CREATE OR REPLACE FUNCTION sp_update_policy_category_details(
     p_description TEXT DEFAULT NULL,
     p_is_active BOOLEAN DEFAULT NULL
 )
-RETURNS TABLE(rows_affected INTEGER) AS $
+RETURNS TABLE(rows_affected INTEGER) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_rows_affected INTEGER;
 BEGIN
@@ -254,7 +261,7 @@ BEGIN
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     RETURN QUERY SELECT v_rows_affected;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Update Insurance Company
 CREATE OR REPLACE FUNCTION sp_update_insurance_company(
@@ -262,7 +269,8 @@ CREATE OR REPLACE FUNCTION sp_update_insurance_company(
     p_company_name VARCHAR(100) DEFAULT NULL,
     p_is_active BOOLEAN DEFAULT NULL
 )
-RETURNS TABLE(rows_affected INTEGER) AS $
+RETURNS TABLE(rows_affected INTEGER) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_rows_affected INTEGER;
 BEGIN
@@ -275,7 +283,7 @@ BEGIN
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     RETURN QUERY SELECT v_rows_affected;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Update Policy Type
 CREATE OR REPLACE FUNCTION sp_update_policy_type_details(
@@ -283,7 +291,8 @@ CREATE OR REPLACE FUNCTION sp_update_policy_type_details(
     p_type_name VARCHAR(100) DEFAULT NULL,
     p_is_active BOOLEAN DEFAULT NULL
 )
-RETURNS TABLE(rows_affected INTEGER) AS $
+RETURNS TABLE(rows_affected INTEGER) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_rows_affected INTEGER;
 BEGIN
@@ -296,7 +305,7 @@ BEGIN
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     RETURN QUERY SELECT v_rows_affected;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Get Policy History for Client
 CREATE OR REPLACE FUNCTION sp_get_policy_history_for_client(
@@ -319,7 +328,8 @@ RETURNS TABLE (
     type_name VARCHAR(100),
     policy_duration_days INTEGER,
     policy_state VARCHAR(20)
-) AS $
+) 
+LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY
     SELECT 
@@ -336,7 +346,7 @@ BEGIN
         ic.company_name,
         cp.type_id,
         pt.type_name,
-        EXTRACT(DAYS FROM (cp.end_date - cp.start_date))::INTEGER as policy_duration_days,
+        EXTRACT(DAY FROM (cp.end_date - cp.start_date))::INTEGER as policy_duration_days,
         CASE 
             WHEN cp.status = 'Active' AND cp.end_date > CURRENT_DATE THEN 'Current'
             WHEN cp.status = 'Active' AND cp.end_date <= CURRENT_DATE THEN 'Expired'
@@ -349,11 +359,12 @@ BEGIN
         AND (p_include_inactive = TRUE OR cp.is_active = TRUE)
     ORDER BY cp.start_date DESC, cp.created_date DESC;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Batch Expire Policies
 CREATE OR REPLACE FUNCTION sp_batch_expire_policies(p_as_of_date DATE DEFAULT NULL)
-RETURNS TABLE(policies_expired INTEGER) AS $
+RETURNS TABLE(policies_expired INTEGER) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_as_of_date DATE := COALESCE(p_as_of_date, CURRENT_DATE);
     v_rows_affected INTEGER;
@@ -367,7 +378,7 @@ BEGIN
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     RETURN QUERY SELECT v_rows_affected;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- ============================================
 -- UTILITY FUNCTIONS
@@ -378,177 +389,61 @@ CREATE OR REPLACE FUNCTION sp_cleanup_soft_deleted_records(
     p_days_old INTEGER DEFAULT 365,
     p_dry_run BOOLEAN DEFAULT TRUE
 )
-RETURNS TABLE(table_name VARCHAR(50), records_to_delete BIGINT) AS $
+RETURNS TABLE(table_name VARCHAR(50), records_to_delete BIGINT) 
+LANGUAGE plpgsql AS $$
 DECLARE
-    v_cutoff_date TIMESTAMPTZ := NOW() - INTERVAL '%s days';
+    v_cutoff_date TIMESTAMPTZ := NOW() - (p_days_old || ' days')::INTERVAL;
     v_deleted_count INTEGER := 0;
+    v_last_count INTEGER := 0;
 BEGIN
     IF p_dry_run = TRUE THEN
         -- Show what would be deleted
         RETURN QUERY
-        SELECT 'client_policies'::VARCHAR(50) as table_name, COUNT(*) as records_to_delete
+        SELECT 'client_policies'::VARCHAR(50), COUNT(*)
         FROM client_policies 
         WHERE is_active = FALSE AND modified_date < v_cutoff_date
         
         UNION ALL
         
-        SELECT 'policy_catalog'::VARCHAR(50) as table_name, COUNT(*) as records_to_delete
+        SELECT 'policy_catalog'::VARCHAR(50), COUNT(*)
         FROM policy_catalog 
         WHERE is_active = FALSE AND modified_date < v_cutoff_date
         
         UNION ALL
         
-        SELECT 'policy_templates'::VARCHAR(50) as table_name, COUNT(*) as records_to_delete
+        SELECT 'policy_templates'::VARCHAR(50), COUNT(*)
         FROM policy_templates 
         WHERE is_active = FALSE AND created_date < v_cutoff_date;
     ELSE
         -- Actually delete the records
         DELETE FROM client_policies 
         WHERE is_active = FALSE AND modified_date < v_cutoff_date;
-        
-        GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
-        
+        GET DIAGNOSTICS v_last_count = ROW_COUNT;
+        v_deleted_count := v_deleted_count + v_last_count;
+
         DELETE FROM policy_catalog 
         WHERE is_active = FALSE AND modified_date < v_cutoff_date;
-        
-        GET DIAGNOSTICS v_deleted_count = v_deleted_count + ROW_COUNT;
-        
+        GET DIAGNOSTICS v_last_count = ROW_COUNT;
+        v_deleted_count := v_deleted_count + v_last_count;
+
         DELETE FROM policy_templates 
         WHERE is_active = FALSE AND created_date < v_cutoff_date;
-        
-        GET DIAGNOSTICS v_deleted_count = v_deleted_count + ROW_COUNT;
-        
+        GET DIAGNOSTICS v_last_count = ROW_COUNT;
+        v_deleted_count := v_deleted_count + v_last_count;
+
+        -- Return total summary
         RETURN QUERY SELECT 'total_deleted'::VARCHAR(50), v_deleted_count::BIGINT;
     END IF;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
--- Get Clients With Policies
-CREATE OR REPLACE FUNCTION sp_get_clients_with_policies(
-    p_agent_id UUID DEFAULT NULL,
-    p_client_id UUID DEFAULT NULL,
-    p_include_inactive BOOLEAN DEFAULT FALSE
-)
-RETURNS TABLE (
-    client_id UUID,
-    agent_id UUID,
-    first_name VARCHAR(50),
-    surname VARCHAR(50),
-    last_name VARCHAR(50),
-    full_name VARCHAR(152),
-    phone_number VARCHAR(20),
-    email VARCHAR(100),
-    address TEXT,
-    national_id VARCHAR(50),
-    date_of_birth DATE,
-    is_client BOOLEAN,
-    insurance_type VARCHAR(50),
-    client_notes TEXT,
-    client_created_date TIMESTAMPTZ,
-    client_modified_date TIMESTAMPTZ,
-    client_is_active BOOLEAN,
-    policy_id UUID,
-    policy_name VARCHAR(100),
-    status VARCHAR(20),
-    start_date DATE,
-    end_date DATE,
-    policy_notes TEXT,
-    policy_created_date TIMESTAMPTZ,
-    policy_modified_date TIMESTAMPTZ,
-    policy_is_active BOOLEAN,
-    policy_catalog_id UUID,
-    catalog_policy_name VARCHAR(100),
-    type_id UUID,
-    type_name VARCHAR(100),
-    company_id UUID,
-    company_name VARCHAR(100),
-    days_until_expiry INTEGER
-) AS $
-BEGIN
-    RETURN QUERY
-    SELECT 
-        c.client_id,
-        c.agent_id,
-        c.first_name,
-        c.surname,
-        c.last_name,
-        (c.first_name || ' ' || c.surname || ' ' || c.last_name)::VARCHAR(152) AS full_name,
-        c.phone_number,
-        c.email,
-        c.address,
-        c.national_id,
-        c.date_of_birth,
-        c.is_client,
-        c.insurance_type,
-        c.notes AS client_notes,
-        c.created_date AS client_created_date,
-        c.modified_date AS client_modified_date,
-        c.is_active AS client_is_active,
 
-        cp.policy_id,
-        cp.policy_name,
-        cp.status,
-        cp.start_date,
-        cp.end_date,
-        cp.notes AS policy_notes,
-        cp.created_date AS policy_created_date,
-        cp.modified_date AS policy_modified_date,
-        cp.is_active AS policy_is_active,
-        cp.policy_catalog_id,
-        pc.policy_name AS catalog_policy_name,
-        cp.type_id,
-        pt.type_name,
-        cp.company_id,
-        ic.company_name,
-        EXTRACT(DAYS FROM (cp.end_date - CURRENT_DATE))::INTEGER AS days_until_expiry
-    FROM clients c
-        INNER JOIN client_policies cp 
-            ON c.client_id = cp.client_id
-           AND cp.policy_id IS NOT NULL
-           AND cp.company_id IS NOT NULL
-           AND cp.type_id IS NOT NULL
-        LEFT JOIN policy_catalog pc ON cp.policy_catalog_id = pc.policy_catalog_id
-        LEFT JOIN policy_types pt ON cp.type_id = pt.type_id
-        LEFT JOIN insurance_companies ic ON cp.company_id = ic.company_id
-    WHERE 
-        (p_agent_id IS NULL OR c.agent_id = p_agent_id)
-        AND (p_client_id IS NULL OR c.client_id = p_client_id)
-        AND (
-            p_include_inactive = TRUE 
-            OR (COALESCE(c.is_active, TRUE) = TRUE AND COALESCE(cp.is_active, TRUE) = TRUE)
-        )
-    ORDER BY c.created_date DESC, cp.end_date DESC;
-END;
-$ LANGUAGE plpgsql;
 
--- ============================================
--- SOFT DELETE FUNCTIONS
--- ============================================
-
--- Soft Delete Client Policy
-CREATE OR REPLACE FUNCTION sp_soft_delete_client_policy(p_policy_id UUID)
-RETURNS TABLE(success INTEGER, message TEXT) AS $
-DECLARE
-    v_rows_affected INTEGER;
-BEGIN
-    UPDATE client_policies
-    SET is_active = FALSE,
-        modified_date = NOW()
-    WHERE policy_id = p_policy_id AND COALESCE(is_active, TRUE) = TRUE;
-    
-    GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
-    
-    IF v_rows_affected > 0 THEN
-        RETURN QUERY SELECT 1, 'Policy soft deleted successfully';
-    ELSE
-        RETURN QUERY SELECT 0, 'Policy not found or already inactive';
-    END IF;
-END;
-$ LANGUAGE plpgsql;
 
 -- Soft Delete Insurance Company
 CREATE OR REPLACE FUNCTION sp_soft_delete_insurance_company(p_company_id UUID)
-RETURNS TABLE(success INTEGER, message TEXT) AS $
+RETURNS TABLE(success INTEGER, message TEXT) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_rows_affected INTEGER;
 BEGIN
@@ -564,11 +459,12 @@ BEGIN
         RETURN QUERY SELECT 0, 'Insurance company not found or already inactive';
     END IF;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Soft Delete Policy Catalog
 CREATE OR REPLACE FUNCTION sp_soft_delete_policy_catalog(p_policy_catalog_id UUID)
-RETURNS TABLE(success INTEGER, message TEXT) AS $
+RETURNS TABLE(success INTEGER, message TEXT) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_rows_affected INTEGER;
 BEGIN
@@ -585,11 +481,12 @@ BEGIN
         RETURN QUERY SELECT 0, 'Policy catalog not found or already inactive';
     END IF;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Soft Delete Policy Category
 CREATE OR REPLACE FUNCTION sp_soft_delete_policy_category(p_category_id UUID)
-RETURNS TABLE(success INTEGER, message TEXT) AS $
+RETURNS TABLE(success INTEGER, message TEXT) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_rows_affected INTEGER;
 BEGIN
@@ -605,11 +502,12 @@ BEGIN
         RETURN QUERY SELECT 0, 'Policy category not found or already inactive';
     END IF;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Soft Delete Policy Template
 CREATE OR REPLACE FUNCTION sp_soft_delete_policy_template(p_template_id UUID)
-RETURNS TABLE(success INTEGER, message TEXT) AS $
+RETURNS TABLE(success INTEGER, message TEXT) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_rows_affected INTEGER;
 BEGIN
@@ -625,11 +523,12 @@ BEGIN
         RETURN QUERY SELECT 0, 'Policy template not found or already inactive';
     END IF;
 END;
-$ LANGUAGE plpgsql;
+$$;
 
 -- Soft Delete Policy Type
 CREATE OR REPLACE FUNCTION sp_soft_delete_policy_type(p_type_id UUID)
-RETURNS TABLE(success INTEGER, message TEXT) AS $
+RETURNS TABLE(success INTEGER, message TEXT) 
+LANGUAGE plpgsql AS $$
 DECLARE
     v_rows_affected INTEGER;
 BEGIN
@@ -645,4 +544,4 @@ BEGIN
         RETURN QUERY SELECT 0, 'Policy type not found or already inactive';
     END IF;
 END;
-$ LANGUAGE plpgsql;
+$$;

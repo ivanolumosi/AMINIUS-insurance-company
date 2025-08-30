@@ -2,83 +2,87 @@ import { Router } from 'express';
 import {
     // Health check
     healthCheck,
-    
+
     // Policy catalog
     getPolicyCatalog,
     createPolicyCatalogItem,
     updatePolicyCatalogItem,
     upsertPolicyCatalog,
     softDeletePolicyCatalog,
-    
+    deletePolicyCatalogItem,
+
     // Client policies
     getClientPolicies,
     getPolicyById,
     createClientPolicy,
     updateClientPolicy,
     upsertClientPolicy,
+    deleteClientPolicy,
     softDeleteClientPolicy,
     getClientsWithPolicies,
-    
+
     // Search & filter
     searchPolicies,
     getPoliciesByStatus,
-    
+
     // Expiration & renewal
     getExpiringPolicies,
     renewPolicy,
     getPolicyRenewalCandidates,
-    
+
     // Bulk operations
     bulkUpdatePolicyStatus,
     bulkCreatePolicies,
     bulkUpdatePolicies,
     batchExpirePolicies,
-    
+
     // Policy templates
     getPolicyTemplates,
     createPolicyTemplate,
     updatePolicyTemplate,
+    deletePolicyTemplate,
     softDeletePolicyTemplate,
-    
+
     // Reference data - insurance companies
     getInsuranceCompanies,
     createInsuranceCompany,
     updateInsuranceCompany,
     deleteInsuranceCompany,
     softDeleteInsuranceCompany,
-    
+
     // Reference data - policy types
     getPolicyTypes,
     createPolicyType,
     updatePolicyType,
     softDeletePolicyType,
-    
+
     // Reference data - policy categories
     getPolicyCategories,
     createPolicyCategory,
     updatePolicyCategory,
     softDeletePolicyCategory,
-    
-    // Autocomplete
+
+    // Autocomplete (not implemented in service - will return 501)
     autocompleteInsuranceCompanies,
     autocompletePolicyCatalog,
     autocompletePolicyCategories,
     autocompletePolicyTemplates,
     autocompletePolicyTypes,
     autocompleteClientPolicies,
-    
+
     // Analytics & reporting
     getPolicyStatistics,
     getPolicyStatisticsDetailed,
     getAgentDashboardSummary,
     getPolicyHistory,
-    
+
     // Validation
     validatePolicy,
-    
+    validatePolicyData,
+
     // Export
     exportPolicies,
-    
+
     // Utility
     cleanupSoftDeletedRecords
 } from '../controllers/policy.controller';
@@ -97,31 +101,32 @@ router.get('/catalog', getPolicyCatalog);
 router.post('/catalog', createPolicyCatalogItem);
 router.put('/catalog/:id', updatePolicyCatalogItem);
 router.post('/catalog/upsert', upsertPolicyCatalog);
+router.delete('/catalog/:policyCatalogId', deletePolicyCatalogItem);
 router.delete('/catalog/:policyCatalogId/soft', softDeletePolicyCatalog);
 
 // ============================================
 // CLIENT POLICIES
 // ============================================
+// Base
 router.get('/policies', getClientPolicies);
-router.get('/policies/:id', getPolicyById);
 router.post('/policies', createClientPolicy);
-router.put('/policies/:id', updateClientPolicy);
 router.post('/policies/upsert', upsertClientPolicy);
-router.delete('/policies/:policyId/soft', softDeleteClientPolicy);
-router.get('/clients-with-policies', getClientsWithPolicies);
 
-// ============================================
-// SEARCH & FILTER
-// ============================================
+// Special named routes BEFORE :id (order matters!)
 router.get('/policies/search', searchPolicies);
 router.get('/policies/status', getPoliciesByStatus);
-
-// ============================================
-// EXPIRATION & RENEWAL
-// ============================================
 router.get('/policies/expiring', getExpiringPolicies);
-router.post('/policies/:id/renew', renewPolicy);
 router.get('/policies/renewal-candidates', getPolicyRenewalCandidates);
+
+// ID-based routes (must come last)
+router.get('/policies/:id', getPolicyById);
+router.put('/policies/:id', updateClientPolicy);
+router.post('/policies/:id/renew', renewPolicy);
+router.delete('/policies/:policyId', deleteClientPolicy);
+router.delete('/policies/:policyId/soft', softDeleteClientPolicy);
+
+// Client relationships
+router.get('/clients-with-policies', getClientsWithPolicies);
 
 // ============================================
 // BULK OPERATIONS
@@ -137,6 +142,7 @@ router.post('/policies/bulk/expire', batchExpirePolicies);
 router.get('/templates', getPolicyTemplates);
 router.post('/templates', createPolicyTemplate);
 router.put('/templates/:id', updatePolicyTemplate);
+router.delete('/templates/:templateId', deletePolicyTemplate);
 router.delete('/templates/:templateId/soft', softDeletePolicyTemplate);
 
 // ============================================
@@ -165,8 +171,9 @@ router.put('/categories/:id', updatePolicyCategory);
 router.delete('/categories/:categoryId/soft', softDeletePolicyCategory);
 
 // ============================================
-// AUTOCOMPLETE ENDPOINTS
+// AUTOCOMPLETE ENDPOINTS (NOT IMPLEMENTED)
 // ============================================
+// Note: These will return 501 Not Implemented status
 router.get('/autocomplete/companies', autocompleteInsuranceCompanies);
 router.get('/autocomplete/catalog', autocompletePolicyCatalog);
 router.get('/autocomplete/categories', autocompletePolicyCategories);
@@ -186,6 +193,7 @@ router.get('/history/:clientId', getPolicyHistory);
 // VALIDATION
 // ============================================
 router.post('/validate', validatePolicy);
+router.post('/validate/data', validatePolicyData);
 
 // ============================================
 // EXPORT

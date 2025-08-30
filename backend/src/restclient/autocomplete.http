@@ -24,7 +24,7 @@ GET {{baseUrl}}/categories
 ### DYNAMIC AUTOCOMPLETES
 
 ### Get policy catalog (with optional filters)
-GET {{baseUrl}}/catalog?agentId={{agentId}}&companyId={{companyId}}&typeId={{typeId}}&searchTerm=j
+GET {{baseUrl}}/catalog?agentId={{agentId}}&companyId={{companyId}}&typeId={{typeId}}&searchTerm=co
 
 ### Get policy templates (with optional filters)
 GET {{baseUrl}}/templates?agentId={{agentId}}&typeId={{typeId}}&categoryId={{categoryId}}&searchTerm=s

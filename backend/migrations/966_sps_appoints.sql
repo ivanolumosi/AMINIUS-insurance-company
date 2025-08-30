@@ -1,3 +1,25 @@
+-- ============================================
+-- Appointments PostgreSQL Stored Procedures
+-- (Using lowercase 'appointments' table with $$ quoting)
+-- ============================================
+-- ============================================
+-- Drop All Appointment Stored Procedures
+-- ============================================
+
+DROP FUNCTION IF EXISTS sp_get_appointment_statistics(UUID);
+DROP FUNCTION IF EXISTS sp_get_all_appointments(UUID, DATE, DATE, VARCHAR(20), VARCHAR(50), VARCHAR(10), UUID, VARCHAR(200), INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS sp_get_appointment_by_id(UUID, UUID);
+DROP FUNCTION IF EXISTS sp_create_appointment(UUID, UUID, VARCHAR(200), TEXT, DATE, TIME, TIME, VARCHAR(200), VARCHAR(50), VARCHAR(20), VARCHAR(10), TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS sp_update_appointment(UUID, UUID, VARCHAR(200), TEXT, DATE, TIME, TIME, VARCHAR(200), VARCHAR(50), VARCHAR(10), TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS sp_check_time_conflicts(UUID, DATE, TIME, TIME, UUID);
+DROP FUNCTION IF EXISTS sp_get_today_appointments(UUID);
+DROP FUNCTION IF EXISTS sp_get_week_view_appointments(UUID, DATE);
+DROP FUNCTION IF EXISTS sp_get_calendar_appointments(UUID, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS sp_update_appointment_status(UUID, UUID, VARCHAR(20));
+DROP FUNCTION IF EXISTS sp_delete_appointment(UUID, UUID);
+DROP FUNCTION IF EXISTS sp_get_appointments(UUID, VARCHAR(20), VARCHAR(20), VARCHAR(50), VARCHAR(100), DATE, DATE);
+DROP FUNCTION IF EXISTS sp_get_appointments_for_date(UUID, DATE);
+DROP FUNCTION IF EXISTS sp_search_appointments(UUID, VARCHAR(200));
 -- ===========================================================
 -- Get Appointment Statistics
 -- ===========================================================
@@ -29,6 +51,7 @@ BEGIN
     WHERE agent_id = p_agent_id AND is_active = TRUE;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ===========================================================
 -- Get All Appointments with Filters
@@ -132,6 +155,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 -- ===========================================================
 -- Get Appointment By ID
 -- ===========================================================
@@ -195,6 +219,7 @@ BEGIN
         AND a.is_active = TRUE;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ===========================================================
 -- Create Appointment
@@ -288,9 +313,15 @@ BEGIN
         p_location, p_type, p_status, p_priority, p_notes, p_reminder_set
     );
     
+    -- Log activity
+    INSERT INTO activity_log (agent_id, activity_type, entity_type, entity_id, description, created_date)
+    VALUES (p_agent_id, 'appointment_created', 'appointment', v_appointment_id, 
+            'Appointment "' || p_title || '" created', NOW());
+    
     RETURN QUERY SELECT 1, 'Appointment created successfully'::TEXT, v_appointment_id;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ===========================================================
 -- Update Appointment
@@ -348,9 +379,15 @@ BEGIN
         modified_date = NOW()
     WHERE appointment_id = p_appointment_id AND agent_id = p_agent_id;
     
+    -- Log activity
+    INSERT INTO activity_log (agent_id, activity_type, entity_type, entity_id, description, created_date)
+    VALUES (p_agent_id, 'appointment_updated', 'appointment', p_appointment_id, 
+            'Appointment updated', NOW());
+    
     RETURN QUERY SELECT 1, 'Appointment updated successfully'::TEXT;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ===========================================================
 -- Check Time Conflicts
@@ -383,50 +420,52 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- -- ===========================================================
--- -- Get Today's Appointments
--- -- ===========================================================
--- CREATE OR REPLACE FUNCTION sp_get_today_appointments(p_agent_id UUID)
--- RETURNS TABLE(
---     appointment_id UUID,
---     client_id UUID,
---     client_name VARCHAR(150),
---     title VARCHAR(200),
---     appointment_date DATE,
---     start_time TIME,
---     end_time TIME,
---     location VARCHAR(200),
---     type VARCHAR(50),
---     status VARCHAR(20),
---     priority VARCHAR(10),
---     notes TEXT,
---     time_range TEXT
--- ) AS $$
--- BEGIN
---     RETURN QUERY
---     SELECT 
---         a.appointment_id,
---         a.client_id,
---         a.client_name,
---         a.title,
---         a.appointment_date,
---         a.start_time,
---         a.end_time,
---         a.location,
---         a.type,
---         a.status,
---         a.priority,
---         a.notes,
---         a.start_time::TEXT || ' - ' || a.end_time::TEXT AS time_range
---     FROM appointments a
---     WHERE 
---         a.agent_id = p_agent_id 
---         AND a.is_active = TRUE
---         AND a.appointment_date = CURRENT_DATE
---         AND a.status NOT IN ('Cancelled')
---     ORDER BY a.start_time;
--- END;
--- $$ LANGUAGE plpgsql;
+
+-- ===========================================================
+-- Get Today's Appointments
+-- ===========================================================
+CREATE OR REPLACE FUNCTION sp_get_today_appointments(p_agent_id UUID)
+RETURNS TABLE(
+    appointment_id UUID,
+    client_id UUID,
+    client_name VARCHAR(150),
+    title VARCHAR(200),
+    appointment_date DATE,
+    start_time TIME,
+    end_time TIME,
+    location VARCHAR(200),
+    type VARCHAR(50),
+    status VARCHAR(20),
+    priority VARCHAR(10),
+    notes TEXT,
+    time_range TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        a.appointment_id,
+        a.client_id,
+        a.client_name,
+        a.title,
+        a.appointment_date,
+        a.start_time,
+        a.end_time,
+        a.location,
+        a.type,
+        a.status,
+        a.priority,
+        a.notes,
+        a.start_time::TEXT || ' - ' || a.end_time::TEXT AS time_range
+    FROM appointments a
+    WHERE 
+        a.agent_id = p_agent_id 
+        AND a.is_active = TRUE
+        AND a.appointment_date = CURRENT_DATE
+        AND a.status NOT IN ('Cancelled')
+    ORDER BY a.start_time;
+END;
+$$ LANGUAGE plpgsql;
+
 
 -- ===========================================================
 -- Get Week View Appointments
@@ -488,6 +527,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 -- ===========================================================
 -- Get Calendar Appointments
 -- ===========================================================
@@ -539,6 +579,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 -- ===========================================================
 -- Update Appointment Status
 -- ===========================================================
@@ -565,16 +606,17 @@ BEGIN
     
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     
-    -- Log activity (if you have activity_log table)
+    -- Log activity
     IF v_rows_affected > 0 THEN
-        INSERT INTO activity_log (agent_id, activity_type, entity_type, entity_id, description)
+        INSERT INTO activity_log (agent_id, activity_type, entity_type, entity_id, description, created_date)
         VALUES (p_agent_id, 'appointment_status_changed', 'appointment', p_appointment_id, 
-                'Appointment "' || v_title || '" status changed to ' || p_status);
+                'Appointment "' || COALESCE(v_title, '') || '" status changed to ' || p_status, NOW());
     END IF;
     
     RETURN QUERY SELECT v_rows_affected;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ===========================================================
 -- Delete Appointment (Soft Delete)
@@ -608,15 +650,16 @@ BEGIN
         SET status = 'Cancelled'
         WHERE appointment_id = p_appointment_id;
         
-        -- Log activity (if you have activity_log table)
-        INSERT INTO activity_log (agent_id, activity_type, entity_type, entity_id, description)
+        -- Log activity
+        INSERT INTO activity_log (agent_id, activity_type, entity_type, entity_id, description, created_date)
         VALUES (p_agent_id, 'appointment_deleted', 'appointment', p_appointment_id, 
-                'Appointment "' || v_title || '" deleted');
+                'Appointment "' || COALESCE(v_title, '') || '" deleted', NOW());
     END IF;
     
     RETURN QUERY SELECT v_rows_affected;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ===========================================================
 -- Get Appointments with Filters
@@ -709,6 +752,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 -- ===========================================================
 -- Get Appointments for Specific Date
 -- ===========================================================
@@ -757,6 +801,7 @@ BEGIN
     ORDER BY a.start_time;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ===========================================================
 -- Search Appointments

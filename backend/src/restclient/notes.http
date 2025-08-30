@@ -1,11 +1,11 @@
 
-@agentId = 730080DD-742C-4934-8974-30AC3495E468
+@agentId = 7b407c2d-3145-40b0-8c47-1d6f62351b2c
 
 ### Get Daily Notes
 GET http://localhost:3000/api/notes/{{agentId}}/2025-08-08
 
 ### Save Daily Notes
-POST http://localhost:3000/api/notes/730080DD-742C-4934-8974-30AC3495E468/2025-08-08
+POST http://localhost:3000/api/notes/7b407c2d-3145-40b0-8c47-1d6f62351b2c/2025-08-08
 Content-Type: application/json
 
 {
@@ -13,7 +13,7 @@ Content-Type: application/json
 }
 
 ### Get All Notes in Date Range
-GET http://localhost:3000/api/notes/730080DD-742C-4934-8974-30AC3495E468?StartDate=2025-08-01&EndDate=2025-08-31
+GET http://localhost:3000/api/notes/7b407c2d-3145-40b0-8c47-1d6f62351b2c?StartDate=2025-08-01&EndDate=2025-08-31
 
 ### Search Notes
 GET http://localhost:3000/api/notes/{{agentId}}/search?searchTerm=insurance

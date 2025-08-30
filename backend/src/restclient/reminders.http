@@ -1,5 +1,5 @@
 ### Create Reminder
-POST http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468
+POST http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c
 Content-Type: application/json
 
 {
@@ -11,13 +11,13 @@ Content-Type: application/json
 }
 
 ### Get All Reminders
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468?PageSize=10&PageNumber=1
+GET http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c?PageSize=10&PageNumber=1
 
 ### Get Reminder by ID
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
+GET http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c/e5f94403-0ced-418a-b873-4f1b9b956d5a
 
 ### Update Reminder
-PUT http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
+PUT http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c/e5f94403-0ced-418a-b873-4f1b9b956d5a
 Content-Type: application/json
 
 {

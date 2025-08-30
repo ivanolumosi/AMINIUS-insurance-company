@@ -100,191 +100,212 @@ export class PolicyService {
     // POLICY CATALOG MANAGEMENT
     // ============================================
 
-    public async getPolicyCatalog(request: PolicyCatalogFilterRequest): Promise<PolicyCatalog[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_catalog($1,$2,$3,$4,$5)',
-            [
-                request.agentId || null,
-                request.companyId || null,
-                request.categoryId || null,
-                request.typeId || null,
-                request.isActive !== undefined ? request.isActive : true
-            ]
-        );
-        return result.rows.map(this.mapPolicyCatalogFromDb);
-    }
+/**
+ * Get policy catalog - maps to sp_get_policy_catalog
+ */
+public async getPolicyCatalog(request: PolicyCatalogFilterRequest): Promise<PolicyCatalog[]> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+        `SELECT * FROM sp_get_policy_catalog($1,$2,$3,$4,$5,$6)`,
+        [
+            request.agentId || null,
+            request.typeId || null,
+            request.companyId || null,
+            request.companyName || null,     // Now properly mapped
+            request.searchTerm || null,      // Now properly mapped
+            request.isActive !== undefined ? request.isActive : true
+        ]
+    );
+    return result.rows.map(this.mapPolicyCatalogFromDb);
+}
 
-    public async getClientsWithPolicies(
-        request: ClientWithPoliciesFilterRequest
-    ): Promise<ClientWithPolicies[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_clients_with_policies($1,$2,$3)',
-            [
-                request.agentId || null,
-                request.clientId || null,
-                request.includeInactive || false
-            ]
-        );
-        return result.rows.map(this.mapClientWithPoliciesFromDb);
-    }
+/**
+ * Get clients with policies - maps to sp_get_clients_with_policies
+ */
+public async getClientsWithPolicies(
+    request: ClientWithPoliciesFilterRequest
+): Promise<ClientWithPolicies[]> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+        `SELECT * FROM sp_get_clients_with_policies($1,$2,$3)`,
+        [
+            request.agentId || null,
+            request.clientId || null,
+            request.includeInactive || false
+        ]
+    );
+    return result.rows.map(this.mapClientWithPoliciesFromDb);
+}
+/**
+ * Create policy catalog item - maps to sp_create_policy_catalog_item
+ * Fixed parameter order to match stored procedure signature
+ */
+public async createPolicyCatalogItem(request: CreatePolicyCatalogRequest): Promise<CreateResponse> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+        `SELECT * FROM sp_create_policy_catalog_item($1,$2,$3,$4,$5,$6,$7)`,
+        [
+            request.agentId,
+            request.policyName,
+            request.typeId || null,      // Position 3: typeId
+            request.companyId,           // Position 4: companyId  
+            request.categoryId || null,  // Position 5: categoryId
+            request.notes || null,       // Position 6: notes
+            request.isActive !== undefined ? request.isActive : true // Position 7: isActive
+        ]
+    );
 
-    private mapClientWithPoliciesFromDb(record: any): ClientWithPolicies {
-        return {
-            clientId: record.clientid,
-            agentId: record.agentid,
-            firstName: record.firstname,
-            surname: record.surname,
-            lastName: record.lastname,
-            fullName: record.fullname,
-            phoneNumber: record.phonenumber,
-            email: record.email,
-            address: record.address,
-            nationalId: record.nationalid,
-            dateOfBirth: record.dateofbirth,
-            isClient: record.isclient,
-            insuranceType: record.insurancetype,
-            clientNotes: record.clientnotes,
-            clientCreatedDate: record.clientcreateddate,
-            clientModifiedDate: record.clientmodifieddate,
-            clientIsActive: record.clientisactive,
-            policyId: record.policyid,
-            policyName: record.policyname,
-            status: record.status,
-            startDate: record.startdate,
-            endDate: record.enddate,
-            policyNotes: record.policynotes,
-            policyCreatedDate: record.policycreateddate,
-            policyModifiedDate: record.policymodifieddate,
-            policyIsActive: record.policyisactive,
-            policyCatalogId: record.policycatalogid,
-            catalogPolicyName: record.catalogpolicyname,
-            typeId: record.typeid,
-            typeName: record.typename,
-            companyId: record.companyid,
-            companyName: record.companyname,
-            daysUntilExpiry: record.daysuntilexpiry,
-        };
-    }
+    const row = result.rows[0];
+    if (row.error_message) throw new Error(row.error_message);
 
-    public async createPolicyCatalogItem(request: CreatePolicyCatalogRequest): Promise<CreateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_create_policy_catalog_item($1,$2,$3,$4,$5,$6) AS policy_catalog_id',
-            [
-                request.agentId,
-                request.policyName,
-                request.companyId,
-                request.notes || null,
-                request.categoryId || null,
-                request.typeId || null
-            ]
-        );
-        return {
-            id: result.rows[0].policy_catalog_id
-        };
-    }
+    return { id: row.policy_catalog_id };
+}
 
-    public async updatePolicyCatalogItem(request: UpdatePolicyCatalogRequest): Promise<UpdateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_update_policy_catalog_item($1,$2,$3,$4,$5,$6,$7) AS rows_affected',
-            [
-                request.policyCatalogId,
-                request.policyName || null,
-                request.companyId || null,
-                request.notes || null,
-                request.categoryId || null,
-                request.typeId || null,
-                request.isActive !== undefined ? request.isActive : null
-            ]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
+/**
+ * Update policy catalog item - maps to sp_update_policy_catalog_item
+ * Fixed parameter order to match stored procedure signature
+ */
+public async updatePolicyCatalogItem(request: UpdatePolicyCatalogRequest): Promise<UpdateResponse> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+        `SELECT * FROM sp_update_policy_catalog_item($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+            request.policyCatalogId,     // Position 1: policyCatalogId
+            request.policyName || null,  // Position 2: policyName
+            request.typeId || null,      // Position 3: typeId
+            request.companyId || null,   // Position 4: companyId
+            request.categoryId || null,  // Position 5: categoryId
+            request.notes || null,       // Position 6: notes
+            request.isActive !== undefined ? request.isActive : null, // Position 7: isActive
+            request.agentId || null      // Position 8: agentId
+        ]
+    );
 
-    public async deletePolicyCatalogItem(policyCatalogId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_delete_policy_catalog_item($1,$2) AS rows_affected',
-            [policyCatalogId, hardDelete]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
+    const row = result.rows[0];
+    if (row.error_message) throw new Error(row.error_message);
 
-    public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<CreateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_upsert_policy_catalog($1,$2,$3,$4,$5,$6,$7) AS policy_catalog_id',
-            [
-                request.policyCatalogId || null,
-                request.agentId,
-                request.policyName,
-                request.companyId,
-                request.notes || null,
-                request.categoryId || null,
-                request.typeId || null
-            ]
-        );
-        return {
-            id: result.rows[0].policy_catalog_id
-        };
-    }
+    return { rowsAffected: row.rows_affected };
+}
+
+/**
+ * Delete policy catalog item - maps to sp_delete_policy_catalog_item
+ */
+public async deletePolicyCatalogItem(policyCatalogId: string, agentId: string): Promise<DeleteResponse> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+        `SELECT * FROM sp_delete_policy_catalog_item($1,$2)`,
+        [policyCatalogId, agentId]
+    );
+    return { rowsAffected: result.rows[0].rows_affected };
+}
+
+/**
+ * Upsert policy catalog - maps to sp_upsert_policy_catalog
+ * Fixed parameter order to match stored procedure signature
+ */
+public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<CreateResponse> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+        `SELECT * FROM sp_upsert_policy_catalog($1,$2,$3,$4,$5,$6,$7)`,
+        [
+            request.policyCatalogId || null, // Position 1: policyCatalogId
+            request.agentId,                 // Position 2: agentId
+            request.policyName,              // Position 3: policyName
+            request.companyId,               // Position 4: companyId
+            request.typeId || null,          // Position 5: typeId
+            request.categoryId || null,      // Position 6: categoryId
+            request.notes || null            // Position 7: notes
+        ]
+    );
+
+    const row = result.rows[0];
+    if (row.error_message) throw new Error(row.error_message);
+
+    return { id: row.policy_catalog_id };
+}
+
+
+
 
     // ============================================
     // CLIENT POLICIES MANAGEMENT
     // ============================================
 
+    /**
+     * Get client policies - maps to sp_get_client_policies (available but different signature)
+     */
     public async getClientPolicies(request: ClientPolicyFilterRequest): Promise<ClientPolicy[]> {
         const pool = await poolPromise;
         const result = await pool.query(
             'SELECT * FROM sp_get_client_policies($1,$2,$3,$4)',
             [
-                request.clientId || null,
-                request.agentId || null,
-                request.status || null,
-                request.isActive !== undefined ? request.isActive : true
+                request.clientId || null,      // p_client_id
+                null,                          // p_agent_id (not in request interface)
+                request.status || null,        // p_status
+                request.isActive !== undefined ? request.isActive : true  // p_is_active
             ]
         );
         return result.rows.map(this.mapClientPolicyFromDb);
     }
-
-    public async getPolicyById(policyId: string): Promise<ClientPolicy | null> {
+    /**
+     * Get policy by ID - MISSING STORED PROCEDURE
+     * sp_get_policy_by_id exists in document 1 but not in document 2
+     */
+     public async getPolicyById(policyId: string): Promise<ClientPolicy | null> {
         const pool = await poolPromise;
         const result = await pool.query(
             'SELECT * FROM sp_get_policy_by_id($1)',
             [policyId]
         );
-        return result.rows.length > 0 ? this.mapClientPolicyFromDb(result.rows[0]) : null;
+        
+        if (result.rows.length === 0) {
+            return null;
+        }
+        
+        return this.mapClientPolicyFromDb(result.rows[0]);
+    }
+    /**
+     * Create client policy - maps to sp_create_client_policy (available but different signature)
+     */
+    public async createClientPolicy(request: any): Promise<{ id: string }> {
+    const pool = await poolPromise;
+
+    const result = await pool.query(
+        `SELECT * FROM sp_create_client_policy(
+            $1::uuid, 
+            $2::varchar, 
+            $3::date, 
+            $4::date, 
+            $5::varchar, 
+            $6::text, 
+            $7::uuid
+        )`,
+        [
+            request.clientId,                           // $1
+            request.policyName,                         // $2
+            request.startDate,                          // $3
+            request.endDate,                            // $4
+            request.status || 'Active',                 // $5
+            request.notes || null,                      // $6
+            request.policyCatalogId || null             // $7
+        ]
+    );
+
+    const row = result.rows[0];
+    if (row.error_message) {
+        throw new Error(row.error_message);
     }
 
-    public async createClientPolicy(request: CreateClientPolicyRequest): Promise<CreateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_create_client_policy($1,$2,$3,$4,$5,$6,$7) AS policy_id',
-            [
-                request.clientId,
-                request.policyName,
-                request.status || 'Active',
-                request.startDate,
-                request.endDate,
-                request.notes || null,
-                request.policyCatalogId
-            ]
-        );
-        return {
-            id: result.rows[0].policy_id
-        };
-    }
+    return { id: row.policy_id };
+}
 
+    /**
+     * Update client policy - maps to sp_update_client_policy (available)
+     */
     public async updateClientPolicy(request: UpdateClientPolicyRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
-            'SELECT sp_update_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS rows_affected',
+            'SELECT rows_affected FROM sp_update_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
             [
                 request.policyId,
                 request.policyName || null,
@@ -303,10 +324,14 @@ export class PolicyService {
         };
     }
 
-    public async deleteClientPolicy(policyId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
+    /**
+     * Delete client policy - MISSING STORED PROCEDURE
+     * No sp_delete_client_policy found in available SPs
+     */
+   public async deleteClientPolicy(policyId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
-            'SELECT sp_delete_client_policy($1,$2) AS rows_affected',
+            'SELECT rows_affected FROM sp_delete_client_policy($1,$2)',
             [policyId, hardDelete]
         );
         return {
@@ -314,17 +339,21 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Upsert client policy - MISSING STORED PROCEDURE
+     * No sp_upsert_client_policy found in available SPs
+     */
     public async upsertClientPolicy(request: UpsertClientPolicyRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
-            'SELECT sp_upsert_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS policy_id',
+            'SELECT policy_id FROM sp_upsert_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
             [
-                request.policyId || null,
                 request.clientId,
                 request.policyName,
-                request.status || 'Active',
                 request.startDate,
                 request.endDate,
+                request.policyId || null,
+                request.status || 'Active',
                 request.notes || null,
                 request.policyCatalogId || null,
                 request.typeId || null,
@@ -335,105 +364,120 @@ export class PolicyService {
             id: result.rows[0].policy_id
         };
     }
-
+     private mapClientPolicyFromDb(row: any): ClientPolicy {
+        return {
+            policyId: row.policy_id,
+            clientId: row.client_id,
+            policyName: row.policy_name,
+            status: row.status,
+            startDate: new Date(row.start_date),
+            endDate: new Date(row.end_date),
+            notes: row.notes,
+            createdDate: new Date(row.created_date),
+            modifiedDate: row.modified_date ? new Date(row.modified_date) : undefined,
+            isActive: row.is_active,
+            policyCatalogId: row.policy_catalog_id,
+            catalogPolicyName: row.catalog_policy_name,
+            typeId: row.type_id,
+            typeName: row.type_name,
+            companyId: row.company_id,
+            companyName: row.company_name,
+            daysUntilExpiry: row.days_until_expiry
+        };
+    }
+     private mapClientWithPoliciesFromDb(row: any): ClientWithPolicies {
+        return {
+            clientId: row.client_id,
+            agentId: row.agent_id,
+            firstName: row.first_name,
+            surname: row.surname,
+            lastName: row.last_name,
+            fullName: row.full_name,
+            phoneNumber: row.phone_number,
+            email: row.email,
+            address: row.address,
+            nationalId: row.national_id,
+            dateOfBirth: new Date(row.date_of_birth),
+            isClient: row.is_client,
+            insuranceType: row.insurance_type,
+            clientNotes: row.client_notes,
+            clientCreatedDate: new Date(row.client_created_date),
+            clientModifiedDate: new Date(row.client_modified_date),
+            clientIsActive: row.client_is_active,
+            
+            // Policy fields (may be null if no policies)
+            policyId: row.policy_id,
+            policyName: row.policy_name,
+            status: row.status,
+            startDate: row.start_date ? new Date(row.start_date) : undefined,
+            endDate: row.end_date ? new Date(row.end_date) : undefined,
+            policyNotes: row.policy_notes,
+            policyCreatedDate: row.policy_created_date ? new Date(row.policy_created_date) : undefined,
+            policyModifiedDate: row.policy_modified_date ? new Date(row.policy_modified_date) : undefined,
+            policyIsActive: row.policy_is_active,
+            policyCatalogId: row.policy_catalog_id,
+            catalogPolicyName: row.catalog_policy_name,
+            typeId: row.type_id,
+            typeName: row.type_name,
+            companyId: row.company_id,
+            companyName: row.company_name,
+            daysUntilExpiry: row.days_until_expiry
+        };
+    }
+    /**
+     * Get expiring policies - MISSING STORED PROCEDURE
+     * No sp_get_expiring_policies found in available SPs
+     */
     public async getExpiringPolicies(request: ExpiringPoliciesRequest): Promise<ClientPolicy[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_expiring_policies($1,$2,$3)',
-            [
-                request.agentId || null,
-                request.daysAhead || 30,
-                request.status || 'Active'
-            ]
-        );
-        return result.rows.map(this.mapClientPolicyFromDb);
+        throw new Error('sp_get_expiring_policies stored procedure is not available in the current database schema');
     }
 
+    /**
+     * Renew policy - MISSING STORED PROCEDURE
+     * sp_renew_policy exists in document 1 but not in document 2
+     */
     public async renewPolicy(request: PolicyRenewalRequest): Promise<RenewalResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_renew_policy($1,$2,$3,$4,$5)',
-            [
-                request.policyId,
-                request.newStartDate,
-                request.newEndDate,
-                request.newPolicyName || null,
-                request.notes || null
-            ]
-        );
-        return {
-            newPolicyId: result.rows[0].new_policy_id,
-            rowsAffected: result.rows[0].rows_affected
-        };
+        throw new Error('sp_renew_policy stored procedure is not available in the current database schema');
     }
 
+    /**
+     * Bulk update policy status - MISSING STORED PROCEDURE
+     * sp_bulk_update_policy_status exists in document 1 but not in document 2
+     */
     public async bulkUpdatePolicyStatus(request: BulkUpdatePolicyStatusRequest): Promise<UpdateResponse> {
-        const pool = await poolPromise;
-        const policyIdsArray = `{${request.policyIds.join(',')}}`;
-        
-        const result = await pool.query(
-            'SELECT sp_bulk_update_policy_status($1,$2) AS rows_affected',
-            [policyIdsArray, request.newStatus]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
+        throw new Error('sp_bulk_update_policy_status stored procedure is not available in the current database schema');
     }
 
     // ============================================
     // POLICY SEARCH AND FILTERING
     // ============================================
 
+    /**
+     * Search policies - MISSING STORED PROCEDURE
+     * sp_search_policies exists in document 1 but not in document 2
+     */
     public async searchPolicies(request: SearchPoliciesRequest): Promise<PaginatedResponse<ClientPolicy>> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_search_policies($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-            [
-                request.searchTerm || null,
-                request.agentId || null,
-                request.clientId || null,
-                request.companyId || null,
-                request.typeId || null,
-                request.status || null,
-                request.startDate || null,
-                request.endDate || null,
-                request.pageSize || 50,
-                request.pageNumber || 1
-            ]
-        );
-
-        const policies = result.rows.map(this.mapClientPolicyFromDb);
-        
-        // Get total count for pagination
-        const countResult = await this.getSearchCount(request);
-        const total = countResult;
-        const pageSize = request.pageSize || 50;
-        const pageNumber = request.pageNumber || 1;
-
-        return {
-            data: policies,
-            total,
-            pageNumber,
-            pageSize,
-            hasNextPage: pageNumber * pageSize < total,
-            hasPreviousPage: pageNumber > 1
-        };
+        throw new Error('sp_search_policies stored procedure is not available in the current database schema');
     }
 
+    /**
+     * Get policies by status - MISSING STORED PROCEDURE
+     * sp_get_policies_by_status exists in document 1 but not in document 2
+     */
     public async getPoliciesByStatus(request: GetPoliciesByStatusRequest): Promise<ClientPolicy[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policies_by_status($1,$2)',
-            [request.status, request.agentId || null]
-        );
-        return result.rows.map(this.mapClientPolicyFromDb);
+        throw new Error('sp_get_policies_by_status stored procedure is not available in the current database schema');
     }
 
     // ============================================
     // POLICY TEMPLATES MANAGEMENT
     // ============================================
 
+    /**
+     * Get policy templates - CONFLICTING STORED PROCEDURES
+     * Two different sp_get_policy_templates exist with different signatures
+     */
     public async getPolicyTemplates(request: PolicyTemplateFilterRequest): Promise<PolicyTemplate[]> {
+        // Using the signature from document 3 which seems more complete
         const pool = await poolPromise;
         const result = await pool.query(
             'SELECT * FROM sp_get_policy_templates($1,$2,$3,$4)',
@@ -447,7 +491,12 @@ export class PolicyService {
         return result.rows.map(this.mapPolicyTemplateFromDb);
     }
 
+    /**
+     * Create policy template - CONFLICTING STORED PROCEDURES
+     * Two different sp_create_policy_template exist with different signatures
+     */
     public async createPolicyTemplate(request: CreatePolicyTemplateRequest): Promise<CreateResponse> {
+        // Using the signature from document 3 which seems more complete
         const pool = await poolPromise;
         const result = await pool.query(
             'SELECT sp_create_policy_template($1,$2,$3,$4,$5,$6,$7,$8,$9) AS template_id',
@@ -468,6 +517,9 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Update policy template - maps to sp_update_policy_template (available in document 3)
+     */
     public async updatePolicyTemplate(request: UpdatePolicyTemplateRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -490,6 +542,9 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Delete policy template - maps to sp_delete_policy_template (available in document 3)
+     */
     public async deletePolicyTemplate(templateId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -505,15 +560,22 @@ export class PolicyService {
     // REFERENCE DATA MANAGEMENT
     // ============================================
 
-    public async getInsuranceCompanies(isActive: boolean = true): Promise<InsuranceCompany[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_insurance_companies($1)',
-            [isActive]
-        );
-        return result.rows.map(this.mapInsuranceCompanyFromDb);
-    }
+    /**
+     * Get insurance companies - maps to sp_get_insurance_companies (available)
+     */
+    public async getInsuranceCompanies(isActive?: boolean): Promise<InsuranceCompany[]> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+        'SELECT * FROM sp_get_insurance_companies($1)',
+        [isActive === undefined ? null : isActive] // pass null to get all
+    );
+    return result.rows.map(this.mapInsuranceCompanyFromDb);
+}
 
+
+    /**
+     * Create insurance company - maps to sp_create_insurance_company (available)
+     */
     public async createInsuranceCompany(request: CreateInsuranceCompanyRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -525,6 +587,9 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Update insurance company - maps to sp_update_insurance_company (available)
+     */
     public async updateInsuranceCompany(request: UpdateInsuranceCompanyRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -540,19 +605,29 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Get policy types - WRONG FUNCTION NAME
+     * Available: sp_get_policy_types_list, sp_get_policy_types_all
+     * Your service calls: sp_get_policy_types (doesn't exist)
+     */
     public async getPolicyTypes(isActive: boolean = true): Promise<PolicyType[]> {
         const pool = await poolPromise;
         const result = await pool.query(
-            'SELECT * FROM sp_get_policy_types($1)',
+            'SELECT * FROM sp_get_policy_types_list($1)',
             [isActive]
         );
         return result.rows.map(this.mapPolicyTypeFromDb);
     }
 
+    /**
+     * Create policy type - WRONG FUNCTION NAME
+     * Available: sp_create_policy_type_new
+     * Your service calls: sp_create_policy_type (doesn't exist)
+     */
     public async createPolicyType(request: CreatePolicyTypeRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
-            'SELECT sp_create_policy_type($1) AS type_id',
+            'SELECT sp_create_policy_type_new($1) AS type_id',
             [request.typeName]
         );
         return {
@@ -560,10 +635,13 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Update policy type - maps to sp_update_policy_type_details (available)
+     */
     public async updatePolicyType(request: UpdatePolicyTypeRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
-            'SELECT sp_update_policy_type($1,$2,$3) AS rows_affected',
+            'SELECT sp_update_policy_type_details($1,$2,$3) AS rows_affected',
             [
                 request.typeId,
                 request.typeName || null,
@@ -575,15 +653,23 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Get policy categories - WRONG FUNCTION NAME
+     * Available: sp_get_policy_categories_list
+     * Your service calls: sp_get_policy_categories (doesn't exist)
+     */
     public async getPolicyCategories(isActive: boolean = true): Promise<PolicyCategory[]> {
         const pool = await poolPromise;
         const result = await pool.query(
-            'SELECT * FROM sp_get_policy_categories($1)',
+            'SELECT * FROM sp_get_policy_categories_list($1)',
             [isActive]
         );
         return result.rows.map(this.mapPolicyCategoryFromDb);
     }
 
+    /**
+     * Create policy category - maps to sp_create_policy_category (available)
+     */
     public async createPolicyCategory(request: CreatePolicyCategoryRequest): Promise<CreateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -595,10 +681,13 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Update policy category - maps to sp_update_policy_category_details (available)
+     */
     public async updatePolicyCategory(request: UpdatePolicyCategoryRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
-            'SELECT sp_update_policy_category($1,$2,$3,$4) AS rows_affected',
+            'SELECT sp_update_policy_category_details($1,$2,$3,$4) AS rows_affected',
             [
                 request.categoryId,
                 request.categoryName || null,
@@ -612,35 +701,28 @@ export class PolicyService {
     }
 
     // ============================================
-    // ANALYTICS AND REPORTING
+    // ANALYTICS AND REPORTING - MISSING STORED PROCEDURES
     // ============================================
 
+    /**
+     * Get policy statistics - MISSING STORED PROCEDURE
+     * sp_get_policy_statistics exists in document 1 but not in current schema
+     */
     public async getPolicyStatistics(request: PolicyStatisticsRequest): Promise<PolicyStatistics> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_statistics($1,$2,$3)',
-            [
-                request.agentId || null,
-                request.startDate || null,
-                request.endDate || null
-            ]
-        );
-        return this.mapPolicyStatisticsFromDb(result.rows[0]);
+        throw new Error('sp_get_policy_statistics stored procedure is not available in the current database schema');
     }
 
+    /**
+     * Get detailed policy statistics - MISSING STORED PROCEDURE
+     * sp_get_policy_statistics_detailed exists in document 1 but not in current schema
+     */
     public async getPolicyStatisticsDetailed(request: PolicyStatisticsRequest): Promise<PolicyStatisticsDetailed[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_statistics_detailed($1,$2,$3)',
-            [
-                request.agentId || null,
-                request.startDate || null,
-                request.endDate || null
-            ]
-        );
-        return result.rows.map(this.mapPolicyStatisticsDetailedFromDb);
+        throw new Error('sp_get_policy_statistics_detailed stored procedure is not available in the current database schema');
     }
 
+    /**
+     * Get agent dashboard summary - maps to sp_get_agent_dashboard_summary (available)
+     */
     public async getAgentDashboardSummary(agentId: string): Promise<AgentDashboardSummary> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -650,6 +732,9 @@ export class PolicyService {
         return this.mapAgentDashboardSummaryFromDb(result.rows[0]);
     }
 
+    /**
+     * Get policy renewal candidates - maps to sp_get_policy_renewal_candidates (available)
+     */
     public async getPolicyRenewalCandidates(request: GetRenewalCandidatesRequest): Promise<PolicyRenewalCandidate[]> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -659,6 +744,9 @@ export class PolicyService {
         return result.rows.map(this.mapPolicyRenewalCandidateFromDb);
     }
 
+    /**
+     * Get policy history - maps to sp_get_policy_history_for_client (available)
+     */
     public async getPolicyHistory(request: GetPolicyHistoryRequest): Promise<PolicyHistory[]> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -672,6 +760,9 @@ export class PolicyService {
     // UTILITY METHODS
     // ============================================
 
+    /**
+     * Batch expire policies - maps to sp_batch_expire_policies (available)
+     */
     public async batchExpirePolicies(request: BatchExpirePoliciesRequest): Promise<UpdateResponse> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -683,6 +774,9 @@ export class PolicyService {
         };
     }
 
+    /**
+     * Cleanup soft deleted records - maps to sp_cleanup_soft_deleted_records (available)
+     */
     public async cleanupSoftDeletedRecords(request: CleanupSoftDeletedRequest): Promise<CleanupResponse[]> {
         const pool = await poolPromise;
         const result = await pool.query(
@@ -696,187 +790,143 @@ export class PolicyService {
         }));
     }
 
-    // ============================================
-    // PRIVATE MAPPING METHODS
-    // ============================================
+    
 
     private mapPolicyCatalogFromDb(row: any): PolicyCatalog {
         return {
-            policyId: row.policycatalogid || row.policy_catalog_id,
-            agentId: row.agentid || row.agent_id,
-            policyName: row.policyname || row.policy_name,
-            companyId: row.companyid || row.company_id,
-            companyName: row.companyname || row.company_name,
+            policyId: row.policy_catalog_id,
+            agentId: row.agent_id,
+            policyName: row.policy_name,
+            companyId: row.company_id,
+            companyName: row.company_name,
             notes: row.notes,
-            isActive: row.isactive || row.is_active,
-            createdDate: new Date(row.createddate || row.created_date),
-            modifiedDate: row.modifieddate || row.modified_date ? new Date(row.modifieddate || row.modified_date) : undefined,
-            categoryId: row.categoryid || row.category_id,
-            categoryName: row.categoryname || row.category_name,
-            typeId: row.typeid || row.type_id,
-            typeName: row.typename || row.type_name
+            isActive: row.is_active,
+            createdDate: new Date(row.created_date),
+            modifiedDate: row.modified_date ? new Date(row.modified_date) : undefined,
+            categoryId: row.category_id,
+            categoryName: row.category_name,
+            typeId: row.type_id,
+            typeName: row.type_name
         };
     }
 
-    private mapClientPolicyFromDb(row: any): ClientPolicy {
-        return {
-            policyId: row.policyid || row.policy_id,
-            clientId: row.clientid || row.client_id,
-            policyName: row.policyname || row.policy_name,
-            status: row.status,
-            startDate: new Date(row.startdate || row.start_date),
-            endDate: new Date(row.enddate || row.end_date),
-            notes: row.notes,
-            createdDate: new Date(row.createddate || row.created_date),
-            modifiedDate: row.modifieddate || row.modified_date ? new Date(row.modifieddate || row.modified_date) : undefined,
-            isActive: row.isactive || row.is_active,
-            policyCatalogId: row.policycatalogid || row.policy_catalog_id,
-            catalogPolicyName: row.catalogpolicyname || row.catalog_policy_name,
-            typeId: row.typeid || row.type_id,
-            typeName: row.typename || row.type_name,
-            companyId: row.companyid || row.company_id,
-            companyName: row.companyname || row.company_name,
-            daysUntilExpiry: row.daysuntilexpiry || row.days_until_expiry
-        };
-    }
+ 
 
     private mapPolicyTemplateFromDb(row: any): PolicyTemplate {
         return {
-            templateId: row.templateid || row.template_id,
-            agentId: row.agentid || row.agent_id,
-            templateName: row.templatename || row.template_name,
-            defaultTermMonths: row.defaulttermmonths || row.default_term_months,
-            defaultPremium: row.defaultpremium || row.default_premium,
-            coverageDescription: row.coveragedescription || row.coverage_description,
+            templateId: row.template_id,
+            agentId: row.agent_id,
+            templateName: row.template_name,
+            defaultTermMonths: row.default_term_months,
+            defaultPremium: row.default_premium,
+            coverageDescription: row.coverage_description,
             terms: row.terms,
-            isActive: row.isactive || row.is_active,
-            createdDate: new Date(row.createddate || row.created_date),
-            categoryId: row.categoryid || row.category_id,
-            categoryName: row.categoryname || row.category_name,
-            policyCatalogId: row.policycatalogid || row.policy_catalog_id,
-            catalogPolicyName: row.catalogpolicyname || row.catalog_policy_name,
-            typeId: row.typeid || row.type_id,
-            typeName: row.typename || row.type_name
+            isActive: row.is_active,
+            createdDate: new Date(row.created_date),
+            categoryId: row.category_id,
+            categoryName: row.category_name,
+            policyCatalogId: row.policy_catalog_id,
+            catalogPolicyName: row.catalog_policy_name,
+            typeId: row.type_id,
+            typeName: row.type_name
         };
     }
 
     private mapInsuranceCompanyFromDb(row: any): InsuranceCompany {
         return {
-            companyId: row.companyid || row.company_id,
-            companyName: row.companyname || row.company_name,
-            isActive: row.isactive || row.is_active,
-            createdDate: new Date(row.createddate || row.created_date)
+            companyId: row.company_id,
+            companyName: row.company_name,
+            isActive: row.is_active,
+            createdDate: new Date(row.created_date)
         };
     }
 
     private mapPolicyTypeFromDb(row: any): PolicyType {
         return {
-            typeId: row.typeid || row.type_id,
-            typeName: row.typename || row.type_name,
-            isActive: row.isactive || row.is_active,
-            createdDate: new Date(row.createddate || row.created_date)
+            typeId: row.type_id,
+            typeName: row.type_name,
+            isActive: row.is_active,
+            createdDate: new Date(row.created_date)
         };
     }
 
     private mapPolicyCategoryFromDb(row: any): PolicyCategory {
         return {
-            categoryId: row.categoryid || row.category_id,
-            categoryName: row.categoryname || row.category_name,
+            categoryId: row.category_id,
+            categoryName: row.category_name,
             description: row.description,
-            isActive: row.isactive || row.is_active,
-            createdDate: new Date(row.createddate || row.created_date)
+            isActive: row.is_active,
+            createdDate: new Date(row.created_date)
         };
     }
 
     private mapPolicyStatisticsFromDb(row: any): PolicyStatistics {
         return {
-            totalPolicies: row.totalpolicies || row.total_policies,
-            activePolicies: row.activepolicies || row.active_policies,
-            expiredPolicies: row.expiredpolicies || row.expired_policies,
-            cancelledPolicies: row.cancelledpolicies || row.cancelled_policies,
-            expiringIn30Days: row.expiringin30days || row.expiring_in_30_days,
-            expiringIn60Days: row.expiringin60days || row.expiring_in_60_days
+            totalPolicies: row.total_policies,
+            activePolicies: row.active_policies,
+            expiredPolicies: row.expired_policies,
+            cancelledPolicies: row.cancelled_policies,
+            expiringIn30Days: row.expiring_in_30_days,
+            expiringIn60Days: row.expiring_in_60_days
         };
     }
 
     private mapPolicyStatisticsDetailedFromDb(row: any): PolicyStatisticsDetailed {
         return {
-            groupType: row.grouptype || row.group_type,
-            groupName: row.groupname || row.group_name,
-            policyCount: row.policycount || row.policy_count,
-            activeCount: row.activecount || row.active_count
+            groupType: row.group_type,
+            groupName: row.group_name,
+            policyCount: row.policy_count,
+            activeCount: row.active_count
         };
     }
 
     private mapAgentDashboardSummaryFromDb(row: any): AgentDashboardSummary {
         return {
-            totalPolicies: row.totalpolicies || row.total_policies,
-            activePolicies: row.activepolicies || row.active_policies,
-            expiringIn30Days: row.expiringin30days || row.expiring_in_30_days,
-            expiringIn60Days: row.expiringin60days || row.expiring_in_60_days,
-            totalCompanies: row.totalcompanies || row.total_companies,
-            totalClients: row.totalclients || row.total_clients,
-            inactivePolicies: row.inactivepolicies || row.inactive_policies
+            totalPolicies: row.total_policies,
+            activePolicies: row.active_policies,
+            expiringIn30Days: row.expiring_in_30_days,
+            expiringIn60Days: row.expiring_in_60_days,
+            totalCompanies: row.total_companies,
+            totalClients: row.total_clients,
+            inactivePolicies: row.inactive_policies
         };
     }
 
     private mapPolicyRenewalCandidateFromDb(row: any): PolicyRenewalCandidate {
         return {
-            policyId: row.policyid || row.policy_id,
-            clientId: row.clientid || row.client_id,
-            policyName: row.policyname || row.policy_name,
+            policyId: row.policy_id,
+            clientId: row.client_id,
+            policyName: row.policy_name,
             status: row.status,
-            startDate: new Date(row.startdate || row.start_date),
-            endDate: new Date(row.enddate || row.end_date),
-            companyId: row.companyid || row.company_id,
-            companyName: row.companyname || row.company_name,
-            typeId: row.typeid || row.type_id,
-            typeName: row.typename || row.type_name,
-            daysUntilExpiry: row.daysuntilexpiry || row.days_until_expiry,
-            renewalPriority: row.renewalpriority || row.renewal_priority as 'Urgent' | 'Soon' | 'Upcoming'
+            startDate: new Date(row.start_date),
+            endDate: new Date(row.end_date),
+            companyId: row.company_id,
+            companyName: row.company_name,
+            typeId: row.type_id,
+            typeName: row.type_name,
+            daysUntilExpiry: row.days_until_expiry,
+            renewalPriority: row.renewal_priority as 'Urgent' | 'Soon' | 'Upcoming'
         };
     }
 
     private mapPolicyHistoryFromDb(row: any): PolicyHistory {
         return {
-            policyId: row.policyid || row.policy_id,
-            clientId: row.clientid || row.client_id,
-            policyName: row.policyname || row.policy_name,
+            policyId: row.policy_id,
+            clientId: row.client_id,
+            policyName: row.policy_name,
             status: row.status,
-            startDate: new Date(row.startdate || row.start_date),
-            endDate: new Date(row.enddate || row.end_date),
+            startDate: new Date(row.start_date),
+            endDate: new Date(row.end_date),
             notes: row.notes,
-            createdDate: new Date(row.createddate || row.created_date),
-            modifiedDate: row.modifieddate || row.modified_date ? new Date(row.modifieddate || row.modified_date) : undefined,
-            companyId: row.companyid || row.company_id,
-            companyName: row.companyname || row.company_name,
-            typeId: row.typeid || row.type_id,
-            typeName: row.typename || row.type_name,
-            policyDurationDays: row.policydurationdays || row.policy_duration_days,
-            policyState: row.policystate || row.policy_state
+            createdDate: new Date(row.created_date),
+            modifiedDate: row.modified_date ? new Date(row.modified_date) : undefined,
+            companyId: row.company_id,
+            companyName: row.company_name,
+            typeId: row.type_id,
+            typeName: row.type_name,
+            policyDurationDays: row.policy_duration_days,
+            policyState: row.policy_state
         };
-    }
-
-    // ============================================
-    // HELPER METHODS
-    // ============================================
-
-    private async getSearchCount(request: SearchPoliciesRequest): Promise<number> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_get_search_policies_count($1,$2,$3,$4,$5,$6,$7,$8) AS total_count',
-            [
-                request.searchTerm || null,
-                request.agentId || null,
-                request.clientId || null,
-                request.companyId || null,
-                request.typeId || null,
-                request.status || null,
-                request.startDate || null,
-                request.endDate || null
-            ]
-        );
-        return result.rows[0].total_count;
     }
 
     // ============================================
@@ -887,7 +937,6 @@ export class PolicyService {
         const errors: string[] = [];
         const warnings: string[] = [];
 
-        // Basic validation logic - you can expand this based on business rules
         const policyData = request.policyData;
 
         if (!policyData.policyName || policyData.policyName.trim().length === 0) {
@@ -914,7 +963,6 @@ export class PolicyService {
                 errors.push('End date must be after start date');
             }
 
-            // Check if policy is expiring soon
             const today = new Date();
             const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
             
@@ -931,131 +979,115 @@ export class PolicyService {
     }
 
     // ============================================
-    // BATCH OPERATIONS
+    // VALIDATION USING DATABASE SP
     // ============================================
 
-    public async bulkCreatePolicies(policies: CreateClientPolicyRequest[]): Promise<CreateResponse[]> {
-        const results: CreateResponse[] = [];
+    /**
+     * Validate policy data using database stored procedure - maps to sp_validate_policy_data (available)
+     */
+    public async validatePolicyData(
+        policyName: string,
+        policyType: string,
+        companyId?: string,
+        startDate?: Date,
+        endDate?: Date
+    ): Promise<{isValid: boolean, validationErrors: string}> {
         const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_validate_policy_data($1,$2,$3,$4,$5)',
+            [
+                policyName,
+                policyType,
+                companyId || null,
+                startDate || null,
+                endDate || null
+            ]
+        );
         
-        try {
-            await pool.query('BEGIN');
-            
-            for (const policyRequest of policies) {
-                const result = await pool.query(
-                    'SELECT sp_create_client_policy($1,$2,$3,$4,$5,$6,$7) AS policy_id',
-                    [
-                        policyRequest.clientId,
-                        policyRequest.policyName,
-                        policyRequest.status || 'Active',
-                        policyRequest.startDate,
-                        policyRequest.endDate,
-                        policyRequest.notes || null,
-                        policyRequest.policyCatalogId
-                    ]
-                );
-
-                results.push({
-                    id: result.rows[0].policy_id
-                });
-            }
-
-            await pool.query('COMMIT');
-            return results;
-            
-        } catch (error) {
-            await pool.query('ROLLBACK');
-            throw error;
-        }
+        return {
+            isValid: result.rows[0].is_valid,
+            validationErrors: result.rows[0].validation_errors
+        };
     }
 
-    public async bulkUpdatePolicies(updates: UpdateClientPolicyRequest[]): Promise<UpdateResponse[]> {
-        const results: UpdateResponse[] = [];
+    // ============================================
+    // SOFT DELETE METHODS
+    // ============================================
+
+    public async softDeleteClientPolicy(policyId: string): Promise<{success: number, message: string}> {
         const pool = await poolPromise;
-        
-        try {
-            await pool.query('BEGIN');
-            
-            for (const updateRequest of updates) {
-                const result = await pool.query(
-                    'SELECT sp_update_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS rows_affected',
-                    [
-                        updateRequest.policyId,
-                        updateRequest.policyName || null,
-                        updateRequest.status || null,
-                        updateRequest.startDate || null,
-                        updateRequest.endDate || null,
-                        updateRequest.notes || null,
-                        updateRequest.policyCatalogId || null,
-                        updateRequest.typeId || null,
-                        updateRequest.companyId || null,
-                        updateRequest.isActive !== undefined ? updateRequest.isActive : null
-                    ]
-                );
+        const result = await pool.query(
+            'SELECT * FROM sp_soft_delete_client_policy($1)',
+            [policyId]
+        );
+        return {
+            success: result.rows[0].success,
+            message: result.rows[0].message
+        };
+    }
 
-                results.push({
-                    rowsAffected: result.rows[0].rows_affected
-                });
-            }
+    public async softDeleteInsuranceCompany(companyId: string): Promise<{success: number, message: string}> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_soft_delete_insurance_company($1)',
+            [companyId]
+        );
+        return {
+            success: result.rows[0].success,
+            message: result.rows[0].message
+        };
+    }
 
-            await pool.query('COMMIT');
-            return results;
-            
-        } catch (error) {
-            await pool.query('ROLLBACK');
-            throw error;
-        }
+    public async softDeletePolicyCatalog(policyCatalogId: string): Promise<{success: number, message: string}> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_soft_delete_policy_catalog($1)',
+            [policyCatalogId]
+        );
+        return {
+            success: result.rows[0].success,
+            message: result.rows[0].message
+        };
+    }
+
+    public async softDeletePolicyCategory(categoryId: string): Promise<{success: number, message: string}> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_soft_delete_policy_category($1)',
+            [categoryId]
+        );
+        return {
+            success: result.rows[0].success,
+            message: result.rows[0].message
+        };
+    }
+
+    public async softDeletePolicyTemplate(templateId: string): Promise<{success: number, message: string}> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_soft_delete_policy_template($1)',
+            [templateId]
+        );
+        return {
+            success: result.rows[0].success,
+            message: result.rows[0].message
+        };
+    }
+
+    public async softDeletePolicyType(typeId: string): Promise<{success: number, message: string}> {
+        const pool = await poolPromise;
+        const result = await pool.query(
+            'SELECT * FROM sp_soft_delete_policy_type($1)',
+            [typeId]
+        );
+        return {
+            success: result.rows[0].success,
+            message: result.rows[0].message
+        };
     }
 
     // ============================================
-    // EXPORT/IMPORT METHODS
-    // ============================================
-
-    public async exportPolicies(agentId?: string, format: 'json' | 'csv' = 'json'): Promise<any> {
-        const policies = await this.getClientPolicies({ 
-            agentId, 
-            isActive: true 
-        });
-
-        if (format === 'csv') {
-            // Convert to CSV format - you might want to use a CSV library
-            return this.convertPoliciesToCSV(policies);
-        }
-
-        return policies;
-    }
-
-    private convertPoliciesToCSV(policies: ClientPolicy[]): string {
-        if (policies.length === 0) return '';
-
-        const headers = [
-            'Policy ID', 'Client ID', 'Policy Name', 'Status', 
-            'Start Date', 'End Date', 'Company Name', 'Type Name',
-            'Days Until Expiry', 'Notes'
-        ];
-
-        const rows = policies.map(policy => [
-            policy.policyId,
-            policy.clientId,
-            policy.policyName,
-            policy.status,
-            policy.startDate.toISOString().split('T')[0],
-            policy.endDate.toISOString().split('T')[0],
-            policy.companyName || '',
-            policy.typeName || '',
-            policy.daysUntilExpiry?.toString() || '',
-            policy.notes || ''
-        ]);
-
-        const csvContent = [headers, ...rows]
-            .map(row => row.map(cell => `"${cell}"`).join(','))
-            .join('\n');
-
-        return csvContent;
-    }
-
-    // ============================================
-    // ERROR HANDLING WRAPPER
+    // ERROR HANDLING WRAPPER METHODS
     // ============================================
 
     private async executeWithErrorHandling<T>(
@@ -1076,115 +1108,6 @@ export class PolicyService {
                 message: `Error in ${operationName}: ${error instanceof Error ? error.message : 'Unknown error'}`
             };
         }
-    }
-
-    // ============================================
-    // AUTOCOMPLETE FUNCTIONS
-    // ============================================
-
-    /**
-     * Search Insurance Companies by partial name
-     */
-    public async searchInsuranceCompanies(term: string): Promise<InsuranceCompany[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            `SELECT "CompanyId" as companyid, "CompanyName" as companyname
-             FROM "InsuranceCompanies"
-             WHERE "IsActive" = true AND "CompanyName" ILIKE $1
-             ORDER BY "CompanyName"
-             LIMIT 20`,
-            [`%${term}%`]
-        );
-        return result.rows.map(this.mapInsuranceCompanyFromDb);
-    }
-
-    /**
-     * Search Policy Catalog entries by partial name
-     */
-    public async searchPolicyCatalog(agentId: string, term: string): Promise<PolicyCatalog[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            `SELECT "PolicyCatalogId" as policycatalogid, "PolicyName" as policyname, 
-                    "CompanyId" as companyid, "TypeId" as typeid, "CategoryId" as categoryid
-             FROM "PolicyCatalog"
-             WHERE "IsActive" = true 
-               AND "AgentId" = $1
-               AND "PolicyName" ILIKE $2
-             ORDER BY "PolicyName"
-             LIMIT 20`,
-            [agentId, `%${term}%`]
-        );
-        return result.rows.map(this.mapPolicyCatalogFromDb);
-    }
-
-    /**
-     * Search Policy Categories by partial name
-     */
-    public async searchPolicyCategories(term: string): Promise<PolicyCategory[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            `SELECT "CategoryId" as categoryid, "CategoryName" as categoryname
-             FROM "PolicyCategories"
-             WHERE "IsActive" = true AND "CategoryName" ILIKE $1
-             ORDER BY "CategoryName"
-             LIMIT 20`,
-            [`%${term}%`]
-        );
-        return result.rows.map(this.mapPolicyCategoryFromDb);
-    }
-
-    /**
-     * Search Policy Templates by partial name
-     */
-    public async searchPolicyTemplates(agentId: string, term: string): Promise<PolicyTemplate[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            `SELECT "TemplateId" as templateid, "TemplateName" as templatename, 
-                    "PolicyCatalogId" as policycatalogid, "CategoryId" as categoryid, "TypeId" as typeid
-             FROM "PolicyTemplates"
-             WHERE "IsActive" = true 
-               AND "AgentId" = $1
-               AND "TemplateName" ILIKE $2
-             ORDER BY "TemplateName"
-             LIMIT 20`,
-            [agentId, `%${term}%`]
-        );
-        return result.rows.map(this.mapPolicyTemplateFromDb);
-    }
-
-    /**
-     * Search Policy Types by partial name
-     */
-    public async searchPolicyTypes(term: string): Promise<PolicyType[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            `SELECT "TypeId" as typeid, "TypeName" as typename
-             FROM "PolicyTypes"
-             WHERE "IsActive" = true AND "TypeName" ILIKE $1
-             ORDER BY "TypeName"
-             LIMIT 20`,
-            [`%${term}%`]
-        );
-        return result.rows.map(this.mapPolicyTypeFromDb);
-    }
-
-    /**
-     * Search Client Policies by partial name
-     */
-    public async searchClientPolicies(clientId: string, term: string): Promise<ClientPolicy[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            `SELECT "PolicyId" as policyid, "PolicyName" as policyname, 
-                    "Status" as status, "StartDate" as startdate, "EndDate" as enddate
-             FROM "ClientPolicies"
-             WHERE "IsActive" = true 
-               AND "ClientId" = $1
-               AND "PolicyName" ILIKE $2
-             ORDER BY "PolicyName"
-             LIMIT 20`,
-            [clientId, `%${term}%`]
-        );
-        return result.rows.map(this.mapClientPolicyFromDb);
     }
 
     // ============================================
@@ -1217,51 +1140,5 @@ export class PolicyService {
             () => this.updateClientPolicy(request),
             'Update Client Policy'
         );
-    }
-
-    // ============================================
-    // SOFT DELETE METHODS
-    // ============================================
-
-    public async deleteInsuranceCompany(companyId: string, request?: DeleteRequest): Promise<DeleteResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_delete_insurance_company($1,$2) AS rows_affected',
-            [companyId, request?.hardDelete ? true : false]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
-
-    public async softDeletePolicyTemplate(templateId: string): Promise<void> {
-        const pool = await poolPromise;
-        await pool.query('SELECT sp_soft_delete_policy_template($1)', [templateId]);
-    }
-
-    public async softDeletePolicyCatalog(policyCatalogId: string): Promise<void> {
-        const pool = await poolPromise;
-        await pool.query('SELECT sp_soft_delete_policy_catalog($1)', [policyCatalogId]);
-    }
-
-    public async softDeletePolicyCategory(categoryId: string): Promise<void> {
-        const pool = await poolPromise;
-        await pool.query('SELECT sp_soft_delete_policy_category($1)', [categoryId]);
-    }
-
-    public async softDeleteInsuranceCompany(companyId: string): Promise<void> {
-        const pool = await poolPromise;
-        await pool.query('SELECT sp_soft_delete_insurance_company($1)', [companyId]);
-    }
-
-    public async softDeleteClientPolicy(policyId: string): Promise<void> {
-        const pool = await poolPromise;
-        await pool.query('SELECT sp_soft_delete_client_policy($1)', [policyId]);
-    }
-    
-    public async softDeletePolicyType(typeId: string): Promise<{ message: string }> {
-        const pool = await poolPromise;
-        await pool.query('SELECT sp_soft_delete_policy_type($1)', [typeId]);
-        return { message: 'PolicyType soft deleted successfully' };
     }
 }

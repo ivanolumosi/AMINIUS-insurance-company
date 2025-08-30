@@ -3,7 +3,8 @@ import { AppointmentService } from '../services/appointment.service';
 import { 
     AppointmentFilters, 
     CreateAppointmentRequest, 
-    UpdateAppointmentRequest 
+    UpdateAppointmentRequest,
+    ConflictCheckRequest 
 } from '../interfaces/appointment';
 
 export class AppointmentController {
@@ -298,10 +299,10 @@ export class AppointmentController {
 
         try {
             const filters: AppointmentFilters = {
-                startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
-                endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
-                statusFilter: req.query.status as string || 'all',
-                typeFilter: req.query.type as string || 'all',
+                startDate: req.query.startDate as string,
+                endDate: req.query.endDate as string,
+                status: req.query.status as string,
+                type: req.query.type as string,
                 priority: req.query.priority as 'High' | 'Medium' | 'Low',
                 clientId: req.query.clientId as string,
                 searchTerm: req.query.searchTerm as string,
@@ -310,13 +311,13 @@ export class AppointmentController {
             };
 
             // Validate date filters if provided
-            if (filters.startDate && isNaN(filters.startDate.getTime())) {
+            if (filters.startDate && isNaN(Date.parse(filters.startDate))) {
                 return res.status(400).json({
                     success: false,
                     message: "Invalid startDate format"
                 });
             }
-            if (filters.endDate && isNaN(filters.endDate.getTime())) {
+            if (filters.endDate && isNaN(Date.parse(filters.endDate))) {
                 return res.status(400).json({
                     success: false,
                     message: "Invalid endDate format"
@@ -337,7 +338,7 @@ export class AppointmentController {
             console.log('✅ GET ALL APPOINTMENTS - Found appointments:', result.appointments?.length || 0);
             res.json({
                 success: true,
-                data: result,
+                data: result.appointments, // Frontend expects just the appointments array
                 message: "Appointments retrieved successfully",
                 pagination: {
                     total: result.total || 0,
@@ -353,6 +354,72 @@ export class AppointmentController {
         }
     }
 
+    /** Get today's appointments */
+    public async getToday(req: Request, res: Response) {
+        console.log('📅 GET TODAY APPOINTMENTS - Controller method started');
+        
+        const agentId = this.validateAgentId(req, res);
+        if (!agentId) return;
+
+        try {
+            console.log('📅 Fetching today\'s appointments');
+            const appointments = await this.appointmentService.getTodaysAppointments(agentId);
+            
+            console.log('✅ GET TODAY APPOINTMENTS - Found appointments:', appointments.length);
+            res.json({
+                success: true,
+                data: appointments,
+                message: "Today's appointments retrieved successfully",
+                count: appointments.length
+            });
+        } catch (error: any) {
+            console.error('❌ GET TODAY APPOINTMENTS - Error:', error);
+            const errorResponse = this.handlePostgreSQLError(error, 'Error fetching today\'s appointments');
+            res.status(errorResponse.statusCode).json(errorResponse.response);
+        }
+    }
+
+    /** Get appointments for specific date */
+    public async getForDate(req: Request, res: Response) {
+        console.log('📅 GET APPOINTMENTS FOR DATE - Controller method started');
+        
+        const agentId = this.validateAgentId(req, res);
+        if (!agentId) return;
+
+        const { appointmentDate } = req.query;
+        if (!appointmentDate || typeof appointmentDate !== 'string') {
+            return res.status(400).json({
+                success: false,
+                message: 'appointmentDate query parameter is required'
+            });
+        }
+
+        if (isNaN(Date.parse(appointmentDate))) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid appointmentDate format'
+            });
+        }
+
+        try {
+            console.log('📅 Fetching appointments for date:', appointmentDate);
+            const appointments = await this.appointmentService.getAppointmentsForDate(agentId, appointmentDate);
+            
+            console.log('✅ GET APPOINTMENTS FOR DATE - Found appointments:', appointments.length);
+            res.json({
+                success: true,
+                data: appointments,
+                message: "Appointments for date retrieved successfully",
+                count: appointments.length,
+                date: appointmentDate
+            });
+        } catch (error: any) {
+            console.error('❌ GET APPOINTMENTS FOR DATE - Error:', error);
+            const errorResponse = this.handlePostgreSQLError(error, 'Error fetching appointments for date');
+            res.status(errorResponse.statusCode).json(errorResponse.response);
+        }
+    }
+
     /** Get week view appointments */
     public async getWeekView(req: Request, res: Response) {
         console.log('📅 GET WEEK VIEW - Controller method started');
@@ -361,15 +428,17 @@ export class AppointmentController {
         if (!agentId) return;
 
         try {
-            console.log('📅 Fetching week view appointments');
-            const appointments = await this.appointmentService.getWeekViewAppointments(agentId);
+            const { weekStartDate } = req.query;
+            console.log('📅 Fetching week view appointments', weekStartDate ? `for week starting: ${weekStartDate}` : '');
             
-            console.log('✅ GET WEEK VIEW - Found appointments:', appointments.length);
+            const weekViewData = await this.appointmentService.getWeekViewAppointments(agentId, weekStartDate as string);
+            
+            console.log('✅ GET WEEK VIEW - Found week data:', weekViewData.length);
             res.json({
                 success: true,
-                data: appointments,
+                data: weekViewData,
                 message: "Week view appointments retrieved successfully",
-                count: appointments.length
+                count: weekViewData.length
             });
         } catch (error: any) {
             console.error('❌ GET WEEK VIEW - Error:', error);
@@ -412,14 +481,14 @@ export class AppointmentController {
 
         try {
             console.log('🗓️ Fetching calendar appointments for:', `${yearNum}-${monthNum}`);
-            const appointments = await this.appointmentService.getCalendarAppointments(agentId, monthNum, yearNum);
+            const calendarData = await this.appointmentService.getCalendarAppointments(agentId, monthNum, yearNum);
             
-            console.log('✅ GET CALENDAR - Found appointments:', appointments.length);
+            console.log('✅ GET CALENDAR - Found calendar data:', calendarData.length);
             res.json({
                 success: true,
-                data: appointments,
+                data: calendarData,
                 message: "Calendar appointments retrieved successfully",
-                count: appointments.length,
+                count: calendarData.length,
                 period: { month: monthNum, year: yearNum }
             });
         } catch (error: any) {
@@ -436,7 +505,7 @@ export class AppointmentController {
         const agentId = this.validateAgentId(req, res);
         if (!agentId) return;
 
-        const { appointmentDate, startTime, endTime } = req.body;
+        const { appointmentDate, startTime, endTime, excludeAppointmentId }: ConflictCheckRequest = req.body;
 
         // Validate required fields
         if (!appointmentDate || !startTime || !endTime) {
@@ -463,23 +532,115 @@ export class AppointmentController {
             });
         }
 
+        // Validate excludeAppointmentId if provided
+        if (excludeAppointmentId && !this.isValidUuid(excludeAppointmentId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid excludeAppointmentId UUID format'
+            });
+        }
+
         try {
             console.log('⏰ Checking conflicts for:', { appointmentDate, startTime, endTime });
-            const conflicts = await this.appointmentService.checkTimeConflicts(agentId, appointmentDate, startTime, endTime);
+            const conflictResult = await this.appointmentService.checkTimeConflicts(
+                agentId, 
+                appointmentDate, 
+                startTime, 
+                endTime, 
+                excludeAppointmentId
+            );
             
-            console.log('✅ CHECK CONFLICTS - Found conflicts:', conflicts.length);
+            console.log('✅ CHECK CONFLICTS - Conflict check result:', conflictResult);
             res.json({
                 success: true,
-                data: {
-                    hasConflict: conflicts.length > 0,
-                    conflictCount: conflicts.length,
-                    conflicts: conflicts
-                },
-                message: conflicts.length > 0 ? "Time conflicts found" : "No time conflicts"
+                data: conflictResult,
+                message: conflictResult.hasConflicts ? "Time conflicts found" : "No time conflicts"
             });
         } catch (error: any) {
             console.error('❌ CHECK CONFLICTS - Error:', error);
             const errorResponse = this.handlePostgreSQLError(error, 'Error checking time conflicts');
+            res.status(errorResponse.statusCode).json(errorResponse.response);
+        }
+    }
+
+    /** Update appointment status */
+    public async updateStatus(req: Request, res: Response) {
+        console.log('📝 UPDATE STATUS - Controller method started');
+        
+        const agentId = this.validateAgentId(req, res);
+        if (!agentId) return;
+
+        const { appointmentId } = req.params;
+        if (!this.isValidUuid(appointmentId)) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Invalid AppointmentId UUID format' 
+            });
+        }
+
+        const { status } = req.body;
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: 'Status is required'
+            });
+        }
+
+        const validStatuses = ['Scheduled', 'Confirmed', 'In Progress', 'Completed', 'Cancelled', 'Rescheduled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+            });
+        }
+
+        try {
+            console.log('📝 Updating appointment status:', appointmentId, 'to:', status);
+            const result = await this.appointmentService.updateAppointmentStatus(appointmentId, agentId, status);
+            
+            console.log('✅ UPDATE STATUS - Service returned:', result);
+            res.json({
+                success: result.success,
+                data: result,
+                message: result.success ? "Appointment status updated successfully" : "Appointment not found or update failed"
+            });
+        } catch (error: any) {
+            console.error('❌ UPDATE STATUS - Error:', error);
+            const errorResponse = this.handlePostgreSQLError(error, 'Error updating appointment status');
+            res.status(errorResponse.statusCode).json(errorResponse.response);
+        }
+    }
+
+    /** Search appointments */
+    public async search(req: Request, res: Response) {
+        console.log('🔍 SEARCH APPOINTMENTS - Controller method started');
+        
+        const agentId = this.validateAgentId(req, res);
+        if (!agentId) return;
+
+        const { searchTerm } = req.query;
+        if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.trim().length < 1) {
+            return res.status(400).json({
+                success: false,
+                message: 'searchTerm query parameter is required and must be at least 1 character'
+            });
+        }
+
+        try {
+            console.log('🔍 Searching appointments with term:', searchTerm.trim());
+            const appointments = await this.appointmentService.searchAppointments(agentId, searchTerm.trim());
+            
+            console.log('✅ SEARCH APPOINTMENTS - Found appointments:', appointments.length);
+            res.json({
+                success: true,
+                data: appointments,
+                message: "Appointments search completed successfully",
+                count: appointments.length,
+                searchTerm: searchTerm.trim()
+            });
+        } catch (error: any) {
+            console.error('❌ SEARCH APPOINTMENTS - Error:', error);
+            const errorResponse = this.handlePostgreSQLError(error, 'Error searching appointments');
             res.status(errorResponse.statusCode).json(errorResponse.response);
         }
     }
@@ -501,7 +662,7 @@ export class AppointmentController {
 
         try {
             console.log('🗑️ Deleting appointment:', appointmentId);
-            const result = await this.appointmentService.deleteAppointment(agentId, appointmentId);
+            const result = await this.appointmentService.deleteAppointment(appointmentId, agentId);
             
             console.log('✅ DELETE APPOINTMENT - Service returned:', result);
             res.json({

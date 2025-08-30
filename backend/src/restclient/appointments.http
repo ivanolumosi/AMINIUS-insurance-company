@@ -1,11 +1,11 @@
 @baseUrl = http://localhost:3000/api/appointments
 
 ### 1. Create Appointment
-POST {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468
+POST {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c
 Content-Type: application/json
 
 {
-  "clientId": "5ABFFC14-164C-493C-AD4C-64F10C1649D5",
+  "clientId": "ba849305-c1d6-49b6-8494-6666d732e70a",
   "title": "Policy Renewal Meeting",
   "description": "Discuss renewal options",
   "appointmentDate": "2025-08-10",
@@ -13,6 +13,7 @@ Content-Type: application/json
   "endTime": "11:00:00",
   "location": "Office",
   "type": "Meeting",
+  "status": "Scheduled",
   "priority": "High",
   "notes": "Bring policy documents",
   "reminderSet": true
@@ -24,7 +25,8 @@ Content-Type: application/json
 
 {
   "title": "Updated Meeting Title",
-  "priority": "Medium"
+  "priority": "Medium",
+  "status": "Confirmed"
 }
 
 ### 3. Get Appointment By ID
@@ -33,25 +35,34 @@ GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222
 ### 4. Delete Appointment
 DELETE {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
 
-### 5. Get All Appointments (filters optional)
-GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?pageSize=10&pageNumber=1
+### 5. Get All Appointments (with filters)
+GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?pageSize=10&pageNumber=1&status=Scheduled&type=Meeting&priority=High
 
-### 6. Get Today’s Appointments
+### 6. Get All Appointments (with date range)
+GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?startDate=2025-08-01&endDate=2025-08-31
+
+### 7. Get All Appointments (with search)
+GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?searchTerm=Policy&pageSize=20
+
+### 8. Get Today's Appointments
 GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1/today
 
-### 7. Get Appointments For Specific Date
+### 9. Get Appointments For Specific Date
 GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/date?appointmentDate=2025-08-10
 
-### 8. Get Week View
+### 10. Get Week View
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/week
+
+### 11. Get Week View (with specific start date)
 GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/week?weekStartDate=2025-08-04
 
-### 9. Get Calendar View
+### 12. Get Calendar View
 GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/calendar?month=8&year=2025
 
-### 10. Search Appointments
+### 13. Search Appointments
 GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/search?searchTerm=Policy
 
-### 11. Update Appointment Status
+### 14. Update Appointment Status
 PUT {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222/status
 Content-Type: application/json
 
@@ -59,10 +70,10 @@ Content-Type: application/json
   "status": "Completed"
 }
 
-### 12. Get Appointment Statistics
+### 15. Get Appointment Statistics
 GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/statistics
 
-### 13. Check Time Conflicts
+### 16. Check Time Conflicts
 POST {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/check-conflicts
 Content-Type: application/json
 
@@ -71,6 +82,64 @@ Content-Type: application/json
   "startTime": "10:30:00",
   "endTime": "11:30:00"
 }
-### Search Clients for Autocomplete
-GET http://localhost:3000/api/appointments/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=j
+
+### 17. Check Time Conflicts (with exclusion)
+POST {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/check-conflicts
 Content-Type: application/json
+
+{
+  "appointmentDate": "2025-08-10",
+  "startTime": "10:30:00",
+  "endTime": "11:30:00",
+  "excludeAppointmentId": "22222222-2222-2222-2222-222222222222"
+}
+
+### 18. Search Clients for Autocomplete
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=john
+
+### 19. Search Clients (partial name)
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=jo
+
+### 20. Search Clients (by phone)
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=0701
+
+### 21. Search Clients (by email)
+GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=@gmail
+
+### 22. Create Appointment (minimal required fields)
+POST {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c
+Content-Type: application/json
+
+{
+  "clientId": "ba849305-c1d6-49b6-8494-6666d732e70a",
+  "title": "Quick Call",
+  "appointmentDate": "2025-08-11",
+  "startTime": "14:00",
+  "endTime": "14:30",
+  "type": "Call",
+  "status": "Scheduled"
+}
+
+### 23. Get All Appointments (filter by client)
+GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?clientId=ba849305-c1d6-49b6-8494-6666d732e70a
+
+### 24. Get All Appointments (filter by status and type)
+GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?status=Scheduled&type=Meeting
+
+### 25. Update Appointment (comprehensive update)
+PUT {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
+Content-Type: application/json
+
+{
+  "title": "Comprehensive Policy Review",
+  "description": "Full policy review and renewal discussion",
+  "appointmentDate": "2025-08-12",
+  "startTime": "09:00:00",
+  "endTime": "10:30:00",
+  "location": "Client Office",
+  "type": "Policy Review",
+  "status": "Confirmed",
+  "priority": "High",
+  "notes": "Bring all policy documents and renewal forms",
+  "reminderSet": true
+}

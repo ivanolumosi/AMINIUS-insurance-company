@@ -137,29 +137,52 @@ export class ClientService {
     }
 
     /** Convert prospect → client */
-    public async convertToClient(clientId: string, agentId: string): Promise<number> {
-        const pool = await poolPromise;
-        try {
-            const result = await pool.query('SELECT * FROM sp_convert_to_client($1,$2)', [clientId, agentId]);
-            const rowsAffected = result.rows[0]?.rows_affected || 0;
+public async convertToClient(clientId: string, agentId: string): Promise<{ success: boolean; message: string }> {
+    const pool = await poolPromise;
 
-            // Send notification email
-            const client = (await pool.query('SELECT first_name, surname, last_name, email FROM clients WHERE client_id=$1', [clientId])).rows[0];
-            const agent = (await pool.query('SELECT first_name,last_name,email FROM agent WHERE agent_id=$1', [agentId])).rows[0];
-            if (agent?.email && client) {
-                emailService.sendMail(
-                    agent.email,
-                    'Prospect Converted to Client',
-                    `Client ${client.first_name} ${client.surname} was converted to a client.`,
-                    `<h3>Client Conversion</h3><p>${client.first_name} ${client.surname}</p><p>${client.email}</p>`
-                ).catch(console.error);
-            }
-            return rowsAffected;
-        } catch (err) {
-            console.error('Failed to convert client:', err);
-            return 0;
+    try {
+        // 1️⃣ Call the Postgres function
+        const result = await pool.query('SELECT * FROM sp_convert_to_client($1, $2)', [clientId, agentId]);
+        const rowsAffected = result.rows[0]?.rows_affected || 0;
+
+        if (rowsAffected === 0) {
+            return { success: false, message: 'Conversion failed or prospect already a client' };
         }
+
+        // 2️⃣ Fetch client & agent info for email
+        const clientResult = await pool.query(
+            'SELECT first_name, surname, last_name, email FROM clients WHERE client_id=$1',
+            [clientId]
+        );
+        const agentResult = await pool.query(
+            'SELECT first_name, last_name, email FROM agent WHERE agent_id=$1',
+            [agentId]
+        );
+
+        const client = clientResult.rows[0];
+        const agent = agentResult.rows[0];
+
+        // 3️⃣ Send email notification (non-blocking)
+        if (agent?.email && client?.email) {
+            emailService.sendMail(
+                agent.email,
+                'Prospect Converted to Client',
+                `Client ${client.first_name} ${client.surname} was converted to a client.`,
+                `<h3>Client Conversion</h3>
+                 <p>${client.first_name} ${client.surname}</p>
+                 <p>${client.email}</p>`
+            ).catch(err => console.error('Email send failed:', err));
+        }
+
+        // 4️⃣ Return success
+        return { success: true, message: `Client ${client.first_name} ${client.surname} converted successfully` };
+
+    } catch (err) {
+        console.error('Failed to convert client:', err);
+        return { success: false, message: 'Server error during conversion' };
     }
+}
+
 
     /** Delete client (soft) */
     public async deleteClient(clientId: string, agentId: string): Promise<number> {
@@ -217,28 +240,35 @@ export class ClientService {
         };
     }
 
-    /** Create new client */
-    public async createClient(clientData: CreateClientRequest): Promise<ClientResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_create_client($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-            [
-                clientData.AgentId,
-                clientData.FirstName,
-                clientData.Surname,
-                clientData.LastName,
-                clientData.PhoneNumber,
-                clientData.Email,
-                clientData.Address,
-                clientData.NationalId,
-                clientData.DateOfBirth,
-                clientData.IsClient ?? false,
-                clientData.InsuranceType,
-                clientData.Notes
-            ]
-        );
-        return { Success: true, Message: 'Client created', ClientId: result.rows[0].client_id };
-    }
+  /** Create new client */
+public async createClient(clientData: CreateClientRequest): Promise<ClientResponse> {
+    const pool = await poolPromise;
+    const result = await pool.query(
+  'SELECT * FROM sp_create_client($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+  [
+    clientData.AgentId,
+    clientData.FirstName,
+    clientData.Surname,
+    clientData.LastName,
+    clientData.PhoneNumber,
+    clientData.Email,
+    clientData.Address,
+    clientData.NationalId,
+    clientData.DateOfBirth,
+    clientData.InsuranceType,     
+    clientData.IsClient ?? false, 
+    clientData.Notes              
+  ]
+);
+
+
+    const row = result.rows[0];
+    return { 
+        Success: row.success === 1,   // map from postgres integer (1/0)
+        Message: row.message,
+        ClientId: row.client_id 
+    };
+}
 
     /** Update client */
     public async updateClient(clientData: UpdateClientRequest): Promise<ClientResponse> {

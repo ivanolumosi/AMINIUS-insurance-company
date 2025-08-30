@@ -80,16 +80,18 @@ export class ClientController {
         }
     }
 
-    async convert(req: Request, res: Response) {
-        try {
-            const { clientId, agentId } = req.params;
-            const rows = await this.service.convertToClient(clientId, agentId);
-            res.json({ success: rows > 0 });
-        } catch (err: any) {
-            console.error('Convert client error:', err);
-            res.status(500).json({ error: err.message });
-        }
+   async convert(req: Request, res: Response) {
+    try {
+        const { clientId, agentId } = req.params;
+        const result = await this.service.convertToClient(clientId, agentId);
+
+        res.json(result); // { success: boolean, message: string }
+    } catch (err: any) {
+        console.error('Convert client error:', err);
+        res.status(500).json({ success: false, message: 'Server error during conversion' });
     }
+}
+
 
     async delete(req: Request, res: Response) {
         try {

@@ -35,13 +35,14 @@ BEGIN
     ORDER BY pt.type_name;
 END;
 $$;
+DROP FUNCTION IF EXISTS sp_get_policy_categories_list(BOOLEAN);
 
 -- Get Policy Categories
 CREATE OR REPLACE FUNCTION sp_get_policy_categories_list(p_is_active BOOLEAN DEFAULT TRUE)
 RETURNS TABLE(
     category_id UUID, 
-    category_name VARCHAR(100), 
-    description TEXT, 
+    category_name VARCHAR(50), 
+    description VARCHAR(200), 
     is_active BOOLEAN, 
     created_date TIMESTAMPTZ
 ) 
@@ -59,6 +60,7 @@ BEGIN
     ORDER BY pc.category_name;
 END;
 $$;
+
 
 -- Create Policy Category
 CREATE OR REPLACE FUNCTION sp_create_policy_category(

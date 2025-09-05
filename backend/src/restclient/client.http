@@ -40,7 +40,7 @@ Content-Type: application/json
 GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c
 
 ### Get Client By ID
-GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/ba849305-c1d6-49b6-8494-6666d732e70a
+GET http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/6cb86add-a6e2-470e-8b40-e21c107df7ea
 
 ### Convert Prospect to Client
 PUT http://localhost:3000/api/clients/7b407c2d-3145-40b0-8c47-1d6f62351b2c/c23917df-f3a5-455e-abe4-868334939dbb/convert

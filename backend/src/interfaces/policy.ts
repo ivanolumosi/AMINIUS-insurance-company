@@ -434,46 +434,52 @@ export interface PolicyCompanyRelationship {
     companyName?: string;
 }
 
-// Additional interfaces needed by service but missing
-export interface ClientWithPolicies {
-    clientId: string;
-    agentId: string;
-    firstName: string;
-    surname: string;
-    lastName: string;
-    fullName: string;
-    phoneNumber: string;
-    email: string;
-    address: string;
-    nationalId: string;
-    dateOfBirth: Date;
-    isClient: boolean;
-    insuranceType: string;
-    clientNotes?: string;
-    clientCreatedDate: Date;
-    clientModifiedDate: Date;
-    clientIsActive: boolean;
+// interfaces/policy.ts (or inside your service file if kept together)
 
-    policyId?: string;
-    policyName?: string;
-    status?: string;
-    startDate?: Date;
-    endDate?: Date;
-    policyNotes?: string;
-    policyCreatedDate?: Date;
-    policyModifiedDate?: Date;
-    policyIsActive?: boolean;
-    policyCatalogId?: string;
-    catalogPolicyName?: string;
-    typeId?: string;
-    typeName?: string;
-    companyId?: string;
-    companyName?: string;
-    daysUntilExpiry?: number;
+export interface ClientPolicyLite {
+  policyId: string;
+  policyName: string;
+  status: string;
+  startDate: Date;
+  endDate: Date;
+  notes?: string;
+  createdDate: Date;
+  modifiedDate: Date;
+  isActive: boolean;
+  policyCatalogId: string;
+  catalogPolicyName: string;
+  typeId: string;
+  typeName: string;
+  companyId: string;
+  companyName: string;
+  daysUntilExpiry: number;
+}
+
+export interface ClientWithPolicies {
+  clientId: string;
+  agentId: string;
+  firstName: string;
+  surname: string;
+  lastName: string;
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  address: string;
+  nationalId: string;
+  dateOfBirth: Date;
+  isClient: boolean;
+  insuranceType: string;
+  clientNotes?: string;
+  clientCreatedDate: Date;
+  clientModifiedDate: Date;
+  clientIsActive: boolean;
+
+  // ✅ Instead of duplicating policy fields here, use array of ClientPolicyLite
+  policies: ClientPolicyLite[];
 }
 
 export interface ClientWithPoliciesFilterRequest {
-    agentId?: string;
-    clientId?: string;
-    includeInactive?: boolean;
+  agentId?: string;
+  clientId?: string;
+  includeInactive?: boolean;
 }

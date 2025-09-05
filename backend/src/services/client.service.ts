@@ -22,7 +22,6 @@ import emailService from '../nodemailer/emailservice';
 const toIsoString = (date: any): string | null =>
     date ? new Date(date).toISOString() : null;
 
-/** Utility: map DB row → Client DTO (PascalCase for frontend) */
 const mapClient = (row: any): Client => ({
     ClientId: row.client_id,
     AgentId: row.agent_id,
@@ -34,7 +33,7 @@ const mapClient = (row: any): Client => ({
     Address: row.address,
     NationalId: row.national_id,
     DateOfBirth: toIsoString(row.date_of_birth) as string,
-    IsClient: row.isclient,
+    IsClient: row.is_client,   // ✅ fixed here
     InsuranceType: row.insurance_type,
     Notes: row.notes,
     CreatedDate: toIsoString(row.created_date) as string,
@@ -44,6 +43,7 @@ const mapClient = (row: any): Client => ({
     PolicyCount: row.policy_count ? Number(row.policy_count) : undefined,
     NextExpiryDate: toIsoString(row.next_expiry_date) as string | undefined
 });
+
 
 /** Utility: map DB row → ClientPolicy DTO */
 const mapPolicy = (row: any): ClientPolicy => ({

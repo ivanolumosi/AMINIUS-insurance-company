@@ -166,20 +166,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
--- Search Clients Only
 CREATE OR REPLACE FUNCTION sp_search_clients(
     p_agent_id UUID,
     p_search_term VARCHAR(500)
-)
-RETURNS TABLE(
+) RETURNS TABLE(
     client_id UUID,
     first_name VARCHAR(50),
     surname VARCHAR(50),
     last_name VARCHAR(50),
     phone_number VARCHAR(20),
     email VARCHAR(100),
-    address TEXT,
+    address VARCHAR(500),  -- Match the actual table column type
     national_id VARCHAR(50),
     date_of_birth DATE,
     is_client BOOLEAN,
@@ -187,7 +184,7 @@ RETURNS TABLE(
     notes TEXT,
     created_date TIMESTAMPTZ,
     modified_date TIMESTAMPTZ,
-    client_type VARCHAR(20)
+    client_type TEXT
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -198,7 +195,7 @@ BEGIN
         c.last_name,
         c.phone_number,
         c.email,
-        c.address,
+        c.address::VARCHAR(500),  -- Explicit cast to match return type
         c.national_id,
         c.date_of_birth,
         c.is_client,
@@ -206,24 +203,23 @@ BEGIN
         c.notes,
         c.created_date,
         c.modified_date,
-        CASE WHEN c.is_client = TRUE THEN 'Client' ELSE 'Prospect' END
+        CASE WHEN c.is_client = TRUE THEN 'Client'::TEXT ELSE 'Prospect'::TEXT END
     FROM clients c
-    WHERE c.agent_id = p_agent_id 
-      AND c.is_active = TRUE
-      AND (
-          c.first_name ILIKE '%' || p_search_term || '%' OR
-          c.surname ILIKE '%' || p_search_term || '%' OR
-          c.last_name ILIKE '%' || p_search_term || '%' OR
-          c.email ILIKE '%' || p_search_term || '%' OR
-          c.phone_number ILIKE '%' || p_search_term || '%' OR
-          c.national_id ILIKE '%' || p_search_term || '%' OR
-          c.address ILIKE '%' || p_search_term || '%' OR
-          c.insurance_type ILIKE '%' || p_search_term || '%'
-      )
+    WHERE c.agent_id = p_agent_id
+       AND c.is_active = TRUE
+       AND (
+           c.first_name ILIKE '%' || p_search_term || '%' OR
+           c.surname ILIKE '%' || p_search_term || '%' OR
+           c.last_name ILIKE '%' || p_search_term || '%' OR
+           c.email ILIKE '%' || p_search_term || '%' OR
+           c.phone_number ILIKE '%' || p_search_term || '%' OR
+           c.national_id ILIKE '%' || p_search_term || '%' OR
+           c.address ILIKE '%' || p_search_term || '%' OR
+           c.insurance_type ILIKE '%' || p_search_term || '%'
+       )
     ORDER BY c.is_client DESC, c.first_name, c.surname;
 END;
 $$ LANGUAGE plpgsql;
-
 -- Search Appointments
 CREATE OR REPLACE FUNCTION sp_search_appointments(
     p_agent_id UUID,

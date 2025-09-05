@@ -7,11 +7,14 @@ import emailService from "../nodemailer/emailservice";
 
 export class AppointmentService {
   
-  /**
-   * Search clients for autocomplete
-   */
-  async searchClientsForAutocomplete(searchTerm: string, agentId: string): Promise<ClientSearchResult[]> {
+ 
+
+/**
+ * Search clients for autocomplete
+ */
+async searchClientsForAutocomplete(searchTerm: string, agentId: string): Promise<ClientSearchResult[]> {
     const pool = await poolPromise;
+    
     const query = `
       SELECT 
         client_id as "clientId",
@@ -32,9 +35,11 @@ export class AppointmentService {
       ORDER BY first_name
       LIMIT 10;
     `;
+    
     const { rows } = await pool.query(query, [agentId, `%${searchTerm}%`]);
     return rows;
-  }
+}
+
 
   /**
    * Create appointment using stored procedure

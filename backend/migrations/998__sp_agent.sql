@@ -1,5 +1,12 @@
+
+-- Drop existing functions that might be causing conflicts
+DROP FUNCTION IF EXISTS sp_upsert_agent(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT, UUID);
+DROP FUNCTION IF EXISTS sp_upsert_agent(VARCHAR(50), VARCHAR(50), VARCHAR(100), VARCHAR(20), VARCHAR(200), TEXT, UUID);
+DROP FUNCTION IF EXISTS sp_register_agent(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT);
+DROP FUNCTION IF EXISTS sp_register_agent(VARCHAR(50), VARCHAR(50), VARCHAR(100), VARCHAR(20), VARCHAR(200), TEXT);
+
 -- ===========================================================
--- Create or Update Agent Profile
+-- FIXED: Create or Update Agent Profile
 -- ===========================================================
 CREATE OR REPLACE FUNCTION sp_upsert_agent(
     p_first_name VARCHAR(50),
@@ -15,13 +22,16 @@ DECLARE
     v_agent_id UUID;
 BEGIN
     IF p_agent_id IS NULL THEN
+        -- Create new agent
         v_agent_id := gen_random_uuid();
 
         INSERT INTO agent (agent_id, first_name, last_name, email, phone, password_hash, avatar)
         VALUES (v_agent_id, p_first_name, p_last_name, p_email, p_phone, p_password_hash, p_avatar);
 
+        -- Create default settings
         INSERT INTO agent_settings (agent_id) VALUES (v_agent_id);
 
+        -- Create default reminder settings
         INSERT INTO reminder_settings (agent_id, reminder_type, days_before, time_of_day)
         VALUES 
             (v_agent_id, 'Policy Expiry', 30, '09:00'::TIME),
@@ -29,6 +39,7 @@ BEGIN
             (v_agent_id, 'Appointment', 1, '18:00'::TIME),
             (v_agent_id, 'Call', 0, '10:00'::TIME);
     ELSE
+        -- Update existing agent
         v_agent_id := p_agent_id;
 
         UPDATE agent
@@ -37,15 +48,19 @@ BEGIN
             email = p_email,
             phone = p_phone,
             password_hash = p_password_hash,
-            avatar = p_avatar,
+            avatar = COALESCE(p_avatar, avatar),
             modified_date = NOW()
         WHERE agent_id = p_agent_id;
+
+        -- Ensure settings exist for updated agent
+        IF NOT EXISTS (SELECT 1 FROM agent_settings WHERE agent_id = p_agent_id) THEN
+            INSERT INTO agent_settings (agent_id) VALUES (p_agent_id);
+        END IF;
     END IF;
 
     RETURN v_agent_id;
 END;
 $BODY$ LANGUAGE plpgsql;
-
 -- ===========================================================
 -- Get Agent Profile
 -- ===========================================================
@@ -238,43 +253,53 @@ CREATE OR REPLACE FUNCTION sp_register_agent(
     p_password_hash VARCHAR(200),
     p_avatar TEXT DEFAULT NULL
 )
-RETURNS TABLE(success INTEGER, message TEXT, agent_id UUID) AS $$
+RETURNS TABLE(
+    success INTEGER, 
+    message TEXT, 
+    agent_id UUID
+) AS $BODY$
 DECLARE
     v_agent_id UUID := gen_random_uuid();
 BEGIN
-    -- Check duplicate
+    -- Check for duplicate email
     IF EXISTS(SELECT 1 FROM agent WHERE email = p_email) THEN
-        RETURN QUERY SELECT 0, 'Email already exists', NULL;
+        RETURN QUERY SELECT 0::INTEGER, 'Email already exists'::TEXT, NULL::UUID;
         RETURN;
     END IF;
 
     BEGIN
+        -- Insert new agent
         INSERT INTO agent (agent_id, first_name, last_name, email, phone, password_hash, avatar)
         VALUES (v_agent_id, p_first_name, p_last_name, p_email, p_phone, p_password_hash, p_avatar);
 
+        -- Create default settings
         INSERT INTO agent_settings (agent_id) VALUES (v_agent_id);
 
+        -- Create default reminder settings
         INSERT INTO reminder_settings (agent_id, reminder_type, days_before)
         VALUES 
             (v_agent_id, 'Policy Expiry', 7),
             (v_agent_id, 'Birthday', 1),
             (v_agent_id, 'Appointment', 1);
 
+        -- Create default notification preferences (if table exists)
         INSERT INTO agent_notification_preferences (agent_id, notification_type)
         VALUES 
             (v_agent_id, 'appointment'),
             (v_agent_id, 'birthday'),
-            (v_agent_id, 'policy_expiry');
+            (v_agent_id, 'policy_expiry')
+        ON CONFLICT DO NOTHING; -- In case table doesn't exist yet
 
-        RETURN QUERY SELECT 1, 'Registration successful', v_agent_id;
-    EXCEPTION WHEN unique_violation THEN
-        RETURN QUERY SELECT 0, 'Email already exists', NULL;
-    WHEN OTHERS THEN
-        RETURN QUERY SELECT 0, ('Registration failed: ' || SQLERRM), NULL;
+        RETURN QUERY SELECT 1::INTEGER, 'Registration successful'::TEXT, v_agent_id;
+        
+    EXCEPTION 
+        WHEN unique_violation THEN
+            RETURN QUERY SELECT 0::INTEGER, 'Email already exists'::TEXT, NULL::UUID;
+        WHEN OTHERS THEN
+            RETURN QUERY SELECT 0::INTEGER, ('Registration failed: ' || SQLERRM)::TEXT, NULL::UUID;
     END;
 END;
-$$ LANGUAGE plpgsql;
-
+$BODY$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Change Password
 -- ===========================================================

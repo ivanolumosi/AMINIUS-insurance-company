@@ -1,52 +1,108 @@
-### Create Reminder
-POST http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c
+# =============================================
+# REMINDERS HTTP REST CLIENT
+# Fully aligned with routes/reminder.routes.ts
+# =============================================
+
+### Variables
+@baseUrl = http://localhost:3000/api/reminders
+@agentId = 7b407c2d-3145-40b0-8c47-1d6f62351b2c
+@testReminderId = e5f94403-0ced-418a-b873-4f1b9b956d5a
+
+# =============================================
+# CORE REMINDER ROUTES
+# =============================================
+
+### Create Reminder (Header-based agentId)
+POST {{baseUrl}}
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
 {
   "ReminderType": "Call",
-  "Title": "jkdasfghgdfsg",
-  "Description": "Call about renewal",
+  "Title": "Call with client",
+  "Description": "Call about policy clarification",
   "ReminderDate": "2025-09-15",
-  "Priority": "High"
+  "ReminderTime": "18:30:00",
+  "Priority": "High",
+  "ClientName": "John Doe",
+  "EnableSMS": true,
+  "EnableWhatsApp": false,
+  "EnablePushNotification": true,
+  "AdvanceNotice": "1 day",
+  "CustomMessage": "Remember to call John about his policy",
+  "AutoSend": false,
+  "Notes": "Important client call"
 }
 
-### Get All Reminders
-GET http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c?PageSize=10&PageNumber=1
+### Get All Reminders (Agent param style)
+GET {{baseUrl}}/agent/{{agentId}}?pageSize=10&pageNumber=1
 
-### Get Reminder by ID
-GET http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c/e5f94403-0ced-418a-b873-4f1b9b956d5a
+### Get All Reminders with Filters
+GET {{baseUrl}}/agent/{{agentId}}?pageSize=10&pageNumber=1&reminderType=Call&status=Active&priority=High&startDate=2025-09-01&endDate=2025-09-30
 
-### Update Reminder
-PUT http://localhost:3000/api/reminders/7b407c2d-3145-40b0-8c47-1d6f62351b2c/e5f94403-0ced-418a-b873-4f1b9b956d5a
+### Get Reminder by ID (Agent param style)
+GET {{baseUrl}}/agent/{{agentId}}/reminder/{{testReminderId}}
+
+### Get Reminder by ID (Legacy header style)
+GET {{baseUrl}}/{{testReminderId}}
+x-agent-id: {{agentId}}
+
+### Update Reminder (Agent param style)
+PUT {{baseUrl}}/agent/{{agentId}}/reminder/{{testReminderId}}
 Content-Type: application/json
 
 {
-  "Title": "Updated Title",
-  "Priority": "Low"
+  "Title": "Updated Follow up call",
+  "Priority": "Medium",
+  "Status": "Active",
+  "Notes": "Updated notes for the reminder"
 }
 
-### Delete Reminder
-DELETE http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2
+### Delete Reminder (Agent param style)
+DELETE {{baseUrl}}/agent/{{agentId}}/reminder/{{testReminderId}}
 
-### Complete Reminder
-POST http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/62AF9656-E29E-4447-915B-68B58DDBF6C2/complete
+### Complete Reminder (Agent param style)
+POST {{baseUrl}}/agent/{{agentId}}/reminder/{{testReminderId}}/complete
 Content-Type: application/json
 
 {
-  "notes": "Task done"
+  "notes": "Successfully completed the call with client"
 }
 
-### Get Today Birthday Reminders
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/birthdays
+# =============================================
+# SPECIALIZED REMINDER ROUTES
+# =============================================
 
-### Get Policy Expiry Reminders
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/policy-expiries?daysAhead=15
+### Get Today's Reminders
+GET {{baseUrl}}/agent/{{agentId}}/today
+
+### Get Reminders by Type (Call)
+GET {{baseUrl}}/agent/{{agentId}}/type/Call
+
+### Get Reminders by Status (Completed)
+GET {{baseUrl}}/agent/{{agentId}}/status/Completed
+
+### Get Birthday Reminders
+GET {{baseUrl}}/agent/{{agentId}}/birthdays
+
+### Get Policy Expiry Reminders (default 30 days)
+GET {{baseUrl}}/agent/{{agentId}}/policy-expiry
+
+### Get Policy Expiry Reminders (15 days ahead)
+GET {{baseUrl}}/agent/{{agentId}}/policy-expiry?daysAhead=15
+
+# =============================================
+# STATISTICS + SETTINGS
+# =============================================
+
+### Get Reminder Statistics
+GET {{baseUrl}}/agent/{{agentId}}/statistics
 
 ### Get Reminder Settings
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/settings
+GET {{baseUrl}}/agent/{{agentId}}/settings
 
 ### Update Reminder Settings
-PUT http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/settings
+PUT {{baseUrl}}/agent/{{agentId}}/settings
 Content-Type: application/json
 
 {
@@ -57,32 +113,44 @@ Content-Type: application/json
   "RepeatDaily": false
 }
 
+# =============================================
+# UTILITY ROUTES
+# =============================================
+
+### Validate Phone Number
+POST {{baseUrl}}/validate-phone
+Content-Type: application/json
+
+{
+  "phoneNumber": "0712345678",
+  "countryCode": "+254"
+}
+
+# =============================================
+# BACKWARD COMPATIBILITY ROUTES (header-based)
+# =============================================
+
+### Get Today's Reminders
+GET {{baseUrl}}/today
+x-agent-id: {{agentId}}
+
 ### Get Reminder Statistics
-GET http://localhost:3000/api/reminders/5C24F39E-7759-4ECD-AAC7-6787A1F46ECD/statistics
+GET {{baseUrl}}/statistics
+x-agent-id: {{agentId}}
 
-### Validate Phone
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/validate-phone?phoneNumber=0712345678&countryCode=+254
-GET http://localhost:3000/api/reminders/<agentId>/statistics
+### Get Reminder Settings
+GET {{baseUrl}}/settings
+x-agent-id: {{agentId}}
 
-
-### Get Reminders by Type
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/type/call
+### Update Reminder Settings
+PUT {{baseUrl}}/settings
 Content-Type: application/json
+x-agent-id: {{agentId}}
 
-###
-
-### Get Reminders by Type (meeting)
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/type/meeting
-Content-Type: application/json
-
-###
-
-### Get Reminders by Status (pending)
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/status/pending
-Content-Type: application/json
-
-###
-
-### Get Reminders by Status (completed)
-GET http://localhost:3000/api/reminders/730080DD-742C-4934-8974-30AC3495E468/status/completed
-Content-Type: application/json
+{
+  "ReminderType": "Birthday",
+  "IsEnabled": true,
+  "DaysBefore": 3,
+  "TimeOfDay": "09:00:00",
+  "RepeatDaily": false
+}

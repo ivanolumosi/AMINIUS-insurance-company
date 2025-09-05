@@ -129,9 +129,7 @@ $$ LANGUAGE plpgsql;
 -- ============================================================
 -- 2) Get Clients
 -- ============================================================
-DROP FUNCTION IF EXISTS sp_get_clients(
-    UUID, VARCHAR, VARCHAR, VARCHAR
-);
+DROP FUNCTION IF EXISTS sp_get_clients(UUID, VARCHAR, VARCHAR, VARCHAR);
 
 CREATE OR REPLACE FUNCTION sp_get_clients(
     p_agent_id UUID,
@@ -164,7 +162,7 @@ CREATE OR REPLACE FUNCTION sp_get_clients(
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT DISTINCT ON (c.client_id, cp.policy_id)  -- ✅ remove duplicates
         c.client_id,
         c.first_name,
         c.surname,
@@ -188,10 +186,15 @@ BEGIN
         cp.end_date   AS policy_end_date,
         cp.notes      AS policy_notes
     FROM clients c
-    LEFT JOIN client_policies cp ON c.client_id = cp.client_id AND cp.is_active = TRUE
-    LEFT JOIN policy_catalog pc  ON cp.policy_catalog_id = pc.policy_catalog_id
-    LEFT JOIN policy_types pt    ON pc.type_id = pt.type_id
-    LEFT JOIN insurance_companies ic ON pc.company_id = ic.company_id
+    LEFT JOIN client_policies cp 
+           ON c.client_id = cp.client_id 
+          AND cp.is_active = TRUE
+    LEFT JOIN policy_catalog pc  
+           ON cp.policy_catalog_id = pc.policy_catalog_id
+    LEFT JOIN policy_types pt    
+           ON pc.type_id = pt.type_id
+    LEFT JOIN insurance_companies ic 
+           ON pc.company_id = ic.company_id
     WHERE c.agent_id = p_agent_id
       AND c.is_active = TRUE
       AND (
@@ -208,9 +211,10 @@ BEGIN
           (p_filter_type = 'prospects' AND c.is_client = FALSE)
       )
       AND (p_insurance_type IS NULL OR c.insurance_type = p_insurance_type)
-    ORDER BY c.first_name, c.surname;
+    ORDER BY c.client_id, cp.policy_id, c.first_name, c.surname; -- ✅ ensures stable DISTINCT ON
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ============================================================
 -- 3) Get Client

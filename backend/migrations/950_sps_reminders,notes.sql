@@ -2,6 +2,11 @@
 -- Reminders and Messaging PostgreSQL Functions
 -- (Rewritten to use $$ quoting and corrected syntax)
 -- ============================================
+DROP FUNCTION IF EXISTS sp_get_reminder_by_id(UUID, UUID);
+DROP FUNCTION IF EXISTS sp_get_all_reminders(UUID, DATE, DATE, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS sp_get_today_reminders(UUID);
+DROP FUNCTION IF EXISTS sp_get_reminders_by_type(UUID, VARCHAR);
+DROP FUNCTION IF EXISTS sp_get_reminders_by_status(UUID, VARCHAR);
 
 -- Note: Ensure extension "pgcrypto" is available for gen_random_uuid():
 -- CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -89,6 +94,10 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Get All Reminders with Comprehensive Union
 -- ===========================================================
+
+-- ===========================================================
+-- FIXED: Get All Reminders Function
+-- ===========================================================
 CREATE OR REPLACE FUNCTION sp_get_all_reminders(
     p_agent_id UUID,
     p_start_date DATE DEFAULT NULL,
@@ -118,14 +127,17 @@ RETURNS TABLE (
     notes TEXT,
     created_date TIMESTAMPTZ,
     modified_date TIMESTAMPTZ,
-    completed_date TIMESTAMPTZ
+    completed_date TIMESTAMPTZ,
+    client_phone VARCHAR(20),
+    client_email VARCHAR(100),
+    full_client_name VARCHAR(300)
 ) AS $$
 DECLARE
     v_offset INTEGER := (p_page_number - 1) * p_page_size;
 BEGIN
     RETURN QUERY
     WITH all_reminders AS (
-        -- 1. Manual Reminders from reminders table
+        -- 1. Manual Reminders
         SELECT 
             r.reminder_id,
             r.client_id,
@@ -148,9 +160,15 @@ BEGIN
             r.notes,
             r.created_date,
             r.modified_date,
-            r.completed_date
+            r.completed_date,
+            COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+            COALESCE(c.email, '')::varchar(100) AS client_email,
+            COALESCE(c.first_name || ' ' || c.last_name, r.client_name, '')::varchar(300) AS full_client_name
         FROM reminders r
+        LEFT JOIN clients c ON r.client_id = c.client_id
         WHERE r.agent_id = p_agent_id
+          AND (p_start_date IS NULL OR r.reminder_date >= p_start_date)
+          AND (p_end_date IS NULL OR r.reminder_date <= p_end_date)
 
         UNION ALL
 
@@ -158,24 +176,36 @@ BEGIN
         SELECT 
             gen_random_uuid() AS reminder_id,
             cp.client_id,
-            NULL AS appointment_id,
+            NULL::UUID AS appointment_id,
             c.agent_id,
             'Maturing Policy' AS reminder_type,
             cp.policy_name AS title,
             ('Policy for ' || cp.policy_name || ' is maturing soon') AS description,
             cp.end_date AS reminder_date,
-            NULL AS reminder_time,
+            NULL::TIME AS reminder_time,
             (c.first_name || ' ' || c.last_name) AS client_name,
             'High' AS priority,
             'Active' AS status,
-            FALSE, FALSE, TRUE, '7 days', NULL, FALSE, NULL,
-            NOW(), NOW(), NULL
+            FALSE AS enable_sms, 
+            FALSE AS enable_whatsapp, 
+            TRUE AS enable_push_notification, 
+            '7 days' AS advance_notice, 
+            NULL::TEXT AS custom_message, 
+            FALSE AS auto_send, 
+            NULL::TEXT AS notes,
+            NOW() AS created_date, 
+            NOW() AS modified_date, 
+            NULL::TIMESTAMPTZ AS completed_date,
+            COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+            COALESCE(c.email, '')::varchar(100) AS client_email,
+            COALESCE(c.first_name || ' ' || c.last_name, '')::varchar(300) AS full_client_name
         FROM client_policies cp
         INNER JOIN clients c ON c.client_id = cp.client_id
         WHERE c.agent_id = p_agent_id
           AND cp.is_active = TRUE
           AND (p_start_date IS NULL OR cp.end_date >= p_start_date)
           AND (p_end_date IS NULL OR cp.end_date <= p_end_date)
+          AND cp.end_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
 
         UNION ALL
 
@@ -183,49 +213,51 @@ BEGIN
         SELECT 
             gen_random_uuid() AS reminder_id,
             c.client_id,
-            NULL AS appointment_id,
+            NULL::UUID AS appointment_id,
             c.agent_id,
             'Birthday' AS reminder_type,
             'Birthday Reminder' AS title,
             ('Wish ' || c.first_name || ' ' || c.last_name || ' a Happy Birthday!') AS description,
-            -- Create this year's birthday date, handling Feb 29
             (
                 CASE
                     WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
                          AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
-                         AND NOT (EXTRACT(ISODOW FROM make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT,1,1)) IS NOT NULL)  -- dummy check, replaced below with leap test
-                    THEN
-                        -- We'll compute robustly using leap-year test below
-                        NULL
-                    ELSE NULL
+                         AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
+                    THEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28)
+                    ELSE make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT)
                 END
             )::DATE AS reminder_date,
-            NULL AS reminder_time,
+            NULL::TIME AS reminder_time,
             (c.first_name || ' ' || c.last_name) AS client_name,
             'Low' AS priority,
             'Active' AS status,
-            FALSE, FALSE, TRUE, '1 day', NULL, FALSE, NULL,
-            NOW(), NOW(), NULL
+            FALSE AS enable_sms, 
+            FALSE AS enable_whatsapp, 
+            TRUE AS enable_push_notification, 
+            '1 day' AS advance_notice, 
+            NULL::TEXT AS custom_message, 
+            FALSE AS auto_send, 
+            NULL::TEXT AS notes,
+            NOW() AS created_date, 
+            NOW() AS modified_date, 
+            NULL::TIMESTAMPTZ AS completed_date,
+            COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+            COALESCE(c.email, '')::varchar(100) AS client_email,
+            COALESCE(c.first_name || ' ' || c.last_name, '')::varchar(300) AS full_client_name
         FROM clients c
         WHERE c.agent_id = p_agent_id
           AND c.is_active = TRUE
+          AND c.date_of_birth IS NOT NULL
           AND (
-              -- We'll compute whether this client's birthday is within the next 7 days using a robust day-of-year comparison
-              -- Convert client's birthday to day-of-year for current year, adjust for Feb 29 on non-leap years
               (
-                  (
-                      (CASE 
-                        WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
-                             AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
-                             AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
-                        THEN
-                          -- If current year is NOT leap and birthday is Feb 29 -> treat as Feb 28 this year
-                          to_char(make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28), 'YYYY-MM-DD')::date
-                        ELSE
-                          to_char(make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT), 'YYYY-MM-DD')::date
-                      END)
-                  )
-              ) BETWEEN CURRENT_DATE AND (CURRENT_DATE + (7 * INTERVAL '1 day'))
+                  CASE
+                      WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
+                           AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
+                           AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
+                      THEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28)
+                      ELSE make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT)
+                  END
+              ) BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '7 days')
           )
 
         UNION ALL
@@ -244,70 +276,194 @@ BEGIN
             a.client_name,
             a.priority,
             a.status,
-            FALSE, FALSE, TRUE, '1 day', NULL, FALSE, a.notes,
+            FALSE AS enable_sms, 
+            FALSE AS enable_whatsapp, 
+            TRUE AS enable_push_notification, 
+            '1 day' AS advance_notice, 
+            NULL::TEXT AS custom_message, 
+            FALSE AS auto_send, 
+            a.notes,
             a.created_date,
             a.modified_date,
-            NULL
+            NULL::TIMESTAMPTZ AS completed_date,
+            COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+            COALESCE(c.email, '')::varchar(100) AS client_email,
+            COALESCE(c.first_name || ' ' || c.last_name, a.client_name, '')::varchar(300) AS full_client_name
         FROM appointments a
+        LEFT JOIN clients c ON a.client_id = c.client_id
         WHERE a.agent_id = p_agent_id
           AND a.is_active = TRUE
           AND (p_start_date IS NULL OR a.appointment_date >= p_start_date)
           AND (p_end_date IS NULL OR a.appointment_date <= p_end_date)
     )
-    SELECT * FROM (
-        SELECT 
-            ROW_NUMBER() OVER (ORDER BY ar.reminder_date ASC NULLS LAST, ar.reminder_time ASC NULLS LAST) AS row_num,
-            ar.*
-        FROM all_reminders ar
-    ) AS paged
-    WHERE row_num BETWEEN (v_offset + 1) AND (v_offset + p_page_size)
-    ORDER BY reminder_date ASC NULLS LAST, reminder_time ASC NULLS LAST;
+    -- FIXED: Remove ROW_NUMBER() from SELECT to avoid type mismatch
+    SELECT 
+        ar.reminder_id,
+        ar.client_id,
+        ar.appointment_id,
+        ar.agent_id,
+        ar.reminder_type,
+        ar.title,
+        ar.description,
+        ar.reminder_date,
+        ar.reminder_time,
+        ar.client_name,
+        ar.priority,
+        ar.status,
+        ar.enable_sms,
+        ar.enable_whatsapp,
+        ar.enable_push_notification,
+        ar.advance_notice,
+        ar.custom_message,
+        ar.auto_send,
+        ar.notes,
+        ar.created_date,
+        ar.modified_date,
+        ar.completed_date,
+        ar.client_phone,
+        ar.client_email,
+        ar.full_client_name
+    FROM all_reminders ar
+    ORDER BY ar.reminder_date ASC NULLS LAST, ar.reminder_time ASC NULLS LAST
+    LIMIT p_page_size OFFSET v_offset;
 END;
 $$ LANGUAGE plpgsql;
-
 
 -- ===========================================================
 -- Get Today's Reminders
 -- ===========================================================
-CREATE OR REPLACE FUNCTION sp_get_today_reminders(p_agent_id UUID)
+
+
+-- Create a new stored procedure with a different name to avoid conflicts
+CREATE OR REPLACE FUNCTION sp_get_today_reminders_v2(p_agent_id UUID) 
 RETURNS TABLE (
     reminder_id UUID,
+    client_id UUID,
+    appointment_id UUID,
+    agent_id UUID,
     reminder_type VARCHAR(50),
     title VARCHAR(200),
     description TEXT,
+    reminder_date DATE,
     reminder_time TIME,
     client_name VARCHAR(150),
     priority VARCHAR(10),
+    status VARCHAR(20),
     enable_sms BOOLEAN,
     enable_whatsapp BOOLEAN,
     enable_push_notification BOOLEAN,
+    advance_notice VARCHAR(20),
     custom_message TEXT,
-    notes TEXT
-) AS $$
+    auto_send BOOLEAN,
+    notes TEXT,
+    created_date TIMESTAMPTZ,
+    modified_date TIMESTAMPTZ,
+    completed_date TIMESTAMPTZ,
+    client_phone VARCHAR(20),
+    client_email VARCHAR(100),
+    full_client_name TEXT
+) AS $$ 
 BEGIN
     RETURN QUERY
     SELECT 
         r.reminder_id,
+        r.client_id,
+        r.appointment_id,
+        r.agent_id,
         r.reminder_type,
         r.title,
         r.description,
+        r.reminder_date,
         r.reminder_time,
         r.client_name,
         r.priority,
+        r.status,
         r.enable_sms,
         r.enable_whatsapp,
         r.enable_push_notification,
+        r.advance_notice,
         r.custom_message,
-        r.notes
+        r.auto_send,
+        r.notes,
+        r.created_date,
+        r.modified_date,
+        r.completed_date,
+        COALESCE(c.phone_number, '')::VARCHAR(20) AS client_phone,
+        COALESCE(c.email, '')::VARCHAR(100) AS client_email,
+        COALESCE(
+            TRIM(c.first_name || ' ' || COALESCE(c.surname, '') || ' ' || c.last_name), 
+            r.client_name, 
+            ''
+        ) AS full_client_name
+    FROM reminders r
+    LEFT JOIN clients c ON r.client_id = c.client_id
+    WHERE 
+        r.agent_id = p_agent_id 
+        AND r.status = 'Active'
+        AND r.reminder_date = CURRENT_DATE
+    ORDER BY r.reminder_time ASC NULLS LAST;
+END; 
+$$ LANGUAGE plpgsql;
+
+-- Alternative: Direct table query approach (most reliable)
+CREATE OR REPLACE FUNCTION sp_get_today_reminders_direct(p_agent_id UUID) 
+RETURNS TABLE (
+    reminder_id UUID,
+    client_id UUID,
+    appointment_id UUID,
+    agent_id UUID,
+    reminder_type VARCHAR(50),
+    title VARCHAR(200),
+    description TEXT,
+    reminder_date DATE,
+    reminder_time TIME,
+    client_name VARCHAR(150),
+    priority VARCHAR(10),
+    status VARCHAR(20),
+    enable_sms BOOLEAN,
+    enable_whatsapp BOOLEAN,
+    enable_push_notification BOOLEAN,
+    advance_notice VARCHAR(20),
+    custom_message TEXT,
+    auto_send BOOLEAN,
+    notes TEXT,
+    created_date TIMESTAMPTZ,
+    modified_date TIMESTAMPTZ,
+    completed_date TIMESTAMPTZ
+) AS $$ 
+BEGIN
+    RETURN QUERY
+    SELECT 
+        r.reminder_id,
+        r.client_id,
+        r.appointment_id,
+        r.agent_id,
+        r.reminder_type,
+        r.title,
+        r.description,
+        r.reminder_date,
+        r.reminder_time,
+        r.client_name,
+        r.priority,
+        r.status,
+        r.enable_sms,
+        r.enable_whatsapp,
+        r.enable_push_notification,
+        r.advance_notice,
+        r.custom_message,
+        r.auto_send,
+        r.notes,
+        r.created_date,
+        r.modified_date,
+        r.completed_date
     FROM reminders r
     WHERE 
         r.agent_id = p_agent_id 
         AND r.status = 'Active'
         AND r.reminder_date = CURRENT_DATE
     ORDER BY r.reminder_time ASC NULLS LAST;
-END;
+END; 
 $$ LANGUAGE plpgsql;
-
 
 -- ===========================================================
 -- Complete Reminder
@@ -470,7 +626,7 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Get All Reminders with Filters
 -- ===========================================================
-CREATE OR REPLACE FUNCTION sp_get_all_reminders_filtered(
+CREATE OR REPLACE FUNCTION sp_get_all_reminders_with_filters(
     p_agent_id UUID,
     p_reminder_type VARCHAR(50) DEFAULT NULL,
     p_status VARCHAR(20) DEFAULT NULL,
@@ -478,8 +634,8 @@ CREATE OR REPLACE FUNCTION sp_get_all_reminders_filtered(
     p_start_date DATE DEFAULT NULL,
     p_end_date DATE DEFAULT NULL,
     p_client_id UUID DEFAULT NULL,
-    p_page_size INTEGER DEFAULT 50,
-    p_page_number INTEGER DEFAULT 1
+    p_page_number INTEGER DEFAULT 1,
+    p_page_size INTEGER DEFAULT 20
 )
 RETURNS TABLE (
     reminder_id UUID,
@@ -506,19 +662,92 @@ RETURNS TABLE (
     completed_date TIMESTAMPTZ,
     client_phone VARCHAR(20),
     client_email VARCHAR(100),
+    full_client_name VARCHAR(300),
     total_records BIGINT
 ) AS $$
 DECLARE
     v_offset INTEGER := (p_page_number - 1) * p_page_size;
+    v_total_count BIGINT;
 BEGIN
+    -- Get total count first
+    WITH all_reminders AS (
+        SELECT 1 as dummy
+        FROM reminders r
+        LEFT JOIN clients c ON r.client_id = c.client_id
+        WHERE r.agent_id = p_agent_id
+          AND (p_reminder_type IS NULL OR r.reminder_type = p_reminder_type)
+          AND (p_status IS NULL OR r.status = p_status)
+          AND (p_priority IS NULL OR r.priority = p_priority)
+          AND (p_start_date IS NULL OR r.reminder_date >= p_start_date)
+          AND (p_end_date IS NULL OR r.reminder_date <= p_end_date)
+          AND (p_client_id IS NULL OR r.client_id = p_client_id)
+        
+        UNION ALL
+        
+        -- Count maturing policies
+        SELECT 1 as dummy
+        FROM client_policies cp
+        INNER JOIN clients c ON c.client_id = cp.client_id
+        WHERE c.agent_id = p_agent_id
+          AND cp.is_active = TRUE
+          AND (p_reminder_type IS NULL OR p_reminder_type = 'Maturing Policy')
+          AND (p_status IS NULL OR p_status = 'Active')
+          AND (p_priority IS NULL OR p_priority = 'High')
+          AND (p_start_date IS NULL OR cp.end_date >= p_start_date)
+          AND (p_end_date IS NULL OR cp.end_date <= p_end_date)
+          AND (p_client_id IS NULL OR cp.client_id = p_client_id)
+          AND cp.end_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
+        
+        UNION ALL
+        
+        -- Count birthdays
+        SELECT 1 as dummy
+        FROM clients c
+        WHERE c.agent_id = p_agent_id
+          AND c.is_active = TRUE
+          AND c.date_of_birth IS NOT NULL
+          AND (p_reminder_type IS NULL OR p_reminder_type = 'Birthday')
+          AND (p_status IS NULL OR p_status = 'Active')
+          AND (p_priority IS NULL OR p_priority = 'Low')
+          AND (p_client_id IS NULL OR c.client_id = p_client_id)
+          AND (
+              (
+                  CASE
+                      WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
+                           AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
+                           AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
+                      THEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28)
+                      ELSE make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT)
+                  END
+              ) BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '7 days')
+          )
+        
+        UNION ALL
+        
+        -- Count appointments
+        SELECT 1 as dummy
+        FROM appointments a
+        LEFT JOIN clients c ON a.client_id = c.client_id
+        WHERE a.agent_id = p_agent_id
+          AND a.is_active = TRUE
+          AND (p_reminder_type IS NULL OR p_reminder_type = 'Appointment')
+          AND (p_status IS NULL OR a.status = p_status)
+          AND (p_priority IS NULL OR a.priority = p_priority)
+          AND (p_start_date IS NULL OR a.appointment_date >= p_start_date)
+          AND (p_end_date IS NULL OR a.appointment_date <= p_end_date)
+          AND (p_client_id IS NULL OR a.client_id = p_client_id)
+    )
+    SELECT COUNT(*) INTO v_total_count FROM all_reminders;
+
     RETURN QUERY
     WITH filtered_reminders AS (
+        -- Manual reminders
         SELECT 
             r.reminder_id,
             r.client_id,
             r.appointment_id,
             r.agent_id,
-            r.reminder_type,
+            CASE WHEN r.reminder_type = 'Policy Expiry' THEN 'Maturing Policy' ELSE r.reminder_type END AS reminder_type,
             r.title,
             r.description,
             r.reminder_date,
@@ -536,36 +765,167 @@ BEGIN
             r.created_date,
             r.modified_date,
             r.completed_date,
-            c.phone AS client_phone,
-            c.email AS client_email
+            COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+            COALESCE(c.email, '')::varchar(100) AS client_email,
+            COALESCE(c.first_name || ' ' || c.last_name, r.client_name, '')::varchar(300) AS full_client_name
         FROM reminders r
         LEFT JOIN clients c ON r.client_id = c.client_id
-        WHERE 
-            r.agent_id = p_agent_id
-            AND (p_reminder_type IS NULL OR r.reminder_type = p_reminder_type)
-            AND (p_status IS NULL OR r.status = p_status)
-            AND (p_priority IS NULL OR r.priority = p_priority)
-            AND (p_start_date IS NULL OR r.reminder_date >= p_start_date)
-            AND (p_end_date IS NULL OR r.reminder_date <= p_end_date)
-            AND (p_client_id IS NULL OR r.client_id = p_client_id)
-    ),
-    total_count AS (
-        SELECT COUNT(*) AS total_records FROM filtered_reminders
+        WHERE r.agent_id = p_agent_id
+          AND (p_reminder_type IS NULL OR r.reminder_type = p_reminder_type)
+          AND (p_status IS NULL OR r.status = p_status)
+          AND (p_priority IS NULL OR r.priority = p_priority)
+          AND (p_start_date IS NULL OR r.reminder_date >= p_start_date)
+          AND (p_end_date IS NULL OR r.reminder_date <= p_end_date)
+          AND (p_client_id IS NULL OR r.client_id = p_client_id)
+
+        UNION ALL
+
+        -- Maturing policies (only if filters match)
+        SELECT 
+            gen_random_uuid() AS reminder_id,
+            cp.client_id,
+            NULL::UUID AS appointment_id,
+            c.agent_id,
+            'Maturing Policy' AS reminder_type,
+            cp.policy_name AS title,
+            ('Policy for ' || cp.policy_name || ' is maturing soon') AS description,
+            cp.end_date AS reminder_date,
+            NULL::TIME AS reminder_time,
+            (c.first_name || ' ' || c.last_name) AS client_name,
+            'High' AS priority,
+            'Active' AS status,
+            FALSE AS enable_sms,
+            FALSE AS enable_whatsapp,
+            TRUE AS enable_push_notification,
+            '7 days' AS advance_notice,
+            NULL::TEXT AS custom_message,
+            FALSE AS auto_send,
+            NULL::TEXT AS notes,
+            NOW() AS created_date,
+            NOW() AS modified_date,
+            NULL::TIMESTAMPTZ AS completed_date,
+            COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+            COALESCE(c.email, '')::varchar(100) AS client_email,
+            COALESCE(c.first_name || ' ' || c.last_name, '')::varchar(300) AS full_client_name
+        FROM client_policies cp
+        INNER JOIN clients c ON c.client_id = cp.client_id
+        WHERE c.agent_id = p_agent_id
+          AND cp.is_active = TRUE
+          AND (p_reminder_type IS NULL OR p_reminder_type = 'Maturing Policy')
+          AND (p_status IS NULL OR p_status = 'Active')
+          AND (p_priority IS NULL OR p_priority = 'High')
+          AND (p_start_date IS NULL OR cp.end_date >= p_start_date)
+          AND (p_end_date IS NULL OR cp.end_date <= p_end_date)
+          AND (p_client_id IS NULL OR cp.client_id = p_client_id)
+          AND cp.end_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
+
+        UNION ALL
+
+        -- Birthday reminders (only if filters match)
+        SELECT 
+            gen_random_uuid() AS reminder_id,
+            c.client_id,
+            NULL::UUID AS appointment_id,
+            c.agent_id,
+            'Birthday' AS reminder_type,
+            'Birthday Reminder' AS title,
+            ('Wish ' || c.first_name || ' ' || c.last_name || ' a Happy Birthday!') AS description,
+            (
+                CASE
+                    WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
+                         AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
+                         AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
+                    THEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28)
+                    ELSE make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT)
+                END
+            )::DATE AS reminder_date,
+            NULL::TIME AS reminder_time,
+            (c.first_name || ' ' || c.last_name) AS client_name,
+            'Low' AS priority,
+            'Active' AS status,
+            FALSE AS enable_sms,
+            FALSE AS enable_whatsapp,
+            TRUE AS enable_push_notification,
+            '1 day' AS advance_notice,
+            NULL::TEXT AS custom_message,
+            FALSE AS auto_send,
+            NULL::TEXT AS notes,
+            NOW() AS created_date,
+            NOW() AS modified_date,
+            NULL::TIMESTAMPTZ AS completed_date,
+            COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+            COALESCE(c.email, '')::varchar(100) AS client_email,
+            COALESCE(c.first_name || ' ' || c.last_name, '')::varchar(300) AS full_client_name
+        FROM clients c
+        WHERE c.agent_id = p_agent_id
+          AND c.is_active = TRUE
+          AND c.date_of_birth IS NOT NULL
+          AND (p_reminder_type IS NULL OR p_reminder_type = 'Birthday')
+          AND (p_status IS NULL OR p_status = 'Active')
+          AND (p_priority IS NULL OR p_priority = 'Low')
+          AND (p_client_id IS NULL OR c.client_id = p_client_id)
+          AND (
+              (
+                  CASE
+                      WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
+                           AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
+                           AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
+                      THEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28)
+                      ELSE make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT)
+                  END
+              ) BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '7 days')
+          )
+
+        UNION ALL
+
+        -- Appointment reminders (only if filters match)
+        SELECT 
+            gen_random_uuid() AS reminder_id,
+            a.client_id,
+            a.appointment_id,
+            a.agent_id,
+            'Appointment' AS reminder_type,
+            a.title,
+            a.description,
+            a.appointment_date AS reminder_date,
+            a.start_time AS reminder_time,
+            a.client_name,
+            a.priority,
+            a.status,
+            FALSE AS enable_sms,
+            FALSE AS enable_whatsapp,
+            TRUE AS enable_push_notification,
+            '1 day' AS advance_notice,
+            NULL::TEXT AS custom_message,
+            FALSE AS auto_send,
+            a.notes,
+            a.created_date,
+            a.modified_date,
+            NULL::TIMESTAMPTZ AS completed_date,
+            COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+            COALESCE(c.email, '')::varchar(100) AS client_email,
+            COALESCE(c.first_name || ' ' || c.last_name, a.client_name, '')::varchar(300) AS full_client_name
+        FROM appointments a
+        LEFT JOIN clients c ON a.client_id = c.client_id
+        WHERE a.agent_id = p_agent_id
+          AND a.is_active = TRUE
+          AND (p_reminder_type IS NULL OR p_reminder_type = 'Appointment')
+          AND (p_status IS NULL OR a.status = p_status)
+          AND (p_priority IS NULL OR a.priority = p_priority)
+          AND (p_start_date IS NULL OR a.appointment_date >= p_start_date)
+          AND (p_end_date IS NULL OR a.appointment_date <= p_end_date)
+          AND (p_client_id IS NULL OR a.client_id = p_client_id)
     )
     SELECT 
         fr.*,
-        tc.total_records
+        v_total_count AS total_records
     FROM filtered_reminders fr
-    CROSS JOIN total_count tc
     ORDER BY fr.reminder_date ASC NULLS LAST, fr.reminder_time ASC NULLS LAST
     LIMIT p_page_size OFFSET v_offset;
 END;
 $$ LANGUAGE plpgsql;
 
 
--- ===========================================================
--- Get Reminder by ID
--- ===========================================================
 CREATE OR REPLACE FUNCTION sp_get_reminder_by_id(
     p_reminder_id UUID,
     p_agent_id UUID
@@ -622,15 +982,14 @@ BEGIN
         r.created_date,
         r.modified_date,
         r.completed_date,
-        c.phone AS client_phone,
-        c.email AS client_email,
-        (c.first_name || ' ' || c.last_name) AS full_client_name
+        COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+        COALESCE(c.email, '')::varchar(100) AS client_email,
+        COALESCE(c.first_name || ' ' || c.last_name, r.client_name, '')::varchar(300) AS full_client_name
     FROM reminders r
     LEFT JOIN clients c ON r.client_id = c.client_id
     WHERE r.reminder_id = p_reminder_id AND r.agent_id = p_agent_id;
 END;
 $$ LANGUAGE plpgsql;
-
 
 -- ===========================================================
 -- Create Reminder
@@ -841,45 +1200,71 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Get Today's Birthday Reminders
 -- ===========================================================
-CREATE OR REPLACE FUNCTION sp_get_today_birthday_reminders(p_agent_id UUID)
+CREATE OR REPLACE FUNCTION sp_get_today_reminders(p_agent_id UUID) 
 RETURNS TABLE (
+    reminder_id UUID,
     client_id UUID,
-    first_name VARCHAR(50),
-    last_name VARCHAR(50),
-    phone VARCHAR(20),
-    email VARCHAR(100),
-    date_of_birth DATE,
-    age INTEGER
-) AS $$
+    appointment_id UUID,
+    agent_id UUID,
+    reminder_type VARCHAR(50),
+    title VARCHAR(200),
+    description TEXT,
+    reminder_date DATE,
+    reminder_time TIME,
+    client_name VARCHAR(150),
+    priority VARCHAR(10),
+    status VARCHAR(20),
+    enable_sms BOOLEAN,
+    enable_whatsapp BOOLEAN,
+    enable_push_notification BOOLEAN,
+    advance_notice VARCHAR(20),
+    custom_message TEXT,
+    auto_send BOOLEAN,
+    notes TEXT,
+    created_date TIMESTAMPTZ,
+    modified_date TIMESTAMPTZ,
+    completed_date TIMESTAMPTZ,
+    client_phone VARCHAR(20),
+    client_email VARCHAR(100),
+    full_client_name VARCHAR(300)
+) AS $$ 
 BEGIN
     RETURN QUERY
     SELECT 
-        c.client_id,
-        c.first_name,
-        c.last_name,
-        c.phone,
-        c.email,
-        c.date_of_birth,
-        (EXTRACT(YEAR FROM CURRENT_DATE) - EXTRACT(YEAR FROM c.date_of_birth))::INTEGER AS age
-    FROM clients c
+        r.reminder_id,
+        r.client_id,
+        r.appointment_id,
+        r.agent_id,
+        r.reminder_type,
+        r.title,
+        r.description,
+        r.reminder_date,
+        r.reminder_time,
+        r.client_name,
+        r.priority,
+        r.status,
+        r.enable_sms,
+        r.enable_whatsapp,
+        r.enable_push_notification,
+        r.advance_notice,
+        r.custom_message,
+        r.auto_send,
+        r.notes,
+        r.created_date,
+        r.modified_date,
+        r.completed_date,
+        COALESCE(c.phone_number, '') AS client_phone,  -- FIXED: Using phone_number
+        COALESCE(c.email, '') AS client_email,
+        COALESCE(c.first_name || ' ' || c.surname || ' ' || c.last_name, r.client_name, '') AS full_client_name  -- FIXED: Using all three name fields
+    FROM reminders r
+    LEFT JOIN clients c ON r.client_id = c.client_id
     WHERE 
-        c.agent_id = p_agent_id 
-        AND c.is_active = TRUE
-        AND (
-            -- adjust for Feb 29: if client born on Feb 29 and current year not leap, use Feb 28
-            (
-                CASE
-                    WHEN EXTRACT(MONTH FROM c.date_of_birth)::INT = 2
-                         AND EXTRACT(DAY FROM c.date_of_birth)::INT = 29
-                         AND NOT ( (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 400 = 0) OR (EXTRACT(YEAR FROM CURRENT_DATE)::INT % 4 = 0 AND EXTRACT(YEAR FROM CURRENT_DATE)::INT % 100 != 0) )
-                    THEN to_char(make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, 2, 28), 'MM-DD')
-                    ELSE to_char(make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INT, EXTRACT(MONTH FROM c.date_of_birth)::INT, EXTRACT(DAY FROM c.date_of_birth)::INT), 'MM-DD')
-                END
-            ) = to_char(CURRENT_DATE, 'MM-DD')
-        );
-END;
+        r.agent_id = p_agent_id 
+        AND r.status = 'Active'
+        AND r.reminder_date = CURRENT_DATE
+    ORDER BY r.reminder_time ASC NULLS LAST;
+END; 
 $$ LANGUAGE plpgsql;
-
 
 -- ===========================================================
 -- Get Policy Expiry Reminders
@@ -887,7 +1272,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION sp_get_policy_expiry_reminders(
     p_agent_id UUID,
     p_days_ahead INTEGER DEFAULT 30
-)
+) 
 RETURNS TABLE (
     policy_id UUID,
     client_id UUID,
@@ -900,7 +1285,7 @@ RETURNS TABLE (
     phone VARCHAR(20),
     email VARCHAR(100),
     days_until_expiry INTEGER
-) AS $$
+) AS $$ 
 DECLARE
     v_start_date DATE := CURRENT_DATE;
     v_end_date DATE := CURRENT_DATE + (p_days_ahead * INTERVAL '1 day');
@@ -910,16 +1295,18 @@ BEGIN
         cp.policy_id,
         cp.client_id,
         cp.policy_name,
-        cp.policy_type,
-        cp.company_name,
+        pt.type_name AS policy_type,  -- FIXED: Get from policy_types table
+        ic.company_name,              -- FIXED: Get from insurance_companies table
         cp.end_date,
         c.first_name,
         c.last_name,
-        c.phone,
+        c.phone_number AS phone,      -- FIXED: Using phone_number from schema
         c.email,
         (cp.end_date - v_start_date)::INTEGER AS days_until_expiry
     FROM client_policies cp
     INNER JOIN clients c ON cp.client_id = c.client_id
+    LEFT JOIN policy_types pt ON cp.type_id = pt.type_id
+    LEFT JOIN insurance_companies ic ON cp.company_id = ic.company_id
     WHERE 
         c.agent_id = p_agent_id 
         AND cp.status = 'Active'
@@ -927,9 +1314,8 @@ BEGIN
         AND c.is_active = TRUE
         AND cp.end_date BETWEEN v_start_date AND v_end_date
     ORDER BY cp.end_date ASC;
-END;
+END; 
 $$ LANGUAGE plpgsql;
-
 
 -- ===========================================================
 -- Validate Phone Number Format
@@ -1003,6 +1389,12 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Get Reminders by Type
 -- ===========================================================
+-- ===========================================================
+-- Get Reminders by Type
+-- ===========================================================
+-- ===========================================================
+-- Get Reminders by Type
+-- ===========================================================
 CREATE OR REPLACE FUNCTION sp_get_reminders_by_type(
     p_agent_id UUID,
     p_reminder_type VARCHAR(50)
@@ -1029,7 +1421,10 @@ RETURNS TABLE (
     notes TEXT,
     created_date TIMESTAMPTZ,
     modified_date TIMESTAMPTZ,
-    completed_date TIMESTAMPTZ
+    completed_date TIMESTAMPTZ,
+    client_phone VARCHAR(20),
+    client_email VARCHAR(100),
+    full_client_name VARCHAR(300)
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -1055,8 +1450,12 @@ BEGIN
         r.notes,
         r.created_date,
         r.modified_date,
-        r.completed_date
+        r.completed_date,
+        COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+        COALESCE(c.email, '')::varchar(100) AS client_email,
+        COALESCE(c.first_name || ' ' || c.last_name, r.client_name, '')::varchar(300) AS full_client_name
     FROM reminders r
+    LEFT JOIN clients c ON r.client_id = c.client_id
     WHERE r.agent_id = p_agent_id
       AND r.reminder_type = p_reminder_type
     ORDER BY r.reminder_date ASC NULLS LAST, r.reminder_time ASC NULLS LAST;
@@ -1093,7 +1492,10 @@ RETURNS TABLE (
     notes TEXT,
     created_date TIMESTAMPTZ,
     modified_date TIMESTAMPTZ,
-    completed_date TIMESTAMPTZ
+    completed_date TIMESTAMPTZ,
+    client_phone VARCHAR(20),
+    client_email VARCHAR(100),
+    full_client_name VARCHAR(300)
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -1119,8 +1521,12 @@ BEGIN
         r.notes,
         r.created_date,
         r.modified_date,
-        r.completed_date
+        r.completed_date,
+        COALESCE(c.phone_number, '')::varchar(20) AS client_phone,
+        COALESCE(c.email, '')::varchar(100) AS client_email,
+        COALESCE(c.first_name || ' ' || c.last_name, r.client_name, '')::varchar(300) AS full_client_name
     FROM reminders r
+    LEFT JOIN clients c ON r.client_id = c.client_id
     WHERE r.agent_id = p_agent_id
       AND r.status = p_status
     ORDER BY r.reminder_date ASC NULLS LAST, r.reminder_time ASC NULLS LAST;

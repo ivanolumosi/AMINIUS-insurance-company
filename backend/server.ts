@@ -64,5 +64,5 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 
 /* ------------------  Start Server ------------------ */
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at https://aminius.netlify.app`);
+  console.log(`🚀 Server running at port`);
 });

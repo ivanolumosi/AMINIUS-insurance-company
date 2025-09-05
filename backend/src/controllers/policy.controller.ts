@@ -44,43 +44,87 @@ const getRequestData = (req: Request) => {
 };
 
 // ============================================
+// HEALTH CHECK
+// ============================================
+
+export const healthCheck = async (req: Request, res: Response) => {
+    try {
+        // Simple health check using available method
+        const result = await policyService.getPolicyCategories(true);
+        res.status(200).json({
+            success: true,
+            message: "Policy service is healthy",
+            timestamp: new Date().toISOString(),
+            status: "OK"
+        });
+    } catch (error) {
+        console.error("Policy service health check failed:", error);
+        res.status(503).json({
+            success: false,
+            message: "Policy service is unhealthy",
+            timestamp: new Date().toISOString(),
+            status: "ERROR",
+            error: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+// ============================================
 // POLICY CATALOG ENDPOINTS
 // ============================================
 
 export const getPolicyCatalog = async (req: Request, res: Response) => {
     try {
         const request: PolicyCatalogFilterRequest = getRequestData(req);
-        const result = await policyService.getPolicyCatalog(request); // ✅ fixed
+        const result = await policyService.getPolicyCatalog(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policy catalog:", error);
-        res.status(500).json({ error: "Failed to get policy catalog" });
+        console.error("Error getting policy catalog:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get policy catalog",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
-
-export const getClientsWithPolicies = async (req: Request, res: Response) => {
-    try {
-        const request = {
-            agentId: req.query.agentId as string | undefined,
-            clientId: req.query.clientId as string | undefined,
-            includeInactive: req.query.includeInactive === "true",
-        };
-        const result = await policyService.getClientsWithPolicies(request);
-        res.json(result);
-    } catch (error) {
-        console.error("❌ Error getting clients with policies:", error);
-        res.status(500).json({ error: "Failed to fetch clients with policies" });
-    }
+export const getClientsWithPolicies = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { agentId, clientId, includeInactive } = req.query;
+             
+    const request: ClientWithPoliciesFilterRequest = {
+      agentId: agentId as string,
+      clientId: clientId as string,
+      includeInactive: includeInactive === 'true'
+    };
+             
+    // Get the flattened data
+    const data = await policyService.getClientsWithPolicies(request);
+             
+    // Return the flattened array directly
+    res.status(200).json(data);
+         
+  } catch (error) {
+    console.error('Error in getClientsWithPolicies controller:', error);
+             
+    const errorMessage = error instanceof Error ? error.message : 'Failed to get clients with policies';
+    res.status(500).json({ 
+      error: errorMessage,
+      message: 'Internal server error'
+    });
+  }
 };
-
 export const createPolicyCatalogItem = async (req: Request, res: Response) => {
     try {
         const request: CreatePolicyCatalogRequest = req.body;
         const result = await policyService.createPolicyCatalogItem(request);
         res.status(201).json(result);
     } catch (error) {
-        console.error("❌ Error creating policy catalog item:", error);
-        res.status(500).json({ error: "Failed to create policy catalog item" });
+        console.error("Error creating policy catalog item:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to create policy catalog item",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -93,8 +137,12 @@ export const updatePolicyCatalogItem = async (req: Request, res: Response) => {
         const result = await policyService.updatePolicyCatalogItem(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error updating policy catalog item:", error);
-        res.status(500).json({ error: "Failed to update policy catalog item" });
+        console.error("Error updating policy catalog item:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to update policy catalog item",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -104,10 +152,11 @@ export const upsertPolicyCatalog = async (req: Request, res: Response) => {
         const result = await policyService.upsertPolicyCatalog(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error upserting policy catalog:", error);
+        console.error("Error upserting policy catalog:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to upsert policy catalog", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -116,11 +165,14 @@ export const deletePolicyCatalogItem = async (req: Request, res: Response) => {
     try {
         const request: DeletePolicyCatalogRequest = {
             policyCatalogId: req.params.policyCatalogId,
-            agentId: req.body.agentId
+            agentId: req.body.agentId || req.query.agentId as string
         };
 
         if (!request.agentId) {
-            return res.status(400).json({ error: "Agent ID is required for deletion" });
+            return res.status(400).json({ 
+                success: false,
+                error: "Agent ID is required for deletion" 
+            });
         }
         
         const result = await policyService.deletePolicyCatalogItem(
@@ -129,10 +181,30 @@ export const deletePolicyCatalogItem = async (req: Request, res: Response) => {
         );
         res.json(result);
     } catch (error) {
-        console.error("❌ Error deleting policy catalog item:", error);
-        res.status(500).json({ error: "Failed to delete policy catalog item" });
+        console.error("Error deleting policy catalog item:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to delete policy catalog item",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
+
+export const softDeletePolicyCatalog = async (req: Request, res: Response) => {
+    try {
+        const { policyCatalogId } = req.params;
+        const result = await policyService.softDeletePolicyCatalog(policyCatalogId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error soft deleting policy catalog:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to soft delete policy catalog",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
 // ============================================
 // CLIENT POLICY ENDPOINTS
 // ============================================
@@ -143,23 +215,25 @@ export const getClientPolicies = async (req: Request, res: Response) => {
         const result = await policyService.getClientPoliciesSafe(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting client policies:", error);
-        res.status(500).json({ error: "Failed to get client policies" });
+        console.error("Error getting client policies:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get client policies",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
 export const getPolicyById = async (req: Request, res: Response) => {
     try {
         const result = await policyService.getPolicyById(req.params.id);
-        if (!result) {
-            return res.status(404).json({ error: "Policy not found" });
-        }
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policy by ID:", error);
+        console.error("Error getting policy by ID:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to get policy", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -170,8 +244,12 @@ export const createClientPolicy = async (req: Request, res: Response) => {
         const result = await policyService.createClientPolicySafe(request);
         res.status(201).json(result);
     } catch (error) {
-        console.error("❌ Error creating client policy:", error);
-        res.status(500).json({ error: "Failed to create client policy" });
+        console.error("Error creating client policy:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to create client policy",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -184,8 +262,12 @@ export const updateClientPolicy = async (req: Request, res: Response) => {
         const result = await policyService.updateClientPolicySafe(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error updating client policy:", error);
-        res.status(500).json({ error: "Failed to update client policy" });
+        console.error("Error updating client policy:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to update client policy",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -195,10 +277,11 @@ export const upsertClientPolicy = async (req: Request, res: Response) => {
         const result = await policyService.upsertClientPolicy(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error upserting client policy:", error);
+        console.error("Error upserting client policy:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to upsert client policy", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -210,10 +293,26 @@ export const deleteClientPolicy = async (req: Request, res: Response) => {
         const result = await policyService.deleteClientPolicy(policyId, hardDelete);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error deleting client policy:", error);
+        console.error("Error deleting client policy:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to delete client policy", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const softDeleteClientPolicy = async (req: Request, res: Response) => {
+    try {
+        const { policyId } = req.params;
+        const result = await policyService.softDeleteClientPolicy(policyId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error soft deleting client policy:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to soft delete client policy",
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -228,10 +327,11 @@ export const searchPolicies = async (req: Request, res: Response) => {
         const result = await policyService.searchPolicies(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error searching policies:", error);
+        console.error("Error searching policies:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to search policies", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -242,10 +342,11 @@ export const getPoliciesByStatus = async (req: Request, res: Response) => {
         const result = await policyService.getPoliciesByStatus(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policies by status:", error);
+        console.error("Error getting policies by status:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to get policies by status", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -260,10 +361,11 @@ export const getExpiringPolicies = async (req: Request, res: Response) => {
         const result = await policyService.getExpiringPolicies(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting expiring policies:", error);
+        console.error("Error getting expiring policies:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to get expiring policies", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -277,10 +379,11 @@ export const renewPolicy = async (req: Request, res: Response) => {
         const result = await policyService.renewPolicy(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error renewing policy:", error);
+        console.error("Error renewing policy:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to renew policy", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -291,8 +394,12 @@ export const getPolicyRenewalCandidates = async (req: Request, res: Response) =>
         const result = await policyService.getPolicyRenewalCandidates(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policy renewal candidates:", error);
-        res.status(500).json({ error: "Failed to get policy renewal candidates" });
+        console.error("Error getting policy renewal candidates:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get policy renewal candidates",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -306,34 +413,53 @@ export const bulkUpdatePolicyStatus = async (req: Request, res: Response) => {
         const result = await policyService.bulkUpdatePolicyStatus(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error bulk updating policy status:", error);
+        console.error("Error bulk updating policy status:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to bulk update policy status", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
 
-// Note: These methods don't exist in your service, so they need to be implemented
 export const bulkCreatePolicies = async (req: Request, res: Response) => {
     try {
         const policies: CreateClientPolicyRequest[] = req.body.policies;
         
-        // Since no bulk method exists, process individually
         const results = [];
+        let successCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
         for (const policy of policies) {
-            const result = await policyService.createClientPolicySafe(policy);
-            results.push(result);
+            try {
+                const result = await policyService.createClientPolicySafe(policy);
+                results.push(result);
+                if (result.success) successCount++;
+                else errorCount++;
+            } catch (error) {
+                errorCount++;
+                errors.push(error instanceof Error ? error.message : 'Unknown error');
+            }
         }
         
         res.status(201).json({ 
-            message: "Bulk creation completed", 
-            results, 
-            totalProcessed: results.length 
+            success: errorCount === 0,
+            data: {
+                results,
+                successCount,
+                errorCount,
+                errors: errors.length > 0 ? errors : undefined
+            },
+            message: `Bulk creation completed: ${successCount} successful, ${errorCount} failed`
         });
     } catch (error) {
-        console.error("❌ Error bulk creating policies:", error);
-        res.status(500).json({ error: "Failed to bulk create policies" });
+        console.error("Error bulk creating policies:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to bulk create policies",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -341,21 +467,40 @@ export const bulkUpdatePolicies = async (req: Request, res: Response) => {
     try {
         const updates: UpdateClientPolicyRequest[] = req.body.updates;
         
-        // Since no bulk method exists, process individually
         const results = [];
+        let successCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
         for (const update of updates) {
-            const result = await policyService.updateClientPolicySafe(update);
-            results.push(result);
+            try {
+                const result = await policyService.updateClientPolicySafe(update);
+                results.push(result);
+                if (result.success) successCount++;
+                else errorCount++;
+            } catch (error) {
+                errorCount++;
+                errors.push(error instanceof Error ? error.message : 'Unknown error');
+            }
         }
         
         res.json({ 
-            message: "Bulk update completed", 
-            results, 
-            totalProcessed: results.length 
+            success: errorCount === 0,
+            data: {
+                results,
+                successCount,
+                errorCount,
+                errors: errors.length > 0 ? errors : undefined
+            },
+            message: `Bulk update completed: ${successCount} successful, ${errorCount} failed`
         });
     } catch (error) {
-        console.error("❌ Error bulk updating policies:", error);
-        res.status(500).json({ error: "Failed to bulk update policies" });
+        console.error("Error bulk updating policies:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to bulk update policies",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -365,8 +510,12 @@ export const batchExpirePolicies = async (req: Request, res: Response) => {
         const result = await policyService.batchExpirePolicies(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error batch expiring policies:", error);
-        res.status(500).json({ error: "Failed to batch expire policies" });
+        console.error("Error batch expiring policies:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to batch expire policies",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -380,8 +529,12 @@ export const getPolicyTemplates = async (req: Request, res: Response) => {
         const result = await policyService.getPolicyTemplates(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policy templates:", error);
-        res.status(500).json({ error: "Failed to get policy templates" });
+        console.error("Error getting policy templates:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get policy templates",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -391,8 +544,12 @@ export const createPolicyTemplate = async (req: Request, res: Response) => {
         const result = await policyService.createPolicyTemplate(request);
         res.status(201).json(result);
     } catch (error) {
-        console.error("❌ Error creating policy template:", error);
-        res.status(500).json({ error: "Failed to create policy template" });
+        console.error("Error creating policy template:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to create policy template",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -405,8 +562,12 @@ export const updatePolicyTemplate = async (req: Request, res: Response) => {
         const result = await policyService.updatePolicyTemplate(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error updating policy template:", error);
-        res.status(500).json({ error: "Failed to update policy template" });
+        console.error("Error updating policy template:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to update policy template",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -417,8 +578,27 @@ export const deletePolicyTemplate = async (req: Request, res: Response) => {
         const result = await policyService.deletePolicyTemplate(templateId, hardDelete);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error deleting policy template:", error);
-        res.status(500).json({ error: "Failed to delete policy template" });
+        console.error("Error deleting policy template:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to delete policy template",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const softDeletePolicyTemplate = async (req: Request, res: Response) => {
+    try {
+        const { templateId } = req.params;
+        const result = await policyService.softDeletePolicyTemplate(templateId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error soft deleting policy template:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to soft delete policy template",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -432,8 +612,12 @@ export const getInsuranceCompanies = async (req: Request, res: Response) => {
         const result = await policyService.getInsuranceCompanies(isActive);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting insurance companies:", error);
-        res.status(500).json({ error: "Failed to get insurance companies" });
+        console.error("Error getting insurance companies:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get insurance companies",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -443,8 +627,12 @@ export const createInsuranceCompany = async (req: Request, res: Response) => {
         const result = await policyService.createInsuranceCompany(request);
         res.status(201).json(result);
     } catch (error) {
-        console.error("❌ Error creating insurance company:", error);
-        res.status(500).json({ error: "Failed to create insurance company" });
+        console.error("Error creating insurance company:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to create insurance company",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -457,22 +645,42 @@ export const updateInsuranceCompany = async (req: Request, res: Response) => {
         const result = await policyService.updateInsuranceCompany(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error updating insurance company:", error);
-        res.status(500).json({ error: "Failed to update insurance company" });
+        console.error("Error updating insurance company:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to update insurance company",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
 export const deleteInsuranceCompany = async (req: Request, res: Response) => {
     try {
         const { companyId } = req.params;
-        const hardDelete = req.query.hardDelete === 'true';
-        
-        // Your service doesn't have deleteInsuranceCompany method, using soft delete
         const result = await policyService.softDeleteInsuranceCompany(companyId);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error deleting insurance company:", error);
-        res.status(500).json({ error: "Failed to delete insurance company" });
+        console.error("Error deleting insurance company:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to delete insurance company",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const softDeleteInsuranceCompany = async (req: Request, res: Response) => {
+    try {
+        const { companyId } = req.params;
+        const result = await policyService.softDeleteInsuranceCompany(companyId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error soft deleting insurance company:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to soft delete insurance company",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -482,8 +690,12 @@ export const getPolicyTypes = async (req: Request, res: Response) => {
         const result = await policyService.getPolicyTypes(isActive);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policy types:", error);
-        res.status(500).json({ error: "Failed to get policy types" });
+        console.error("Error getting policy types:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get policy types",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -493,8 +705,12 @@ export const createPolicyType = async (req: Request, res: Response) => {
         const result = await policyService.createPolicyType(request);
         res.status(201).json(result);
     } catch (error) {
-        console.error("❌ Error creating policy type:", error);
-        res.status(500).json({ error: "Failed to create policy type" });
+        console.error("Error creating policy type:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to create policy type",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -507,8 +723,27 @@ export const updatePolicyType = async (req: Request, res: Response) => {
         const result = await policyService.updatePolicyType(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error updating policy type:", error);
-        res.status(500).json({ error: "Failed to update policy type" });
+        console.error("Error updating policy type:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to update policy type",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const softDeletePolicyType = async (req: Request, res: Response) => {
+    try {
+        const { typeId } = req.params;
+        const result = await policyService.softDeletePolicyType(typeId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error soft deleting policy type:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to soft delete policy type",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -518,8 +753,12 @@ export const getPolicyCategories = async (req: Request, res: Response) => {
         const result = await policyService.getPolicyCategories(isActive);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policy categories:", error);
-        res.status(500).json({ error: "Failed to get policy categories" });
+        console.error("Error getting policy categories:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get policy categories",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -529,8 +768,12 @@ export const createPolicyCategory = async (req: Request, res: Response) => {
         const result = await policyService.createPolicyCategory(request);
         res.status(201).json(result);
     } catch (error) {
-        console.error("❌ Error creating policy category:", error);
-        res.status(500).json({ error: "Failed to create policy category" });
+        console.error("Error creating policy category:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to create policy category",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -543,8 +786,125 @@ export const updatePolicyCategory = async (req: Request, res: Response) => {
         const result = await policyService.updatePolicyCategory(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error updating policy category:", error);
-        res.status(500).json({ error: "Failed to update policy category" });
+        console.error("Error updating policy category:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to update policy category",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const softDeletePolicyCategory = async (req: Request, res: Response) => {
+    try {
+        const { categoryId } = req.params;
+        const result = await policyService.softDeletePolicyCategory(categoryId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error soft deleting policy category:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to soft delete policy category",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+// ============================================
+// AUTOCOMPLETE ENDPOINTS - NOW IMPLEMENTED
+// ============================================
+
+export const autocompleteInsuranceCompanies = async (req: Request, res: Response) => {
+    try {
+        const searchTerm = req.query.q as string;
+        const result = await policyService.searchInsuranceCompanies(searchTerm);
+        res.json(result);
+    } catch (error) {
+        console.error("Error autocompleting insurance companies:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to autocomplete insurance companies",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const autocompletePolicyCatalog = async (req: Request, res: Response) => {
+    try {
+        const searchTerm = req.query.q as string;
+        const agentId = req.query.agentId as string;
+        const result = await policyService.searchPolicyCatalog(searchTerm, agentId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error autocompleting policy catalog:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to autocomplete policy catalog",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const autocompletePolicyCategories = async (req: Request, res: Response) => {
+    try {
+        const searchTerm = req.query.q as string;
+        const result = await policyService.searchPolicyCategories(searchTerm);
+        res.json(result);
+    } catch (error) {
+        console.error("Error autocompleting policy categories:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to autocomplete policy categories",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const autocompletePolicyTemplates = async (req: Request, res: Response) => {
+    try {
+        const searchTerm = req.query.q as string;
+        const agentId = req.query.agentId as string;
+        const result = await policyService.searchPolicyTemplates(searchTerm, agentId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error autocompleting policy templates:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to autocomplete policy templates",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const autocompletePolicyTypes = async (req: Request, res: Response) => {
+    try {
+        const searchTerm = req.query.q as string;
+        const result = await policyService.searchPolicyTypes(searchTerm);
+        res.json(result);
+    } catch (error) {
+        console.error("Error autocompleting policy types:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to autocomplete policy types",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+export const autocompleteClientPolicies = async (req: Request, res: Response) => {
+    try {
+        const searchTerm = req.query.q as string;
+        const agentId = req.query.agentId as string;
+        const clientId = req.query.clientId as string;
+        const result = await policyService.searchClientPolicies(searchTerm, agentId, clientId);
+        res.json(result);
+    } catch (error) {
+        console.error("Error autocompleting client policies:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to autocomplete client policies",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -558,10 +918,11 @@ export const getPolicyStatistics = async (req: Request, res: Response) => {
         const result = await policyService.getPolicyStatistics(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policy statistics:", error);
+        console.error("Error getting policy statistics:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to get policy statistics", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -572,10 +933,11 @@ export const getPolicyStatisticsDetailed = async (req: Request, res: Response) =
         const result = await policyService.getPolicyStatisticsDetailed(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting detailed policy statistics:", error);
+        console.error("Error getting detailed policy statistics:", error);
         res.status(500).json({ 
+            success: false,
             error: "Failed to get detailed policy statistics", 
-            details: error instanceof Error ? error.message : "Unknown error"
+            message: error instanceof Error ? error.message : "Unknown error"
         });
     }
 };
@@ -584,13 +946,20 @@ export const getAgentDashboardSummary = async (req: Request, res: Response) => {
     try {
         const agentId = req.params.agentId || req.query.agentId as string;
         if (!agentId) {
-            return res.status(400).json({ error: "Agent ID is required" });
+            return res.status(400).json({ 
+                success: false,
+                error: "Agent ID is required" 
+            });
         }
         const result = await policyService.getAgentDashboardSummary(agentId);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting agent dashboard summary:", error);
-        res.status(500).json({ error: "Failed to get agent dashboard summary" });
+        console.error("Error getting agent dashboard summary:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get agent dashboard summary",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -601,13 +970,20 @@ export const getPolicyHistory = async (req: Request, res: Response) => {
             includeInactive: req.query.includeInactive === 'true'
         };
         if (!request.clientId) {
-            return res.status(400).json({ error: "Client ID is required" });
+            return res.status(400).json({ 
+                success: false,
+                error: "Client ID is required" 
+            });
         }
         const result = await policyService.getPolicyHistory(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error getting policy history:", error);
-        res.status(500).json({ error: "Failed to get policy history" });
+        console.error("Error getting policy history:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to get policy history",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -621,8 +997,12 @@ export const validatePolicy = async (req: Request, res: Response) => {
         const result = await policyService.validatePolicy(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error validating policy:", error);
-        res.status(500).json({ error: "Failed to validate policy" });
+        console.error("Error validating policy:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to validate policy",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -638,8 +1018,12 @@ export const validatePolicyData = async (req: Request, res: Response) => {
         );
         res.json(result);
     } catch (error) {
-        console.error("❌ Error validating policy data:", error);
-        res.status(500).json({ error: "Failed to validate policy data" });
+        console.error("Error validating policy data:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to validate policy data",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -656,8 +1040,12 @@ export const cleanupSoftDeletedRecords = async (req: Request, res: Response) => 
         const result = await policyService.cleanupSoftDeletedRecords(request);
         res.json(result);
     } catch (error) {
-        console.error("❌ Error cleaning up soft deleted records:", error);
-        res.status(500).json({ error: "Failed to cleanup soft deleted records" });
+        console.error("Error cleaning up soft deleted records:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to cleanup soft deleted records",
+            message: error instanceof Error ? error.message : "Unknown error"
+        });
     }
 };
 
@@ -670,14 +1058,23 @@ export const exportPolicies = async (req: Request, res: Response) => {
         const agentId = req.query.agentId as string;
         const format = (req.query.format as 'json' | 'csv') || 'json';
         
-        // Since exportPolicies doesn't exist in service, use getClientPolicies as fallback
-        const policies = await policyService.getClientPolicies({ agentId });
+        // Use getClientPolicies as fallback since exportPolicies doesn't exist in service
+        const policiesResult = await policyService.getClientPolicies({ agentId });
+        
+        if (!policiesResult.success || !policiesResult.data) {
+            return res.status(500).json({
+                success: false,
+                error: "Failed to retrieve policies for export"
+            });
+        }
+
+        const policies = policiesResult.data;
 
         if (format === 'csv') {
             // Simple CSV conversion
             const csvHeader = 'policyId,clientId,policyName,status,startDate,endDate,companyName,typeName\n';
             const csvRows = policies.map(p => 
-                `${p.policyId},${p.clientId},${p.policyName},${p.status},${p.startDate.toISOString()},${p.endDate.toISOString()},${p.companyName || ''},${p.typeName || ''}`
+                `${p.policyId},${p.clientId},"${p.policyName}",${p.status},${p.startDate.toISOString()},${p.endDate.toISOString()},"${p.companyName || ''}","${p.typeName || ''}"`
             ).join('\n');
             
             res.setHeader('Content-Type', 'text/csv');
@@ -686,183 +1083,18 @@ export const exportPolicies = async (req: Request, res: Response) => {
         } else {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Content-Disposition', 'attachment; filename="policies.json"');
-            res.json(policies);
+            res.json({
+                success: true,
+                data: policies,
+                message: 'Policies exported successfully'
+            });
         }
     } catch (error) {
-        console.error("❌ Error exporting policies:", error);
-        res.status(500).json({ error: "Failed to export policies" });
-    }
-};
-
-// ============================================
-// HEALTH CHECK
-// ============================================
-
-export const healthCheck = async (req: Request, res: Response) => {
-    try {
-        // Simple health check using available method
-        const result = await policyService.getPolicyCategories(true);
-        res.status(200).json({
-            message: "Policy service is healthy",
-            timestamp: new Date().toISOString(),
-            status: "OK"
+        console.error("Error exporting policies:", error);
+        res.status(500).json({ 
+            success: false,
+            error: "Failed to export policies",
+            message: error instanceof Error ? error.message : "Unknown error"
         });
-    } catch (error) {
-        console.error("❌ Policy service health check failed:", error);
-        res.status(503).json({
-            message: "Policy service is unhealthy",
-            timestamp: new Date().toISOString(),
-            status: "ERROR",
-            error: error instanceof Error ? error.message : "Unknown error"
-        });
-    }
-};
-
-// ============================================
-// SOFT DELETE OPERATIONS
-// ============================================
-
-export const softDeletePolicyTemplate = async (req: Request, res: Response) => {
-    try {
-        const { templateId } = req.params;
-        const result = await policyService.softDeletePolicyTemplate(templateId);
-        res.json(result);
-    } catch (error) {
-        console.error("❌ Error soft deleting policy template:", error);
-        res.status(500).json({ error: "Failed to soft delete policy template" });
-    }
-};
-
-export const softDeletePolicyCatalog = async (req: Request, res: Response) => {
-    try {
-        const { policyCatalogId } = req.params;
-        const result = await policyService.softDeletePolicyCatalog(policyCatalogId);
-        res.json(result);
-    } catch (error) {
-        console.error("❌ Error soft deleting policy catalog:", error);
-        res.status(500).json({ error: "Failed to soft delete policy catalog" });
-    }
-};
-
-export const softDeletePolicyCategory = async (req: Request, res: Response) => {
-    try {
-        const { categoryId } = req.params;
-        const result = await policyService.softDeletePolicyCategory(categoryId);
-        res.json(result);
-    } catch (error) {
-        console.error("❌ Error soft deleting policy category:", error);
-        res.status(500).json({ error: "Failed to soft delete policy category" });
-    }
-};
-
-export const softDeleteInsuranceCompany = async (req: Request, res: Response) => {
-    try {
-        const { companyId } = req.params;
-        const result = await policyService.softDeleteInsuranceCompany(companyId);
-        res.json(result);
-    } catch (error) {
-        console.error("❌ Error soft deleting insurance company:", error);
-        res.status(500).json({ error: "Failed to soft delete insurance company" });
-    }
-};
-
-export const softDeleteClientPolicy = async (req: Request, res: Response) => {
-    try {
-        const { policyId } = req.params;
-        const result = await policyService.softDeleteClientPolicy(policyId);
-        res.json(result);
-    } catch (error) {
-        console.error("❌ Error soft deleting client policy:", error);
-        res.status(500).json({ error: "Failed to soft delete client policy" });
-    }
-};
-
-export const softDeletePolicyType = async (req: Request, res: Response) => {
-    try {
-        const { typeId } = req.params;
-        const result = await policyService.softDeletePolicyType(typeId);
-        res.json(result);
-    } catch (error) {
-        console.error("❌ Error soft deleting policy type:", error);
-        res.status(500).json({ error: "Failed to soft delete policy type" });
-    }
-};
-
-// ============================================
-// AUTOCOMPLETE METHODS - NOT IMPLEMENTED IN SERVICE
-// ============================================
-
-// Note: These autocomplete methods are called in routes but don't exist in your service
-// You'll need to implement these in your service or remove from routes
-
-export const autocompleteInsuranceCompanies = async (req: Request, res: Response) => {
-    try {
-        res.status(501).json({ 
-            error: "Autocomplete methods not implemented", 
-            message: "searchInsuranceCompanies method missing in service" 
-        });
-    } catch (error) {
-        console.error("❌ Error autocompleting insurance companies:", error);
-        res.status(500).json({ error: "Failed to autocomplete insurance companies" });
-    }
-};
-
-export const autocompletePolicyCatalog = async (req: Request, res: Response) => {
-    try {
-        res.status(501).json({ 
-            error: "Autocomplete methods not implemented", 
-            message: "searchPolicyCatalog method missing in service" 
-        });
-    } catch (error) {
-        console.error("❌ Error autocompleting policy catalog:", error);
-        res.status(500).json({ error: "Failed to autocomplete policy catalog" });
-    }
-};
-
-export const autocompletePolicyCategories = async (req: Request, res: Response) => {
-    try {
-        res.status(501).json({ 
-            error: "Autocomplete methods not implemented", 
-            message: "searchPolicyCategories method missing in service" 
-        });
-    } catch (error) {
-        console.error("❌ Error autocompleting policy categories:", error);
-        res.status(500).json({ error: "Failed to autocomplete policy categories" });
-    }
-};
-
-export const autocompletePolicyTemplates = async (req: Request, res: Response) => {
-    try {
-        res.status(501).json({ 
-            error: "Autocomplete methods not implemented", 
-            message: "searchPolicyTemplates method missing in service" 
-        });
-    } catch (error) {
-        console.error("❌ Error autocompleting policy templates:", error);
-        res.status(500).json({ error: "Failed to autocomplete policy templates" });
-    }
-};
-
-export const autocompletePolicyTypes = async (req: Request, res: Response) => {
-    try {
-        res.status(501).json({ 
-            error: "Autocomplete methods not implemented", 
-            message: "searchPolicyTypes method missing in service" 
-        });
-    } catch (error) {
-        console.error("❌ Error autocompleting policy types:", error);
-        res.status(500).json({ error: "Failed to autocomplete policy types" });
-    }
-};
-
-export const autocompleteClientPolicies = async (req: Request, res: Response) => {
-    try {
-        res.status(501).json({ 
-            error: "Autocomplete methods not implemented", 
-            message: "searchClientPolicies method missing in service" 
-        });
-    } catch (error) {
-        console.error("❌ Error autocompleting client policies:", error);
-        res.status(500).json({ error: "Failed to autocomplete client policies" });
     }
 };

@@ -118,3 +118,10 @@ export interface ClientSearchResult {
   policyNumber?: string;
   status?: string;
 }
+
+export interface AppointmentResponse {
+  Success: boolean;
+  Message: string;
+  AppointmentId?: string;
+  Appointment?: Appointment;
+}

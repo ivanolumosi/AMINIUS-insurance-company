@@ -48,50 +48,53 @@ import {
     RenewalResponse,
     CleanupResponse,
     PolicyValidationRequest,
-    PolicyValidationResponse
+    PolicyValidationResponse,
+    ClientPolicyLite
 } from '../interfaces/policy';
 
+// Updated interface to match frontend expectations
 export interface ClientWithPolicies {
-  clientId: string;
-  agentId: string;
-  firstName: string;
-  surname: string;
-  lastName: string;
-  fullName: string;
-  phoneNumber: string;
-  email: string;
-  address: string;
-  nationalId: string;
-  dateOfBirth: Date;
-  isClient: boolean;
-  insuranceType: string;
-  clientNotes?: string;
-  clientCreatedDate: Date;
-  clientModifiedDate: Date;
-  clientIsActive: boolean;
+    clientId: string;
+    agentId: string;
+    firstName: string;
+    surname: string;
+    lastName: string;
+    fullName: string;
+    phoneNumber: string;
+    email: string;
+    address: string;
+    nationalId: string;
+    dateOfBirth: Date;
+    isClient: boolean;
+    insuranceType: string;
+    clientNotes?: string;
+    clientCreatedDate: Date;
+    clientModifiedDate: Date;
+    clientIsActive: boolean;
 
-  policyId?: string;
-  policyName?: string;
-  status?: string;
-  startDate?: Date;
-  endDate?: Date;
-  policyNotes?: string;
-  policyCreatedDate?: Date;
-  policyModifiedDate?: Date;
-  policyIsActive?: boolean;
-  policyCatalogId?: string;
-  catalogPolicyName?: string;
-  typeId?: string;
-  typeName?: string;
-  companyId?: string;
-  companyName?: string;
-  daysUntilExpiry?: number;
+    policyId?: string;
+    policyName?: string;
+    status?: string;
+    startDate?: Date;
+    endDate?: Date;
+    policyNotes?: string;
+    policyCreatedDate?: Date;
+    policyModifiedDate?: Date;
+    policyIsActive?: boolean;
+    policyCatalogId?: string;
+    catalogPolicyName?: string;
+    typeId?: string;
+    typeName?: string;
+    companyId?: string;
+    companyName?: string;
+    daysUntilExpiry?: number;
+    policies: ClientPolicyLite[];
 }
 
 export interface ClientWithPoliciesFilterRequest {
-  agentId?: string;
-  clientId?: string;
-  includeInactive?: boolean;
+    agentId?: string;
+    clientId?: string;
+    includeInactive?: boolean;
 }
 
 export class PolicyService {
@@ -100,271 +103,1742 @@ export class PolicyService {
     // POLICY CATALOG MANAGEMENT
     // ============================================
 
+    /**
+     * Get policy catalog - Fixed to return PolicyResponse format expected by frontend
+     */
+    public async getPolicyCatalog(request: PolicyCatalogFilterRequest): Promise<PolicyResponse<PolicyCatalog[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                `SELECT * FROM sp_get_policy_catalog($1,$2,$3,$4,$5,$6)`,
+                [
+                    request.agentId || null,
+                    request.typeId || null,
+                    request.companyId || null,
+                    request.companyName || null,
+                    request.searchTerm || null,
+                    request.isActive !== undefined ? request.isActive : true
+                ]
+            );
+            
+            const data = result.rows.map(this.mapPolicyCatalogFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Policy catalog retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyCatalog:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to get policy catalog'
+            };
+        }
+    }
 /**
- * Get policy catalog - maps to sp_get_policy_catalog
- */
-public async getPolicyCatalog(request: PolicyCatalogFilterRequest): Promise<PolicyCatalog[]> {
-    const pool = await poolPromise;
-    const result = await pool.query(
-        `SELECT * FROM sp_get_policy_catalog($1,$2,$3,$4,$5,$6)`,
-        [
-            request.agentId || null,
-            request.typeId || null,
-            request.companyId || null,
-            request.companyName || null,     // Now properly mapped
-            request.searchTerm || null,      // Now properly mapped
-            request.isActive !== undefined ? request.isActive : true
-        ]
-    );
-    return result.rows.map(this.mapPolicyCatalogFromDb);
-}
-
-/**
- * Get clients with policies - maps to sp_get_clients_with_policies
+ * Get clients with policies - Fixed to return array directly to match frontend expectations
  */
 public async getClientsWithPolicies(
-    request: ClientWithPoliciesFilterRequest
-): Promise<ClientWithPolicies[]> {
+  request: ClientWithPoliciesFilterRequest
+): Promise<any[]> {
+  try {
     const pool = await poolPromise;
     const result = await pool.query(
-        `SELECT * FROM sp_get_clients_with_policies($1,$2,$3)`,
-        [
-            request.agentId || null,
-            request.clientId || null,
-            request.includeInactive || false
-        ]
-    );
-    return result.rows.map(this.mapClientWithPoliciesFromDb);
-}
-/**
- * Create policy catalog item - maps to sp_create_policy_catalog_item
- * Fixed parameter order to match stored procedure signature
- */
-public async createPolicyCatalogItem(request: CreatePolicyCatalogRequest): Promise<CreateResponse> {
-    const pool = await poolPromise;
-    const result = await pool.query(
-        `SELECT * FROM sp_create_policy_catalog_item($1,$2,$3,$4,$5,$6,$7)`,
-        [
-            request.agentId,
-            request.policyName,
-            request.typeId || null,      // Position 3: typeId
-            request.companyId,           // Position 4: companyId  
-            request.categoryId || null,  // Position 5: categoryId
-            request.notes || null,       // Position 6: notes
-            request.isActive !== undefined ? request.isActive : true // Position 7: isActive
-        ]
+      `SELECT * FROM sp_get_clients_with_policies($1,$2,$3)`,
+      [request.agentId || null, request.clientId || null, request.includeInactive || false]
     );
 
-    const row = result.rows[0];
-    if (row.error_message) throw new Error(row.error_message);
+    // Map to the nested structure first
+    const nestedData = this.mapClientsWithPolicies(result.rows);
+    
+    // Flatten the data to match frontend expectations
+    const flattenedData: any[] = [];
+    
+    nestedData.forEach(client => {
+      if (client.policies && client.policies.length > 0) {
+        // For each policy, create a flattened row with both client and policy data
+        client.policies.forEach(policy => {
+          flattenedData.push({
+            // Client data
+            clientId: client.clientId,
+            agentId: client.agentId,
+            firstName: client.firstName,
+            surname: client.surname,
+            lastName: client.lastName,
+            fullName: client.fullName,
+            phoneNumber: client.phoneNumber,
+            email: client.email,
+            address: client.address,
+            nationalId: client.nationalId,
+            dateOfBirth: client.dateOfBirth,
+            isClient: client.isClient,
+            insuranceType: client.insuranceType,
+            clientNotes: client.clientNotes,
+            clientCreatedDate: client.clientCreatedDate,
+            clientModifiedDate: client.clientModifiedDate,
+            clientIsActive: client.clientIsActive,
+            
+            // Policy data (flattened to root level to match frontend processing)
+            policyId: policy.policyId,
+            policyName: policy.policyName,
+            status: policy.status,
+            startDate: policy.startDate,
+            endDate: policy.endDate,
+            notes: policy.notes, // Policy notes
+            policyCreatedDate: policy.createdDate,
+            policyModifiedDate: policy.modifiedDate,
+            policyIsActive: policy.isActive,
+            policyCatalogId: policy.policyCatalogId,
+            catalogPolicyName: policy.catalogPolicyName,
+            typeId: policy.typeId,
+            typeName: policy.typeName,
+            companyId: policy.companyId,
+            companyName: policy.companyName,
+            daysUntilExpiry: policy.daysUntilExpiry
+          });
+        });
+      } else {
+        // Client with no policies - still include the client data
+        flattenedData.push({
+          // Client data
+          clientId: client.clientId,
+          agentId: client.agentId,
+          firstName: client.firstName,
+          surname: client.surname,
+          lastName: client.lastName,
+          fullName: client.fullName,
+          phoneNumber: client.phoneNumber,
+          email: client.email,
+          address: client.address,
+          nationalId: client.nationalId,
+          dateOfBirth: client.dateOfBirth,
+          isClient: client.isClient,
+          insuranceType: client.insuranceType,
+          clientNotes: client.clientNotes,
+          clientCreatedDate: client.clientCreatedDate,
+          clientModifiedDate: client.clientModifiedDate,
+          clientIsActive: client.clientIsActive,
+          
+          // No policy data for clients without policies
+          policyId: null,
+          policyName: null,
+          status: null,
+          startDate: null,
+          endDate: null,
+          notes: null,
+          policyCreatedDate: null,
+          policyModifiedDate: null,
+          policyIsActive: null,
+          policyCatalogId: null,
+          catalogPolicyName: null,
+          typeId: null,
+          typeName: null,
+          companyId: null,
+          companyName: null,
+          daysUntilExpiry: null
+        });
+      }
+    });
 
-    return { id: row.policy_catalog_id };
+    console.log("Flattened data being returned:", flattenedData);
+    return flattenedData;
+  } catch (error) {
+    console.error("Error in getClientsWithPolicies:", error);
+    throw new Error(error instanceof Error ? error.message : "Failed to get clients with policies");
+  }
 }
 
-/**
- * Update policy catalog item - maps to sp_update_policy_catalog_item
- * Fixed parameter order to match stored procedure signature
- */
-public async updatePolicyCatalogItem(request: UpdatePolicyCatalogRequest): Promise<UpdateResponse> {
-    const pool = await poolPromise;
-    const result = await pool.query(
-        `SELECT * FROM sp_update_policy_catalog_item($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [
-            request.policyCatalogId,     // Position 1: policyCatalogId
-            request.policyName || null,  // Position 2: policyName
-            request.typeId || null,      // Position 3: typeId
-            request.companyId || null,   // Position 4: companyId
-            request.categoryId || null,  // Position 5: categoryId
-            request.notes || null,       // Position 6: notes
-            request.isActive !== undefined ? request.isActive : null, // Position 7: isActive
-            request.agentId || null      // Position 8: agentId
-        ]
-    );
+private mapClientsWithPolicies(rows: any[]): ClientWithPolicies[] {
+  const clientMap: Map<string, ClientWithPolicies> = new Map();
 
-    const row = result.rows[0];
-    if (row.error_message) throw new Error(row.error_message);
+  rows.forEach(row => {
+    if (!clientMap.has(row.client_id)) {
+      clientMap.set(row.client_id, {
+        clientId: row.client_id,
+        agentId: row.agent_id,
+        firstName: row.first_name,
+        surname: row.surname,
+        lastName: row.last_name,
+        fullName: row.full_name,
+        phoneNumber: row.phone_number,
+        email: row.email,
+        address: row.address,
+        nationalId: row.national_id,
+        dateOfBirth: row.date_of_birth,
+        isClient: row.is_client,
+        insuranceType: row.insurance_type,
+        clientNotes: row.client_notes,
+        clientCreatedDate: row.client_created_date,
+        clientModifiedDate: row.client_modified_date,
+        clientIsActive: row.client_is_active,
+        policies: []
+      });
+    }
 
-    return { rowsAffected: row.rows_affected };
-}
+    if (row.policy_id) {
+      clientMap.get(row.client_id)!.policies.push({
+        policyId: row.policy_id,
+        policyName: row.policy_name,
+        status: row.status,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        notes: row.policy_notes,
+        createdDate: row.policy_created_date,
+        modifiedDate: row.policy_modified_date,
+        isActive: row.policy_is_active,
+        policyCatalogId: row.policy_catalog_id,
+        catalogPolicyName: row.catalog_policy_name,
+        typeId: row.type_id,
+        typeName: row.type_name,
+        companyId: row.company_id,
+        companyName: row.company_name,
+        daysUntilExpiry: row.days_until_expiry
+      });
+    }
+  });
 
-/**
- * Delete policy catalog item - maps to sp_delete_policy_catalog_item
- */
-public async deletePolicyCatalogItem(policyCatalogId: string, agentId: string): Promise<DeleteResponse> {
-    const pool = await poolPromise;
-    const result = await pool.query(
-        `SELECT * FROM sp_delete_policy_catalog_item($1,$2)`,
-        [policyCatalogId, agentId]
-    );
-    return { rowsAffected: result.rows[0].rows_affected };
-}
-
-/**
- * Upsert policy catalog - maps to sp_upsert_policy_catalog
- * Fixed parameter order to match stored procedure signature
- */
-public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<CreateResponse> {
-    const pool = await poolPromise;
-    const result = await pool.query(
-        `SELECT * FROM sp_upsert_policy_catalog($1,$2,$3,$4,$5,$6,$7)`,
-        [
-            request.policyCatalogId || null, // Position 1: policyCatalogId
-            request.agentId,                 // Position 2: agentId
-            request.policyName,              // Position 3: policyName
-            request.companyId,               // Position 4: companyId
-            request.typeId || null,          // Position 5: typeId
-            request.categoryId || null,      // Position 6: categoryId
-            request.notes || null            // Position 7: notes
-        ]
-    );
-
-    const row = result.rows[0];
-    if (row.error_message) throw new Error(row.error_message);
-
-    return { id: row.policy_catalog_id };
+  return Array.from(clientMap.values());
 }
 
 
+    /**
+     * Create policy catalog item - Fixed to return PolicyResponse format
+     */
+    public async createPolicyCatalogItem(request: CreatePolicyCatalogRequest): Promise<PolicyResponse<CreateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                `SELECT * FROM sp_create_policy_catalog_item($1,$2,$3,$4,$5,$6,$7)`,
+                [
+                    request.agentId,
+                    request.policyName,
+                    request.typeId || null,
+                    request.companyId,
+                    request.categoryId || null,
+                    request.notes || null,
+                    request.isActive !== undefined ? request.isActive : true
+                ]
+            );
 
+            const row = result.rows[0];
+            if (row.error_message) {
+                throw new Error(row.error_message);
+            }
+
+            return {
+                success: true,
+                data: { id: row.policy_catalog_id },
+                message: 'Policy catalog item created successfully'
+            };
+        } catch (error) {
+            console.error('Error in createPolicyCatalogItem:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to create policy catalog item'
+            };
+        }
+    }
+
+    /**
+     * Update policy catalog item - Fixed to return PolicyResponse format
+     */
+    public async updatePolicyCatalogItem(request: UpdatePolicyCatalogRequest): Promise<PolicyResponse<UpdateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                `SELECT * FROM sp_update_policy_catalog_item($1,$2,$3,$4,$5,$6,$7,$8)`,
+                [
+                    request.policyCatalogId,
+                    request.policyName || null,
+                    request.typeId || null,
+                    request.companyId || null,
+                    request.categoryId || null,
+                    request.notes || null,
+                    request.isActive !== undefined ? request.isActive : null,
+                    request.agentId || null
+                ]
+            );
+
+            const row = result.rows[0];
+            if (row.error_message) {
+                throw new Error(row.error_message);
+            }
+
+            return {
+                success: true,
+                data: { rowsAffected: row.rows_affected },
+                message: 'Policy catalog item updated successfully'
+            };
+        } catch (error) {
+            console.error('Error in updatePolicyCatalogItem:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to update policy catalog item'
+            };
+        }
+    }
+
+    /**
+     * Upsert policy catalog - Fixed to return PolicyResponse format
+     */
+    public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<PolicyResponse<CreateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                `SELECT * FROM sp_upsert_policy_catalog($1,$2,$3,$4,$5,$6,$7)`,
+                [
+                    request.policyCatalogId || null,
+                    request.agentId,
+                    request.policyName,
+                    request.companyId,
+                    request.typeId || null,
+                    request.categoryId || null,
+                    request.notes || null
+                ]
+            );
+
+            const row = result.rows[0];
+            if (row.error_message) {
+                throw new Error(row.error_message);
+            }
+
+            return {
+                success: true,
+                data: { id: row.policy_catalog_id },
+                message: 'Policy catalog upserted successfully'
+            };
+        } catch (error) {
+            console.error('Error in upsertPolicyCatalog:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to upsert policy catalog'
+            };
+        }
+    }
+
+    /**
+     * Delete policy catalog item - Fixed to return PolicyResponse format
+     */
+    public async deletePolicyCatalogItem(policyCatalogId: string, agentId: string): Promise<PolicyResponse<DeleteResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                `SELECT * FROM sp_delete_policy_catalog_item($1,$2)`,
+                [policyCatalogId, agentId]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].rows_affected },
+                message: 'Policy catalog item deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in deletePolicyCatalogItem:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to delete policy catalog item'
+            };
+        }
+    }
 
     // ============================================
     // CLIENT POLICIES MANAGEMENT
     // ============================================
 
     /**
-     * Get client policies - maps to sp_get_client_policies (available but different signature)
+     * Get client policies - Fixed to return PolicyResponse format
      */
-    public async getClientPolicies(request: ClientPolicyFilterRequest): Promise<ClientPolicy[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_client_policies($1,$2,$3,$4)',
-            [
-                request.clientId || null,      // p_client_id
-                null,                          // p_agent_id (not in request interface)
-                request.status || null,        // p_status
-                request.isActive !== undefined ? request.isActive : true  // p_is_active
-            ]
-        );
-        return result.rows.map(this.mapClientPolicyFromDb);
-    }
-    /**
-     * Get policy by ID - MISSING STORED PROCEDURE
-     * sp_get_policy_by_id exists in document 1 but not in document 2
-     */
-     public async getPolicyById(policyId: string): Promise<ClientPolicy | null> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_by_id($1)',
-            [policyId]
-        );
-        
-        if (result.rows.length === 0) {
-            return null;
+    public async getClientPolicies(request: ClientPolicyFilterRequest): Promise<PolicyResponse<ClientPolicy[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_client_policies($1,$2,$3,$4)',
+                [
+                    request.clientId || null,
+                    request.agentId || null,
+                    request.status || null,
+                    request.isActive !== undefined ? request.isActive : true
+                ]
+            );
+            
+            const data = result.rows.map(this.mapClientPolicyFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Client policies retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getClientPolicies:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get client policies'
+            };
         }
-        
-        return this.mapClientPolicyFromDb(result.rows[0]);
-    }
-    /**
-     * Create client policy - maps to sp_create_client_policy (available but different signature)
-     */
-    public async createClientPolicy(request: any): Promise<{ id: string }> {
-    const pool = await poolPromise;
-
-    const result = await pool.query(
-        `SELECT * FROM sp_create_client_policy(
-            $1::uuid, 
-            $2::varchar, 
-            $3::date, 
-            $4::date, 
-            $5::varchar, 
-            $6::text, 
-            $7::uuid
-        )`,
-        [
-            request.clientId,                           // $1
-            request.policyName,                         // $2
-            request.startDate,                          // $3
-            request.endDate,                            // $4
-            request.status || 'Active',                 // $5
-            request.notes || null,                      // $6
-            request.policyCatalogId || null             // $7
-        ]
-    );
-
-    const row = result.rows[0];
-    if (row.error_message) {
-        throw new Error(row.error_message);
     }
 
-    return { id: row.policy_id };
-}
+    /**
+     * Get policy by ID - Fixed to return PolicyResponse format
+     */
+    public async getPolicyById(policyId: string): Promise<PolicyResponse<ClientPolicy | null>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_policy_by_id($1)',
+                [policyId]
+            );
+            
+            if (result.rows.length === 0) {
+                return {
+                    success: false,
+                    data: null,
+                    message: 'Policy not found'
+                };
+            }
+            
+            return {
+                success: true,
+                data: this.mapClientPolicyFromDb(result.rows[0]),
+                message: 'Policy retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyById:', error);
+            return {
+                success: false,
+                data: null,
+                message: error instanceof Error ? error.message : 'Failed to get policy'
+            };
+        }
+    }
 
     /**
-     * Update client policy - maps to sp_update_client_policy (available)
+     * Create client policy - Fixed to return PolicyResponse format
      */
-    public async updateClientPolicy(request: UpdateClientPolicyRequest): Promise<UpdateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT rows_affected FROM sp_update_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-            [
-                request.policyId,
-                request.policyName || null,
-                request.status || null,
-                request.startDate || null,
-                request.endDate || null,
-                request.notes || null,
-                request.policyCatalogId || null,
-                request.typeId || null,
-                request.companyId || null,
-                request.isActive !== undefined ? request.isActive : null
-            ]
-        );
+    public async createClientPolicy(request: CreateClientPolicyRequest): Promise<PolicyResponse<CreateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                `SELECT * FROM sp_create_client_policy(
+                    $1::uuid, 
+                    $2::varchar, 
+                    $3::date, 
+                    $4::date, 
+                    $5::varchar, 
+                    $6::text, 
+                    $7::uuid
+                )`,
+                [
+                    request.clientId,
+                    request.policyName,
+                    request.startDate,
+                    request.endDate,
+                    request.status || 'Active',
+                    request.notes || null,
+                    request.policyCatalogId || null
+                ]
+            );
+
+            const row = result.rows[0];
+            if (row.error_message) {
+                throw new Error(row.error_message);
+            }
+
+            return {
+                success: true,
+                data: { id: row.policy_id },
+                message: 'Client policy created successfully'
+            };
+        } catch (error) {
+            console.error('Error in createClientPolicy:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to create client policy'
+            };
+        }
+    }
+
+    /**
+     * Update client policy - Fixed to return PolicyResponse format
+     */
+    public async updateClientPolicy(request: UpdateClientPolicyRequest): Promise<PolicyResponse<UpdateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT rows_affected FROM sp_update_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+                [
+                    request.policyId,
+                    request.policyName || null,
+                    request.status || null,
+                    request.startDate || null,
+                    request.endDate || null,
+                    request.notes || null,
+                    request.policyCatalogId || null,
+                    request.typeId || null,
+                    request.companyId || null,
+                    request.isActive !== undefined ? request.isActive : null
+                ]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].rows_affected },
+                message: 'Client policy updated successfully'
+            };
+        } catch (error) {
+            console.error('Error in updateClientPolicy:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to update client policy'
+            };
+        }
+    }
+
+    /**
+     * Upsert client policy - Fixed to return PolicyResponse format
+     */
+    public async upsertClientPolicy(request: UpsertClientPolicyRequest): Promise<PolicyResponse<CreateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT policy_id FROM sp_upsert_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+                [
+                    request.clientId,
+                    request.policyName,
+                    request.startDate,
+                    request.endDate,
+                    request.policyId || null,
+                    request.status || 'Active',
+                    request.notes || null,
+                    request.policyCatalogId || null,
+                    request.typeId || null,
+                    request.companyId || null
+                ]
+            );
+            
+            return {
+                success: true,
+                data: { id: result.rows[0].policy_id },
+                message: 'Client policy upserted successfully'
+            };
+        } catch (error) {
+            console.error('Error in upsertClientPolicy:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to upsert client policy'
+            };
+        }
+    }
+
+    /**
+     * Delete client policy - Fixed to return PolicyResponse format
+     */
+    public async deleteClientPolicy(policyId: string, hardDelete: boolean = false): Promise<PolicyResponse<DeleteResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT rows_affected FROM sp_delete_client_policy($1,$2)',
+                [policyId, hardDelete]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].rows_affected },
+                message: 'Client policy deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in deleteClientPolicy:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to delete client policy'
+            };
+        }
+    }
+
+    // ============================================
+    // REFERENCE DATA MANAGEMENT
+    // ============================================
+
+    /**
+     * Get insurance companies - Fixed to return PolicyResponse format expected by frontend
+     */
+    public async getInsuranceCompanies(isActive?: boolean): Promise<PolicyResponse<InsuranceCompany[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_insurance_companies($1)',
+                [isActive === undefined ? null : isActive]
+            );
+            
+            const data = result.rows.map(this.mapInsuranceCompanyFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Insurance companies retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getInsuranceCompanies:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get insurance companies'
+            };
+        }
+    }
+
+    /**
+     * Create insurance company - Fixed to return PolicyResponse format
+     */
+    public async createInsuranceCompany(request: CreateInsuranceCompanyRequest): Promise<PolicyResponse<CreateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_create_insurance_company($1) AS company_id',
+                [request.companyName]
+            );
+            
+            return {
+                success: true,
+                data: { id: result.rows[0].company_id },
+                message: 'Insurance company created successfully'
+            };
+        } catch (error) {
+            console.error('Error in createInsuranceCompany:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to create insurance company'
+            };
+        }
+    }
+
+    /**
+     * Update insurance company - Fixed to return PolicyResponse format
+     */
+    public async updateInsuranceCompany(request: UpdateInsuranceCompanyRequest): Promise<PolicyResponse<UpdateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_update_insurance_company($1,$2,$3) AS rows_affected',
+                [
+                    request.companyId,
+                    request.companyName || null,
+                    request.isActive !== undefined ? request.isActive : null
+                ]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].rows_affected },
+                message: 'Insurance company updated successfully'
+            };
+        } catch (error) {
+            console.error('Error in updateInsuranceCompany:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to update insurance company'
+            };
+        }
+    }
+
+    /**
+     * Get policy types - Fixed function name and return format
+     */
+    public async getPolicyTypes(isActive: boolean = true): Promise<PolicyResponse<PolicyType[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_policy_types_list($1)',
+                [isActive]
+            );
+            
+            const data = result.rows.map(this.mapPolicyTypeFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Policy types retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyTypes:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get policy types'
+            };
+        }
+    }
+
+    /**
+     * Create policy type - Fixed function name and return format
+     */
+    public async createPolicyType(request: CreatePolicyTypeRequest): Promise<PolicyResponse<CreateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_create_policy_type_new($1) AS type_id',
+                [request.typeName]
+            );
+            
+            return {
+                success: true,
+                data: { id: result.rows[0].type_id },
+                message: 'Policy type created successfully'
+            };
+        } catch (error) {
+            console.error('Error in createPolicyType:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to create policy type'
+            };
+        }
+    }
+
+    /**
+     * Update policy type - Fixed to return PolicyResponse format
+     */
+    public async updatePolicyType(request: UpdatePolicyTypeRequest): Promise<PolicyResponse<UpdateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_update_policy_type_details($1,$2,$3) AS rows_affected',
+                [
+                    request.typeId,
+                    request.typeName || null,
+                    request.isActive !== undefined ? request.isActive : null
+                ]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].rows_affected },
+                message: 'Policy type updated successfully'
+            };
+        } catch (error) {
+            console.error('Error in updatePolicyType:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to update policy type'
+            };
+        }
+    }
+
+    /**
+     * Get policy categories - Fixed function name and return format
+     */
+    public async getPolicyCategories(isActive: boolean = true): Promise<PolicyResponse<PolicyCategory[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_policy_categories_list($1)',
+                [isActive]
+            );
+            
+            const data = result.rows.map(this.mapPolicyCategoryFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Policy categories retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyCategories:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get policy categories'
+            };
+        }
+    }
+
+    /**
+     * Create policy category - Fixed to return PolicyResponse format
+     */
+    public async createPolicyCategory(request: CreatePolicyCategoryRequest): Promise<PolicyResponse<CreateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_create_policy_category($1,$2) AS category_id',
+                [request.categoryName, request.description || null]
+            );
+            
+            return {
+                success: true,
+                data: { id: result.rows[0].category_id },
+                message: 'Policy category created successfully'
+            };
+        } catch (error) {
+            console.error('Error in createPolicyCategory:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to create policy category'
+            };
+        }
+    }
+
+    /**
+     * Update policy category - Fixed to return PolicyResponse format
+     */
+    public async updatePolicyCategory(request: UpdatePolicyCategoryRequest): Promise<PolicyResponse<UpdateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_update_policy_category_details($1,$2,$3,$4) AS rows_affected',
+                [
+                    request.categoryId,
+                    request.categoryName || null,
+                    request.description || null,
+                    request.isActive !== undefined ? request.isActive : null
+                ]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].rows_affected },
+                message: 'Policy category updated successfully'
+            };
+        } catch (error) {
+            console.error('Error in updatePolicyCategory:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to update policy category'
+            };
+        }
+    }
+
+    // ============================================
+    // ANALYTICS AND REPORTING - IMPLEMENTED WITH FALLBACKS
+    // ============================================
+
+    /**
+     * Get agent dashboard summary - Fixed to return PolicyResponse format
+     */
+    public async getAgentDashboardSummary(agentId: string): Promise<PolicyResponse<AgentDashboardSummary>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_agent_dashboard_summary($1)',
+                [agentId]
+            );
+            
+            const data = this.mapAgentDashboardSummaryFromDb(result.rows[0]);
+            return {
+                success: true,
+                data,
+                message: 'Agent dashboard summary retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getAgentDashboardSummary:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to get agent dashboard summary'
+            };
+        }
+    }
+
+    /**
+     * Get policy renewal candidates - Fixed to return PolicyResponse format
+     */
+    public async getPolicyRenewalCandidates(request: GetRenewalCandidatesRequest): Promise<PolicyResponse<PolicyRenewalCandidate[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_policy_renewal_candidates($1,$2)',
+                [request.agentId || null, request.daysAhead || 60]
+            );
+            
+            const data = result.rows.map(this.mapPolicyRenewalCandidateFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Policy renewal candidates retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyRenewalCandidates:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get policy renewal candidates'
+            };
+        }
+    }
+
+    /**
+     * Get policy history - Fixed to return PolicyResponse format
+     */
+    public async getPolicyHistory(request: GetPolicyHistoryRequest): Promise<PolicyResponse<PolicyHistory[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_policy_history_for_client($1,$2)',
+                [request.clientId, request.includeInactive || false]
+            );
+            
+            const data = result.rows.map(this.mapPolicyHistoryFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Policy history retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyHistory:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get policy history'
+            };
+        }
+    }
+
+    // ============================================
+    // MISSING STORED PROCEDURES - IMPLEMENT WITH FALLBACKS
+    // ============================================
+
+    /**
+     * Get expiring policies - IMPLEMENTED FALLBACK since SP is missing
+     */
+    public async getExpiringPolicies(request: ExpiringPoliciesRequest): Promise<PolicyResponse<ClientPolicy[]>> {
+        try {
+            // Since sp_get_expiring_policies doesn't exist, implement fallback logic
+            const pool = await poolPromise;
+            const daysAhead = request.daysAhead || 30;
+            
+            // Manual query for expiring policies
+            const result = await pool.query(`
+                SELECT p.*, 
+                       pc.policy_name as catalog_policy_name,
+                       pt.type_name,
+                       ic.company_name,
+                       (p.end_date::date - CURRENT_DATE) as days_until_expiry
+                FROM client_policies p
+                LEFT JOIN policy_catalog pc ON p.policy_catalog_id = pc.policy_catalog_id
+                LEFT JOIN policy_types pt ON pc.type_id = pt.type_id
+                LEFT JOIN insurance_companies ic ON pc.company_id = ic.company_id
+                WHERE p.is_active = true 
+                  AND p.end_date::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '${daysAhead} days')
+                  ${request.agentId ? 'AND pc.agent_id = $1' : ''}
+                  ${request.status ? `AND p.status = '${request.status}'` : ''}
+                ORDER BY p.end_date ASC
+            `, request.agentId ? [request.agentId] : []);
+            
+            const data = result.rows.map(this.mapClientPolicyFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Expiring policies retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getExpiringPolicies:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get expiring policies'
+            };
+        }
+    }
+
+    /**
+     * Search policies - IMPLEMENTED FALLBACK since SP is missing
+     */
+    public async searchPolicies(request: SearchPoliciesRequest): Promise<PolicyResponse<PaginatedResponse<ClientPolicy>>> {
+        try {
+            const pool = await poolPromise;
+            const pageSize = request.pageSize || 10;
+            const pageNumber = request.pageNumber || 1;
+            const offset = (pageNumber - 1) * pageSize;
+
+            let whereClause = 'WHERE p.is_active = true';
+            const params: any[] = [];
+            let paramIndex = 1;
+
+            if (request.agentId) {
+                whereClause += ` AND pc.agent_id = $${paramIndex}`;
+                params.push(request.agentId);
+                paramIndex++;
+            }
+
+            if (request.searchTerm) {
+                whereClause += ` AND (p.policy_name ILIKE $${paramIndex} OR ic.company_name ILIKE $${paramIndex})`;
+                params.push(`%${request.searchTerm}%`);
+                paramIndex++;
+            }
+
+            if (request.status) {
+                whereClause += ` AND p.status = ${paramIndex}`;
+                params.push(request.status);
+                paramIndex++;
+            }
+
+            if (request.clientId) {
+                whereClause += ` AND p.client_id = ${paramIndex}`;
+                params.push(request.clientId);
+                paramIndex++;
+            }
+
+            const query = `
+                SELECT p.*, 
+                       pc.policy_name as catalog_policy_name,
+                       pt.type_name,
+                       ic.company_name,
+                       (p.end_date::date - CURRENT_DATE) as days_until_expiry,
+                       COUNT(*) OVER() as total_count
+                FROM client_policies p
+                LEFT JOIN policy_catalog pc ON p.policy_catalog_id = pc.policy_catalog_id
+                LEFT JOIN policy_types pt ON pc.type_id = pt.type_id
+                LEFT JOIN insurance_companies ic ON pc.company_id = ic.company_id
+                ${whereClause}
+                ORDER BY p.created_date DESC
+                LIMIT ${paramIndex} OFFSET ${paramIndex + 1}
+            `;
+
+            params.push(pageSize, offset);
+            const result = await pool.query(query, params);
+            
+            const data = result.rows.map(this.mapClientPolicyFromDb);
+            const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0;
+
+            return {
+                success: true,
+                data: {
+                    data,
+                    total,
+                    pageNumber,
+                    pageSize,
+                    hasNextPage: (pageNumber * pageSize) < total,
+                    hasPreviousPage: pageNumber > 1
+                },
+                message: 'Policies searched successfully'
+            };
+        } catch (error) {
+            console.error('Error in searchPolicies:', error);
+            return {
+                success: false,
+                data: {
+                    data: [],
+                    total: 0,
+                    pageNumber: 1,
+                    pageSize: 10,
+                    hasNextPage: false,
+                    hasPreviousPage: false
+                },
+                message: error instanceof Error ? error.message : 'Failed to search policies'
+            };
+        }
+    }
+
+    /**
+     * Get policies by status - IMPLEMENTED FALLBACK since SP is missing
+     */
+    public async getPoliciesByStatus(request: GetPoliciesByStatusRequest): Promise<PolicyResponse<ClientPolicy[]>> {
+        try {
+            const pool = await poolPromise;
+            let query = `
+                SELECT p.*, 
+                       pc.policy_name as catalog_policy_name,
+                       pt.type_name,
+                       ic.company_name,
+                       (p.end_date::date - CURRENT_DATE) as days_until_expiry
+                FROM client_policies p
+                LEFT JOIN policy_catalog pc ON p.policy_catalog_id = pc.policy_catalog_id
+                LEFT JOIN policy_types pt ON pc.type_id = pt.type_id
+                LEFT JOIN insurance_companies ic ON pc.company_id = ic.company_id
+                WHERE p.is_active = true AND p.status = $1
+            `;
+
+            const params = [request.status];
+
+            if (request.agentId) {
+                query += ' AND pc.agent_id = $2';
+                params.push(request.agentId);
+            }
+
+            query += ' ORDER BY p.created_date DESC';
+
+            const result = await pool.query(query, params);
+            const data = result.rows.map(this.mapClientPolicyFromDb);
+
+            return {
+                success: true,
+                data,
+                message: `Policies with status '${request.status}' retrieved successfully`
+            };
+        } catch (error) {
+            console.error('Error in getPoliciesByStatus:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get policies by status'
+            };
+        }
+    }
+
+    /**
+     * Renew policy - IMPLEMENTED FALLBACK since SP is missing
+     */
+    public async renewPolicy(request: PolicyRenewalRequest): Promise<PolicyResponse<RenewalResponse>> {
+        try {
+            const pool = await poolPromise;
+            
+            // Get the original policy first
+            const originalPolicy = await pool.query(
+                'SELECT * FROM client_policies WHERE policy_id = $1',
+                [request.policyId]
+            );
+
+            if (originalPolicy.rows.length === 0) {
+                throw new Error('Original policy not found');
+            }
+
+            const original = originalPolicy.rows[0];
+
+            // Create new policy with updated dates
+            const newPolicyResult = await pool.query(`
+                INSERT INTO client_policies 
+                (client_id, policy_name, status, start_date, end_date, notes, policy_catalog_id, is_active)
+                VALUES ($1, $2, 'Active', $3, $4, $5, $6, true)
+                RETURNING policy_id
+            `, [
+                original.client_id,
+                request.newPolicyName || original.policy_name,
+                request.newStartDate,
+                request.newEndDate,
+                request.notes || original.notes,
+                original.policy_catalog_id
+            ]);
+
+            // Update original policy status to 'Renewed'
+            await pool.query(
+                'UPDATE client_policies SET status = $1, modified_date = CURRENT_TIMESTAMP WHERE policy_id = $2',
+                ['Renewed', request.policyId]
+            );
+
+            return {
+                success: true,
+                data: {
+                    newPolicyId: newPolicyResult.rows[0].policy_id,
+                    rowsAffected: 2
+                },
+                message: 'Policy renewed successfully'
+            };
+        } catch (error) {
+            console.error('Error in renewPolicy:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to renew policy'
+            };
+        }
+    }
+
+    /**
+     * Bulk update policy status - IMPLEMENTED FALLBACK since SP is missing
+     */
+    public async bulkUpdatePolicyStatus(request: BulkUpdatePolicyStatusRequest): Promise<PolicyResponse<UpdateResponse>> {
+        try {
+            const pool = await poolPromise;
+            
+            const placeholders = request.policyIds.map((_, index) => `${index + 2}`).join(',');
+            const result = await pool.query(`
+                UPDATE client_policies 
+                SET status = $1, modified_date = CURRENT_TIMESTAMP 
+                WHERE policy_id IN (${placeholders})
+            `, [request.newStatus, ...request.policyIds]);
+
+            return {
+                success: true,
+                data: { rowsAffected: result.rowCount || 0 },
+                message: `Bulk status update completed for ${result.rowCount} policies`
+            };
+        } catch (error) {
+            console.error('Error in bulkUpdatePolicyStatus:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to bulk update policy status'
+            };
+        }
+    }
+
+    /**
+     * Get policy statistics - IMPLEMENTED FALLBACK since SP is missing
+     */
+    public async getPolicyStatistics(request: PolicyStatisticsRequest): Promise<PolicyResponse<PolicyStatistics>> {
+        try {
+            const pool = await poolPromise;
+            
+            let whereClause = 'WHERE p.is_active = true';
+            const params: any[] = [];
+            let paramIndex = 1;
+
+            if (request.agentId) {
+                whereClause += ` AND pc.agent_id = ${paramIndex}`;
+                params.push(request.agentId);
+                paramIndex++;
+            }
+
+            const result = await pool.query(`
+                SELECT 
+                    COUNT(*) as total_policies,
+                    COUNT(CASE WHEN p.status = 'Active' THEN 1 END) as active_policies,
+                    COUNT(CASE WHEN p.status = 'Expired' THEN 1 END) as expired_policies,
+                    COUNT(CASE WHEN p.status = 'Cancelled' THEN 1 END) as cancelled_policies,
+                    COUNT(CASE WHEN p.end_date::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days') THEN 1 END) as expiring_in_30_days,
+                    COUNT(CASE WHEN p.end_date::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '60 days') THEN 1 END) as expiring_in_60_days
+                FROM client_policies p
+                LEFT JOIN policy_catalog pc ON p.policy_catalog_id = pc.policy_catalog_id
+                ${whereClause}
+            `, params);
+
+            const row = result.rows[0];
+            const data: PolicyStatistics = {
+                totalPolicies: parseInt(row.total_policies) || 0,
+                activePolicies: parseInt(row.active_policies) || 0,
+                expiredPolicies: parseInt(row.expired_policies) || 0,
+                cancelledPolicies: parseInt(row.cancelled_policies) || 0,
+                expiringIn30Days: parseInt(row.expiring_in_30_days) || 0,
+                expiringIn60Days: parseInt(row.expiring_in_60_days) || 0
+            };
+
+            return {
+                success: true,
+                data,
+                message: 'Policy statistics retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyStatistics:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to get policy statistics'
+            };
+        }
+    }
+
+    /**
+     * Get detailed policy statistics - IMPLEMENTED FALLBACK since SP is missing
+     */
+    public async getPolicyStatisticsDetailed(request: PolicyStatisticsRequest): Promise<PolicyResponse<PolicyStatisticsDetailed[]>> {
+        try {
+            const pool = await poolPromise;
+            
+            let whereClause = 'WHERE p.is_active = true';
+            const params: any[] = [];
+            let paramIndex = 1;
+
+            if (request.agentId) {
+                whereClause += ` AND pc.agent_id = ${paramIndex}`;
+                params.push(request.agentId);
+                paramIndex++;
+            }
+
+            // Get statistics by company
+            const companyStats = await pool.query(`
+                SELECT 
+                    'Company' as group_type,
+                    COALESCE(ic.company_name, 'Unknown') as group_name,
+                    COUNT(*) as policy_count,
+                    COUNT(CASE WHEN p.status = 'Active' THEN 1 END) as active_count
+                FROM client_policies p
+                LEFT JOIN policy_catalog pc ON p.policy_catalog_id = pc.policy_catalog_id
+                LEFT JOIN insurance_companies ic ON pc.company_id = ic.company_id
+                ${whereClause}
+                GROUP BY ic.company_name
+            `, params);
+
+            // Get statistics by type
+            const typeStats = await pool.query(`
+                SELECT 
+                    'Type' as group_type,
+                    COALESCE(pt.type_name, 'Unknown') as group_name,
+                    COUNT(*) as policy_count,
+                    COUNT(CASE WHEN p.status = 'Active' THEN 1 END) as active_count
+                FROM client_policies p
+                LEFT JOIN policy_catalog pc ON p.policy_catalog_id = pc.policy_catalog_id
+                LEFT JOIN policy_types pt ON pc.type_id = pt.type_id
+                ${whereClause}
+                GROUP BY pt.type_name
+            `, params);
+
+            const data = [
+                ...companyStats.rows.map(this.mapPolicyStatisticsDetailedFromDb),
+                ...typeStats.rows.map(this.mapPolicyStatisticsDetailedFromDb)
+            ];
+
+            return {
+                success: true,
+                data,
+                message: 'Detailed policy statistics retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyStatisticsDetailed:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get detailed policy statistics'
+            };
+        }
+    }
+
+    // ============================================
+    // POLICY TEMPLATES MANAGEMENT
+    // ============================================
+
+    /**
+     * Get policy templates - Fixed to return PolicyResponse format
+     */
+    public async getPolicyTemplates(request: PolicyTemplateFilterRequest): Promise<PolicyResponse<PolicyTemplate[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_get_policy_templates($1,$2,$3,$4)',
+                [
+                    request.agentId || null,
+                    request.categoryId || null,
+                    request.typeId || null,
+                    request.isActive !== undefined ? request.isActive : true
+                ]
+            );
+            
+            const data = result.rows.map(this.mapPolicyTemplateFromDb);
+            return {
+                success: true,
+                data,
+                message: 'Policy templates retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in getPolicyTemplates:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to get policy templates'
+            };
+        }
+    }
+
+    /**
+     * Create policy template - Fixed to return PolicyResponse format
+     */
+    public async createPolicyTemplate(request: CreatePolicyTemplateRequest): Promise<PolicyResponse<CreateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_create_policy_template($1,$2,$3,$4,$5,$6,$7,$8,$9) AS template_id',
+                [
+                    request.agentId,
+                    request.templateName,
+                    request.defaultTermMonths || null,
+                    request.defaultPremium || null,
+                    request.coverageDescription || null,
+                    request.terms || null,
+                    request.categoryId || null,
+                    request.policyCatalogId || null,
+                    request.typeId || null
+                ]
+            );
+            
+            return {
+                success: true,
+                data: { id: result.rows[0].template_id },
+                message: 'Policy template created successfully'
+            };
+        } catch (error) {
+            console.error('Error in createPolicyTemplate:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to create policy template'
+            };
+        }
+    }
+
+    /**
+     * Update policy template - Fixed to return PolicyResponse format
+     */
+    public async updatePolicyTemplate(request: UpdatePolicyTemplateRequest): Promise<PolicyResponse<UpdateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_update_policy_template($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS rows_affected',
+                [
+                    request.templateId,
+                    request.templateName || null,
+                    request.defaultTermMonths || null,
+                    request.defaultPremium || null,
+                    request.coverageDescription || null,
+                    request.terms || null,
+                    request.categoryId || null,
+                    request.policyCatalogId || null,
+                    request.typeId || null,
+                    request.isActive !== undefined ? request.isActive : null
+                ]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].rows_affected },
+                message: 'Policy template updated successfully'
+            };
+        } catch (error) {
+            console.error('Error in updatePolicyTemplate:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to update policy template'
+            };
+        }
+    }
+
+    /**
+     * Delete policy template - Fixed to return PolicyResponse format
+     */
+    public async deletePolicyTemplate(templateId: string, hardDelete: boolean = false): Promise<PolicyResponse<DeleteResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_delete_policy_template($1,$2) AS rows_affected',
+                [templateId, hardDelete]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].rows_affected },
+                message: 'Policy template deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in deletePolicyTemplate:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to delete policy template'
+            };
+        }
+    }
+
+    /**
+     * Batch expire policies - Fixed to return PolicyResponse format
+     */
+    public async batchExpirePolicies(request: BatchExpirePoliciesRequest): Promise<PolicyResponse<UpdateResponse>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT sp_batch_expire_policies($1) AS policies_expired',
+                [request.asOfDate || null]
+            );
+            
+            return {
+                success: true,
+                data: { rowsAffected: result.rows[0].policies_expired },
+                message: 'Policies expired successfully'
+            };
+        } catch (error) {
+            console.error('Error in batchExpirePolicies:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to batch expire policies'
+            };
+        }
+    }
+
+    /**
+     * Cleanup soft deleted records - Fixed to return PolicyResponse format
+     */
+    public async cleanupSoftDeletedRecords(request: CleanupSoftDeletedRequest): Promise<PolicyResponse<CleanupResponse[]>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_cleanup_soft_deleted_records($1,$2)',
+                [request.daysOld || 365, request.dryRun !== undefined ? request.dryRun : true]
+            );
+            
+            const data = result.rows.map(row => ({
+                tableName: row.table_name,
+                recordsToDelete: row.records_to_delete,
+                totalRecordsDeleted: row.total_records_deleted
+            }));
+
+            return {
+                success: true,
+                data,
+                message: 'Cleanup operation completed successfully'
+            };
+        } catch (error) {
+            console.error('Error in cleanupSoftDeletedRecords:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to cleanup soft deleted records'
+            };
+        }
+    }
+
+    // ============================================
+    // SOFT DELETE METHODS - Fixed to return PolicyResponse format
+    // ============================================
+
+    public async softDeleteClientPolicy(policyId: string): Promise<PolicyResponse<{success: number, message: string}>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_soft_delete_client_policy($1)',
+                [policyId]
+            );
+            
+            return {
+                success: true,
+                data: {
+                    success: result.rows[0].success,
+                    message: result.rows[0].message
+                },
+                message: 'Client policy soft deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in softDeleteClientPolicy:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to soft delete client policy'
+            };
+        }
+    }
+
+    public async softDeleteInsuranceCompany(companyId: string): Promise<PolicyResponse<{success: number, message: string}>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_soft_delete_insurance_company($1)',
+                [companyId]
+            );
+            
+            return {
+                success: true,
+                data: {
+                    success: result.rows[0].success,
+                    message: result.rows[0].message
+                },
+                message: 'Insurance company soft deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in softDeleteInsuranceCompany:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to soft delete insurance company'
+            };
+        }
+    }
+
+    public async softDeletePolicyCatalog(policyCatalogId: string): Promise<PolicyResponse<{success: number, message: string}>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_soft_delete_policy_catalog($1)',
+                [policyCatalogId]
+            );
+            
+            return {
+                success: true,
+                data: {
+                    success: result.rows[0].success,
+                    message: result.rows[0].message
+                },
+                message: 'Policy catalog soft deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in softDeletePolicyCatalog:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to soft delete policy catalog'
+            };
+        }
+    }
+
+    public async softDeletePolicyCategory(categoryId: string): Promise<PolicyResponse<{success: number, message: string}>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_soft_delete_policy_category($1)',
+                [categoryId]
+            );
+            
+            return {
+                success: true,
+                data: {
+                    success: result.rows[0].success,
+                    message: result.rows[0].message
+                },
+                message: 'Policy category soft deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in softDeletePolicyCategory:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to soft delete policy category'
+            };
+        }
+    }
+
+    public async softDeletePolicyTemplate(templateId: string): Promise<PolicyResponse<{success: number, message: string}>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_soft_delete_policy_template($1)',
+                [templateId]
+            );
+            
+            return {
+                success: true,
+                data: {
+                    success: result.rows[0].success,
+                    message: result.rows[0].message
+                },
+                message: 'Policy template soft deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in softDeletePolicyTemplate:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to soft delete policy template'
+            };
+        }
+    }
+
+    public async softDeletePolicyType(typeId: string): Promise<PolicyResponse<{success: number, message: string}>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_soft_delete_policy_type($1)',
+                [typeId]
+            );
+            
+            return {
+                success: true,
+                data: {
+                    success: result.rows[0].success,
+                    message: result.rows[0].message
+                },
+                message: 'Policy type soft deleted successfully'
+            };
+        } catch (error) {
+            console.error('Error in softDeletePolicyType:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to soft delete policy type'
+            };
+        }
+    }
+
+    // ============================================
+    // VALIDATION METHODS - Fixed to return PolicyResponse format
+    // ============================================
+
+    public async validatePolicy(request: PolicyValidationRequest): Promise<PolicyResponse<PolicyValidationResponse>> {
+        try {
+            const errors: string[] = [];
+            const warnings: string[] = [];
+
+            const policyData = request.policyData;
+
+            if (!policyData.policyName || policyData.policyName.trim().length === 0) {
+                errors.push('Policy name is required');
+            }
+
+            if (!policyData.clientId) {
+                errors.push('Client ID is required');
+            }
+
+            if (!policyData.startDate) {
+                errors.push('Start date is required');
+            }
+
+            if (!policyData.endDate) {
+                errors.push('End date is required');
+            }
+
+            if (policyData.startDate && policyData.endDate) {
+                const startDate = new Date(policyData.startDate);
+                const endDate = new Date(policyData.endDate);
+                
+                if (endDate <= startDate) {
+                    errors.push('End date must be after start date');
+                }
+
+                const today = new Date();
+                const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                
+                if (daysUntilExpiry <= 30 && daysUntilExpiry > 0) {
+                    warnings.push('Policy expires within 30 days');
+                }
+            }
+
+            return {
+                success: true,
+                data: {
+                    isValid: errors.length === 0,
+                    errors,
+                    warnings
+                },
+                message: 'Policy validation completed'
+            };
+        } catch (error) {
+            console.error('Error in validatePolicy:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to validate policy'
+            };
+        }
+    }
+
+    /**
+     * Validate policy data using database SP - Fixed to return PolicyResponse format
+     */
+    public async validatePolicyData(
+        policyName: string,
+        policyType: string,
+        companyId?: string,
+        startDate?: Date,
+        endDate?: Date
+    ): Promise<PolicyResponse<{isValid: boolean, validationErrors: string}>> {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.query(
+                'SELECT * FROM sp_validate_policy_data($1,$2,$3,$4,$5)',
+                [
+                    policyName,
+                    policyType,
+                    companyId || null,
+                    startDate || null,
+                    endDate || null
+                ]
+            );
+            
+            return {
+                success: true,
+                data: {
+                    isValid: result.rows[0].is_valid,
+                    validationErrors: result.rows[0].validation_errors
+                },
+                message: 'Policy data validation completed'
+            };
+        } catch (error) {
+            console.error('Error in validatePolicyData:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to validate policy data'
+            };
+        }
+    }
+
+    // ============================================
+    // MAPPING METHODS
+    // ============================================
+
+    private mapPolicyCatalogFromDb(row: any): PolicyCatalog {
         return {
-            rowsAffected: result.rows[0].rows_affected
+            policyId: row.policy_catalog_id,
+            agentId: row.agent_id,
+            policyName: row.policy_name,
+            companyId: row.company_id,
+            companyName: row.company_name,
+            notes: row.notes,
+            isActive: row.is_active,
+            createdDate: new Date(row.created_date),
+            modifiedDate: row.modified_date ? new Date(row.modified_date) : undefined,
+            categoryId: row.category_id,
+            categoryName: row.category_name,
+            typeId: row.type_id,
+            typeName: row.type_name
         };
     }
 
-    /**
-     * Delete client policy - MISSING STORED PROCEDURE
-     * No sp_delete_client_policy found in available SPs
-     */
-   public async deleteClientPolicy(policyId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT rows_affected FROM sp_delete_client_policy($1,$2)',
-            [policyId, hardDelete]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
-
-    /**
-     * Upsert client policy - MISSING STORED PROCEDURE
-     * No sp_upsert_client_policy found in available SPs
-     */
-    public async upsertClientPolicy(request: UpsertClientPolicyRequest): Promise<CreateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT policy_id FROM sp_upsert_client_policy($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-            [
-                request.clientId,
-                request.policyName,
-                request.startDate,
-                request.endDate,
-                request.policyId || null,
-                request.status || 'Active',
-                request.notes || null,
-                request.policyCatalogId || null,
-                request.typeId || null,
-                request.companyId || null
-            ]
-        );
-        return {
-            id: result.rows[0].policy_id
-        };
-    }
-     private mapClientPolicyFromDb(row: any): ClientPolicy {
+    private mapClientPolicyFromDb(row: any): ClientPolicy {
         return {
             policyId: row.policy_id,
             clientId: row.client_id,
@@ -385,432 +1859,46 @@ public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<C
             daysUntilExpiry: row.days_until_expiry
         };
     }
-     private mapClientWithPoliciesFromDb(row: any): ClientWithPolicies {
-        return {
-            clientId: row.client_id,
-            agentId: row.agent_id,
-            firstName: row.first_name,
-            surname: row.surname,
-            lastName: row.last_name,
-            fullName: row.full_name,
-            phoneNumber: row.phone_number,
-            email: row.email,
-            address: row.address,
-            nationalId: row.national_id,
-            dateOfBirth: new Date(row.date_of_birth),
-            isClient: row.is_client,
-            insuranceType: row.insurance_type,
-            clientNotes: row.client_notes,
-            clientCreatedDate: new Date(row.client_created_date),
-            clientModifiedDate: new Date(row.client_modified_date),
-            clientIsActive: row.client_is_active,
+
+    // private mapClientWithPoliciesFromDb(row: any): ClientWithPolicies {
+    //     return {
+    //         clientId: row.client_id,
+    //         agentId: row.agent_id,
+    //         firstName: row.first_name,
+    //         surname: row.surname,
+    //         lastName: row.last_name,
+    //         fullName: row.full_name,
+    //         phoneNumber: row.phone_number,
+    //         email: row.email,
+    //         address: row.address,
+    //         nationalId: row.national_id,
+    //         dateOfBirth: new Date(row.date_of_birth),
+    //         isClient: row.is_client,
+    //         insuranceType: row.insurance_type,
+    //         clientNotes: row.client_notes,
+    //         clientCreatedDate: new Date(row.client_created_date),
+    //         clientModifiedDate: new Date(row.client_modified_date),
+    //         clientIsActive: row.client_is_active,
             
-            // Policy fields (may be null if no policies)
-            policyId: row.policy_id,
-            policyName: row.policy_name,
-            status: row.status,
-            startDate: row.start_date ? new Date(row.start_date) : undefined,
-            endDate: row.end_date ? new Date(row.end_date) : undefined,
-            policyNotes: row.policy_notes,
-            policyCreatedDate: row.policy_created_date ? new Date(row.policy_created_date) : undefined,
-            policyModifiedDate: row.policy_modified_date ? new Date(row.policy_modified_date) : undefined,
-            policyIsActive: row.policy_is_active,
-            policyCatalogId: row.policy_catalog_id,
-            catalogPolicyName: row.catalog_policy_name,
-            typeId: row.type_id,
-            typeName: row.type_name,
-            companyId: row.company_id,
-            companyName: row.company_name,
-            daysUntilExpiry: row.days_until_expiry
-        };
-    }
-    /**
-     * Get expiring policies - MISSING STORED PROCEDURE
-     * No sp_get_expiring_policies found in available SPs
-     */
-    public async getExpiringPolicies(request: ExpiringPoliciesRequest): Promise<ClientPolicy[]> {
-        throw new Error('sp_get_expiring_policies stored procedure is not available in the current database schema');
-    }
-
-    /**
-     * Renew policy - MISSING STORED PROCEDURE
-     * sp_renew_policy exists in document 1 but not in document 2
-     */
-    public async renewPolicy(request: PolicyRenewalRequest): Promise<RenewalResponse> {
-        throw new Error('sp_renew_policy stored procedure is not available in the current database schema');
-    }
-
-    /**
-     * Bulk update policy status - MISSING STORED PROCEDURE
-     * sp_bulk_update_policy_status exists in document 1 but not in document 2
-     */
-    public async bulkUpdatePolicyStatus(request: BulkUpdatePolicyStatusRequest): Promise<UpdateResponse> {
-        throw new Error('sp_bulk_update_policy_status stored procedure is not available in the current database schema');
-    }
-
-    // ============================================
-    // POLICY SEARCH AND FILTERING
-    // ============================================
-
-    /**
-     * Search policies - MISSING STORED PROCEDURE
-     * sp_search_policies exists in document 1 but not in document 2
-     */
-    public async searchPolicies(request: SearchPoliciesRequest): Promise<PaginatedResponse<ClientPolicy>> {
-        throw new Error('sp_search_policies stored procedure is not available in the current database schema');
-    }
-
-    /**
-     * Get policies by status - MISSING STORED PROCEDURE
-     * sp_get_policies_by_status exists in document 1 but not in document 2
-     */
-    public async getPoliciesByStatus(request: GetPoliciesByStatusRequest): Promise<ClientPolicy[]> {
-        throw new Error('sp_get_policies_by_status stored procedure is not available in the current database schema');
-    }
-
-    // ============================================
-    // POLICY TEMPLATES MANAGEMENT
-    // ============================================
-
-    /**
-     * Get policy templates - CONFLICTING STORED PROCEDURES
-     * Two different sp_get_policy_templates exist with different signatures
-     */
-    public async getPolicyTemplates(request: PolicyTemplateFilterRequest): Promise<PolicyTemplate[]> {
-        // Using the signature from document 3 which seems more complete
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_templates($1,$2,$3,$4)',
-            [
-                request.agentId || null,
-                request.categoryId || null,
-                request.typeId || null,
-                request.isActive !== undefined ? request.isActive : true
-            ]
-        );
-        return result.rows.map(this.mapPolicyTemplateFromDb);
-    }
-
-    /**
-     * Create policy template - CONFLICTING STORED PROCEDURES
-     * Two different sp_create_policy_template exist with different signatures
-     */
-    public async createPolicyTemplate(request: CreatePolicyTemplateRequest): Promise<CreateResponse> {
-        // Using the signature from document 3 which seems more complete
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_create_policy_template($1,$2,$3,$4,$5,$6,$7,$8,$9) AS template_id',
-            [
-                request.agentId,
-                request.templateName,
-                request.defaultTermMonths || null,
-                request.defaultPremium || null,
-                request.coverageDescription || null,
-                request.terms || null,
-                request.categoryId || null,
-                request.policyCatalogId || null,
-                request.typeId || null
-            ]
-        );
-        return {
-            id: result.rows[0].template_id
-        };
-    }
-
-    /**
-     * Update policy template - maps to sp_update_policy_template (available in document 3)
-     */
-    public async updatePolicyTemplate(request: UpdatePolicyTemplateRequest): Promise<UpdateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_update_policy_template($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS rows_affected',
-            [
-                request.templateId,
-                request.templateName || null,
-                request.defaultTermMonths || null,
-                request.defaultPremium || null,
-                request.coverageDescription || null,
-                request.terms || null,
-                request.categoryId || null,
-                request.policyCatalogId || null,
-                request.typeId || null,
-                request.isActive !== undefined ? request.isActive : null
-            ]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
-
-    /**
-     * Delete policy template - maps to sp_delete_policy_template (available in document 3)
-     */
-    public async deletePolicyTemplate(templateId: string, hardDelete: boolean = false): Promise<DeleteResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_delete_policy_template($1,$2) AS rows_affected',
-            [templateId, hardDelete]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
-
-    // ============================================
-    // REFERENCE DATA MANAGEMENT
-    // ============================================
-
-    /**
-     * Get insurance companies - maps to sp_get_insurance_companies (available)
-     */
-    public async getInsuranceCompanies(isActive?: boolean): Promise<InsuranceCompany[]> {
-    const pool = await poolPromise;
-    const result = await pool.query(
-        'SELECT * FROM sp_get_insurance_companies($1)',
-        [isActive === undefined ? null : isActive] // pass null to get all
-    );
-    return result.rows.map(this.mapInsuranceCompanyFromDb);
-}
-
-
-    /**
-     * Create insurance company - maps to sp_create_insurance_company (available)
-     */
-    public async createInsuranceCompany(request: CreateInsuranceCompanyRequest): Promise<CreateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_create_insurance_company($1) AS company_id',
-            [request.companyName]
-        );
-        return {
-            id: result.rows[0].company_id
-        };
-    }
-
-    /**
-     * Update insurance company - maps to sp_update_insurance_company (available)
-     */
-    public async updateInsuranceCompany(request: UpdateInsuranceCompanyRequest): Promise<UpdateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_update_insurance_company($1,$2,$3) AS rows_affected',
-            [
-                request.companyId,
-                request.companyName || null,
-                request.isActive !== undefined ? request.isActive : null
-            ]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
-
-    /**
-     * Get policy types - WRONG FUNCTION NAME
-     * Available: sp_get_policy_types_list, sp_get_policy_types_all
-     * Your service calls: sp_get_policy_types (doesn't exist)
-     */
-    public async getPolicyTypes(isActive: boolean = true): Promise<PolicyType[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_types_list($1)',
-            [isActive]
-        );
-        return result.rows.map(this.mapPolicyTypeFromDb);
-    }
-
-    /**
-     * Create policy type - WRONG FUNCTION NAME
-     * Available: sp_create_policy_type_new
-     * Your service calls: sp_create_policy_type (doesn't exist)
-     */
-    public async createPolicyType(request: CreatePolicyTypeRequest): Promise<CreateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_create_policy_type_new($1) AS type_id',
-            [request.typeName]
-        );
-        return {
-            id: result.rows[0].type_id
-        };
-    }
-
-    /**
-     * Update policy type - maps to sp_update_policy_type_details (available)
-     */
-    public async updatePolicyType(request: UpdatePolicyTypeRequest): Promise<UpdateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_update_policy_type_details($1,$2,$3) AS rows_affected',
-            [
-                request.typeId,
-                request.typeName || null,
-                request.isActive !== undefined ? request.isActive : null
-            ]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
-
-    /**
-     * Get policy categories - WRONG FUNCTION NAME
-     * Available: sp_get_policy_categories_list
-     * Your service calls: sp_get_policy_categories (doesn't exist)
-     */
-    public async getPolicyCategories(isActive: boolean = true): Promise<PolicyCategory[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_categories_list($1)',
-            [isActive]
-        );
-        return result.rows.map(this.mapPolicyCategoryFromDb);
-    }
-
-    /**
-     * Create policy category - maps to sp_create_policy_category (available)
-     */
-    public async createPolicyCategory(request: CreatePolicyCategoryRequest): Promise<CreateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_create_policy_category($1,$2) AS category_id',
-            [request.categoryName, request.description || null]
-        );
-        return {
-            id: result.rows[0].category_id
-        };
-    }
-
-    /**
-     * Update policy category - maps to sp_update_policy_category_details (available)
-     */
-    public async updatePolicyCategory(request: UpdatePolicyCategoryRequest): Promise<UpdateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_update_policy_category_details($1,$2,$3,$4) AS rows_affected',
-            [
-                request.categoryId,
-                request.categoryName || null,
-                request.description || null,
-                request.isActive !== undefined ? request.isActive : null
-            ]
-        );
-        return {
-            rowsAffected: result.rows[0].rows_affected
-        };
-    }
-
-    // ============================================
-    // ANALYTICS AND REPORTING - MISSING STORED PROCEDURES
-    // ============================================
-
-    /**
-     * Get policy statistics - MISSING STORED PROCEDURE
-     * sp_get_policy_statistics exists in document 1 but not in current schema
-     */
-    public async getPolicyStatistics(request: PolicyStatisticsRequest): Promise<PolicyStatistics> {
-        throw new Error('sp_get_policy_statistics stored procedure is not available in the current database schema');
-    }
-
-    /**
-     * Get detailed policy statistics - MISSING STORED PROCEDURE
-     * sp_get_policy_statistics_detailed exists in document 1 but not in current schema
-     */
-    public async getPolicyStatisticsDetailed(request: PolicyStatisticsRequest): Promise<PolicyStatisticsDetailed[]> {
-        throw new Error('sp_get_policy_statistics_detailed stored procedure is not available in the current database schema');
-    }
-
-    /**
-     * Get agent dashboard summary - maps to sp_get_agent_dashboard_summary (available)
-     */
-    public async getAgentDashboardSummary(agentId: string): Promise<AgentDashboardSummary> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_agent_dashboard_summary($1)',
-            [agentId]
-        );
-        return this.mapAgentDashboardSummaryFromDb(result.rows[0]);
-    }
-
-    /**
-     * Get policy renewal candidates - maps to sp_get_policy_renewal_candidates (available)
-     */
-    public async getPolicyRenewalCandidates(request: GetRenewalCandidatesRequest): Promise<PolicyRenewalCandidate[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_renewal_candidates($1,$2)',
-            [request.agentId || null, request.daysAhead || 60]
-        );
-        return result.rows.map(this.mapPolicyRenewalCandidateFromDb);
-    }
-
-    /**
-     * Get policy history - maps to sp_get_policy_history_for_client (available)
-     */
-    public async getPolicyHistory(request: GetPolicyHistoryRequest): Promise<PolicyHistory[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_get_policy_history_for_client($1,$2)',
-            [request.clientId, request.includeInactive || false]
-        );
-        return result.rows.map(this.mapPolicyHistoryFromDb);
-    }
-
-    // ============================================
-    // UTILITY METHODS
-    // ============================================
-
-    /**
-     * Batch expire policies - maps to sp_batch_expire_policies (available)
-     */
-    public async batchExpirePolicies(request: BatchExpirePoliciesRequest): Promise<UpdateResponse> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT sp_batch_expire_policies($1) AS policies_expired',
-            [request.asOfDate || null]
-        );
-        return {
-            rowsAffected: result.rows[0].policies_expired
-        };
-    }
-
-    /**
-     * Cleanup soft deleted records - maps to sp_cleanup_soft_deleted_records (available)
-     */
-    public async cleanupSoftDeletedRecords(request: CleanupSoftDeletedRequest): Promise<CleanupResponse[]> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_cleanup_soft_deleted_records($1,$2)',
-            [request.daysOld || 365, request.dryRun !== undefined ? request.dryRun : true]
-        );
-        return result.rows.map(row => ({
-            tableName: row.table_name,
-            recordsToDelete: row.records_to_delete,
-            totalRecordsDeleted: row.total_records_deleted
-        }));
-    }
-
-    
-
-    private mapPolicyCatalogFromDb(row: any): PolicyCatalog {
-        return {
-            policyId: row.policy_catalog_id,
-            agentId: row.agent_id,
-            policyName: row.policy_name,
-            companyId: row.company_id,
-            companyName: row.company_name,
-            notes: row.notes,
-            isActive: row.is_active,
-            createdDate: new Date(row.created_date),
-            modifiedDate: row.modified_date ? new Date(row.modified_date) : undefined,
-            categoryId: row.category_id,
-            categoryName: row.category_name,
-            typeId: row.type_id,
-            typeName: row.type_name
-        };
-    }
-
- 
+    //         // Policy fields (may be null if no policies)
+    //         policyId: row.policy_id,
+    //         policyName: row.policy_name,
+    //         status: row.status,
+    //         startDate: row.start_date ? new Date(row.start_date) : undefined,
+    //         endDate: row.end_date ? new Date(row.end_date) : undefined,
+    //         policyNotes: row.policy_notes,
+    //         policyCreatedDate: row.policy_created_date ? new Date(row.policy_created_date) : undefined,
+    //         policyModifiedDate: row.policy_modified_date ? new Date(row.policy_modified_date) : undefined,
+    //         policyIsActive: row.policy_is_active,
+    //         policyCatalogId: row.policy_catalog_id,
+    //         catalogPolicyName: row.catalog_policy_name,
+    //         typeId: row.type_id,
+    //         typeName: row.type_name,
+    //         companyId: row.company_id,
+    //         companyName: row.company_name,
+    //         daysUntilExpiry: row.days_until_expiry
+    //     };
+    // }
 
     private mapPolicyTemplateFromDb(row: any): PolicyTemplate {
         return {
@@ -860,35 +1948,24 @@ public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<C
         };
     }
 
-    private mapPolicyStatisticsFromDb(row: any): PolicyStatistics {
-        return {
-            totalPolicies: row.total_policies,
-            activePolicies: row.active_policies,
-            expiredPolicies: row.expired_policies,
-            cancelledPolicies: row.cancelled_policies,
-            expiringIn30Days: row.expiring_in_30_days,
-            expiringIn60Days: row.expiring_in_60_days
-        };
-    }
-
     private mapPolicyStatisticsDetailedFromDb(row: any): PolicyStatisticsDetailed {
         return {
             groupType: row.group_type,
             groupName: row.group_name,
-            policyCount: row.policy_count,
-            activeCount: row.active_count
+            policyCount: parseInt(row.policy_count) || 0,
+            activeCount: parseInt(row.active_count) || 0
         };
     }
 
     private mapAgentDashboardSummaryFromDb(row: any): AgentDashboardSummary {
         return {
-            totalPolicies: row.total_policies,
-            activePolicies: row.active_policies,
-            expiringIn30Days: row.expiring_in_30_days,
-            expiringIn60Days: row.expiring_in_60_days,
-            totalCompanies: row.total_companies,
-            totalClients: row.total_clients,
-            inactivePolicies: row.inactive_policies
+            totalPolicies: parseInt(row.total_policies) || 0,
+            activePolicies: parseInt(row.active_policies) || 0,
+            expiringIn30Days: parseInt(row.expiring_in_30_days) || 0,
+            expiringIn60Days: parseInt(row.expiring_in_60_days) || 0,
+            totalCompanies: parseInt(row.total_companies) || 0,
+            totalClients: parseInt(row.total_clients) || 0,
+            inactivePolicies: parseInt(row.inactive_policies) || 0
         };
     }
 
@@ -904,7 +1981,7 @@ public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<C
             companyName: row.company_name,
             typeId: row.type_id,
             typeName: row.type_name,
-            daysUntilExpiry: row.days_until_expiry,
+            daysUntilExpiry: parseInt(row.days_until_expiry) || 0,
             renewalPriority: row.renewal_priority as 'Urgent' | 'Soon' | 'Upcoming'
         };
     }
@@ -924,221 +2001,286 @@ public async upsertPolicyCatalog(request: UpsertPolicyCatalogRequest): Promise<C
             companyName: row.company_name,
             typeId: row.type_id,
             typeName: row.type_name,
-            policyDurationDays: row.policy_duration_days,
+            policyDurationDays: parseInt(row.policy_duration_days) || 0,
             policyState: row.policy_state
         };
     }
 
     // ============================================
-    // VALIDATION METHODS
-    // ============================================
-
-    public async validatePolicy(request: PolicyValidationRequest): Promise<PolicyValidationResponse> {
-        const errors: string[] = [];
-        const warnings: string[] = [];
-
-        const policyData = request.policyData;
-
-        if (!policyData.policyName || policyData.policyName.trim().length === 0) {
-            errors.push('Policy name is required');
-        }
-
-        if (!policyData.clientId) {
-            errors.push('Client ID is required');
-        }
-
-        if (!policyData.startDate) {
-            errors.push('Start date is required');
-        }
-
-        if (!policyData.endDate) {
-            errors.push('End date is required');
-        }
-
-        if (policyData.startDate && policyData.endDate) {
-            const startDate = new Date(policyData.startDate);
-            const endDate = new Date(policyData.endDate);
-            
-            if (endDate <= startDate) {
-                errors.push('End date must be after start date');
-            }
-
-            const today = new Date();
-            const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
-            if (daysUntilExpiry <= 30 && daysUntilExpiry > 0) {
-                warnings.push('Policy expires within 30 days');
-            }
-        }
-
-        return {
-            isValid: errors.length === 0,
-            errors,
-            warnings
-        };
-    }
-
-    // ============================================
-    // VALIDATION USING DATABASE SP
-    // ============================================
-
-    /**
-     * Validate policy data using database stored procedure - maps to sp_validate_policy_data (available)
-     */
-    public async validatePolicyData(
-        policyName: string,
-        policyType: string,
-        companyId?: string,
-        startDate?: Date,
-        endDate?: Date
-    ): Promise<{isValid: boolean, validationErrors: string}> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_validate_policy_data($1,$2,$3,$4,$5)',
-            [
-                policyName,
-                policyType,
-                companyId || null,
-                startDate || null,
-                endDate || null
-            ]
-        );
-        
-        return {
-            isValid: result.rows[0].is_valid,
-            validationErrors: result.rows[0].validation_errors
-        };
-    }
-
-    // ============================================
-    // SOFT DELETE METHODS
-    // ============================================
-
-    public async softDeleteClientPolicy(policyId: string): Promise<{success: number, message: string}> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_soft_delete_client_policy($1)',
-            [policyId]
-        );
-        return {
-            success: result.rows[0].success,
-            message: result.rows[0].message
-        };
-    }
-
-    public async softDeleteInsuranceCompany(companyId: string): Promise<{success: number, message: string}> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_soft_delete_insurance_company($1)',
-            [companyId]
-        );
-        return {
-            success: result.rows[0].success,
-            message: result.rows[0].message
-        };
-    }
-
-    public async softDeletePolicyCatalog(policyCatalogId: string): Promise<{success: number, message: string}> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_soft_delete_policy_catalog($1)',
-            [policyCatalogId]
-        );
-        return {
-            success: result.rows[0].success,
-            message: result.rows[0].message
-        };
-    }
-
-    public async softDeletePolicyCategory(categoryId: string): Promise<{success: number, message: string}> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_soft_delete_policy_category($1)',
-            [categoryId]
-        );
-        return {
-            success: result.rows[0].success,
-            message: result.rows[0].message
-        };
-    }
-
-    public async softDeletePolicyTemplate(templateId: string): Promise<{success: number, message: string}> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_soft_delete_policy_template($1)',
-            [templateId]
-        );
-        return {
-            success: result.rows[0].success,
-            message: result.rows[0].message
-        };
-    }
-
-    public async softDeletePolicyType(typeId: string): Promise<{success: number, message: string}> {
-        const pool = await poolPromise;
-        const result = await pool.query(
-            'SELECT * FROM sp_soft_delete_policy_type($1)',
-            [typeId]
-        );
-        return {
-            success: result.rows[0].success,
-            message: result.rows[0].message
-        };
-    }
-
-    // ============================================
-    // ERROR HANDLING WRAPPER METHODS
-    // ============================================
-
-    private async executeWithErrorHandling<T>(
-        operation: () => Promise<T>,
-        operationName: string
-    ): Promise<PolicyResponse<T>> {
-        try {
-            const data = await operation();
-            return {
-                success: true,
-                data,
-                message: `${operationName} completed successfully`
-            };
-        } catch (error) {
-            console.error(`Error in ${operationName}:`, error);
-            return {
-                success: false,
-                message: `Error in ${operationName}: ${error instanceof Error ? error.message : 'Unknown error'}`
-            };
-        }
-    }
-
-    // ============================================
-    // PUBLIC WRAPPER METHODS WITH ERROR HANDLING
+    // WRAPPER METHODS WITH CONSISTENT ERROR HANDLING
     // ============================================
 
     public async getPolicyCatalogSafe(request: PolicyCatalogFilterRequest): Promise<PolicyResponse<PolicyCatalog[]>> {
-        return this.executeWithErrorHandling(
-            () => this.getPolicyCatalog(request),
-            'Get Policy Catalog'
-        );
+        return this.getPolicyCatalog(request);
     }
 
     public async getClientPoliciesSafe(request: ClientPolicyFilterRequest): Promise<PolicyResponse<ClientPolicy[]>> {
-        return this.executeWithErrorHandling(
-            () => this.getClientPolicies(request),
-            'Get Client Policies'
-        );
+        return this.getClientPolicies(request);
     }
 
     public async createClientPolicySafe(request: CreateClientPolicyRequest): Promise<PolicyResponse<CreateResponse>> {
-        return this.executeWithErrorHandling(
-            () => this.createClientPolicy(request),
-            'Create Client Policy'
-        );
+        return this.createClientPolicy(request);
     }
 
     public async updateClientPolicySafe(request: UpdateClientPolicyRequest): Promise<PolicyResponse<UpdateResponse>> {
-        return this.executeWithErrorHandling(
-            () => this.updateClientPolicy(request),
-            'Update Client Policy'
-        );
+        return this.updateClientPolicy(request);
+    }
+
+    // ============================================
+    // AUTOCOMPLETE METHODS - IMPLEMENTED TO FIX 501 ERRORS
+    // ============================================
+
+    /**
+     * Search insurance companies for autocomplete
+     */
+    public async searchInsuranceCompanies(searchTerm?: string): Promise<PolicyResponse<{ value: string; label: string }[]>> {
+        try {
+            const pool = await poolPromise;
+            let query = 'SELECT company_id, company_name FROM insurance_companies WHERE is_active = true';
+            const params: any[] = [];
+
+            if (searchTerm) {
+                query += ' AND company_name ILIKE $1';
+                params.push(`%${searchTerm}%`);
+            }
+
+            query += ' ORDER BY company_name LIMIT 20';
+
+            const result = await pool.query(query, params);
+            const data = result.rows.map(row => ({
+                value: row.company_id,
+                label: row.company_name
+            }));
+
+            return {
+                success: true,
+                data,
+                message: 'Insurance companies autocomplete retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in searchInsuranceCompanies:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to search insurance companies'
+            };
+        }
+    }
+
+    /**
+     * Search policy catalog for autocomplete
+     */
+    public async searchPolicyCatalog(searchTerm?: string, agentId?: string): Promise<PolicyResponse<{ value: string; label: string }[]>> {
+        try {
+            const pool = await poolPromise;
+            let query = 'SELECT policy_catalog_id, policy_name FROM policy_catalog WHERE is_active = true';
+            const params: any[] = [];
+            let paramIndex = 1;
+
+            if (agentId) {
+                query += ` AND agent_id = ${paramIndex}`;
+                params.push(agentId);
+                paramIndex++;
+            }
+
+            if (searchTerm) {
+                query += ` AND policy_name ILIKE ${paramIndex}`;
+                params.push(`%${searchTerm}%`);
+            }
+
+            query += ' ORDER BY policy_name LIMIT 20';
+
+            const result = await pool.query(query, params);
+            const data = result.rows.map(row => ({
+                value: row.policy_catalog_id,
+                label: row.policy_name
+            }));
+
+            return {
+                success: true,
+                data,
+                message: 'Policy catalog autocomplete retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in searchPolicyCatalog:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to search policy catalog'
+            };
+        }
+    }
+
+    /**
+     * Search policy categories for autocomplete
+     */
+    public async searchPolicyCategories(searchTerm?: string): Promise<PolicyResponse<{ value: string; label: string }[]>> {
+        try {
+            const pool = await poolPromise;
+            let query = 'SELECT category_id, category_name FROM policy_categories WHERE is_active = true';
+            const params: any[] = [];
+
+            if (searchTerm) {
+                query += ' AND category_name ILIKE $1';
+                params.push(`%${searchTerm}%`);
+            }
+
+            query += ' ORDER BY category_name LIMIT 20';
+
+            const result = await pool.query(query, params);
+            const data = result.rows.map(row => ({
+                value: row.category_id,
+                label: row.category_name
+            }));
+
+            return {
+                success: true,
+                data,
+                message: 'Policy categories autocomplete retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in searchPolicyCategories:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to search policy categories'
+            };
+        }
+    }
+
+    /**
+     * Search policy types for autocomplete
+     */
+    public async searchPolicyTypes(searchTerm?: string): Promise<PolicyResponse<{ value: string; label: string }[]>> {
+        try {
+            const pool = await poolPromise;
+            let query = 'SELECT type_id, type_name FROM policy_types WHERE is_active = true';
+            const params: any[] = [];
+
+            if (searchTerm) {
+                query += ' AND type_name ILIKE $1';
+                params.push(`%${searchTerm}%`);
+            }
+
+            query += ' ORDER BY type_name LIMIT 20';
+
+            const result = await pool.query(query, params);
+            const data = result.rows.map(row => ({
+                value: row.type_id,
+                label: row.type_name
+            }));
+
+            return {
+                success: true,
+                data,
+                message: 'Policy types autocomplete retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in searchPolicyTypes:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to search policy types'
+            };
+        }
+    }
+
+    /**
+     * Search policy templates for autocomplete
+     */
+    public async searchPolicyTemplates(searchTerm?: string, agentId?: string): Promise<PolicyResponse<{ value: string; label: string }[]>> {
+        try {
+            const pool = await poolPromise;
+            let query = 'SELECT template_id, template_name FROM policy_templates WHERE is_active = true';
+            const params: any[] = [];
+            let paramIndex = 1;
+
+            if (agentId) {
+                query += ` AND agent_id = ${paramIndex}`;
+                params.push(agentId);
+                paramIndex++;
+            }
+
+            if (searchTerm) {
+                query += ` AND template_name ILIKE ${paramIndex}`;
+                params.push(`%${searchTerm}%`);
+            }
+
+            query += ' ORDER BY template_name LIMIT 20';
+
+            const result = await pool.query(query, params);
+            const data = result.rows.map(row => ({
+                value: row.template_id,
+                label: row.template_name
+            }));
+
+            return {
+                success: true,
+                data,
+                message: 'Policy templates autocomplete retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in searchPolicyTemplates:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to search policy templates'
+            };
+        }
+    }
+
+    /**
+     * Search client policies for autocomplete
+     */
+    public async searchClientPolicies(searchTerm?: string, agentId?: string, clientId?: string): Promise<PolicyResponse<{ value: string; label: string }[]>> {
+        try {
+            const pool = await poolPromise;
+            let query = `
+                SELECT p.policy_id, p.policy_name 
+                FROM client_policies p
+                LEFT JOIN policy_catalog pc ON p.policy_catalog_id = pc.policy_catalog_id
+                WHERE p.is_active = true
+            `;
+            const params: any[] = [];
+            let paramIndex = 1;
+
+            if (agentId) {
+                query += ` AND pc.agent_id = ${paramIndex}`;
+                params.push(agentId);
+                paramIndex++;
+            }
+
+            if (clientId) {
+                query += ` AND p.client_id = ${paramIndex}`;
+                params.push(clientId);
+                paramIndex++;
+            }
+
+            if (searchTerm) {
+                query += ` AND p.policy_name ILIKE ${paramIndex}`;
+                params.push(`%${searchTerm}%`);
+            }
+
+            query += ' ORDER BY p.policy_name LIMIT 20';
+
+            const result = await pool.query(query, params);
+            const data = result.rows.map(row => ({
+                value: row.policy_id,
+                label: row.policy_name
+            }));
+
+            return {
+                success: true,
+                data,
+                message: 'Client policies autocomplete retrieved successfully'
+            };
+        } catch (error) {
+            console.error('Error in searchClientPolicies:', error);
+            return {
+                success: false,
+                data: [],
+                message: error instanceof Error ? error.message : 'Failed to search client policies'
+            };
+        }
     }
 }

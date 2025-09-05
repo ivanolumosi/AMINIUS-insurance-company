@@ -4,10 +4,10 @@ Content-Type: application/json
 
 {
   "agentId": null,
-  "firstName": "John",
+  "firstName": "Kamau",
   "lastName": "Doe",
-  "email": "john@example.com",
-  "phone": "0753425367",
+  "email": "kamau@example.com",
+  "phone": "0783425367",
   "passwordHash": "hashedpass123",
   "avatar": "https://example.com/avatar.jpg"
 }
@@ -50,11 +50,11 @@ POST http://localhost:3000/api/agent/register
 Content-Type: application/json
 
 {
-  "FirstName": "Ivan",
-  "LastName": "olumosi",
-  "Email": "ivan1olumosi@gmail.com",
-  "Phone": "0748706470",
-  "PasswordHash": "SecurePass1234",
+  "FirstName": "test2",
+  "LastName": "Test3",
+  "Email": "test3@gmail.com",
+  "Phone": "0747806970",
+  "PasswordHash": "SecurePass123",
   "Avatar": "https://example.com/avatar2.jpg"
 }
 

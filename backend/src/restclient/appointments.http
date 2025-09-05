@@ -5,12 +5,12 @@ POST {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c
 Content-Type: application/json
 
 {
-  "clientId": "ba849305-c1d6-49b6-8494-6666d732e70a",
+  "clientId": "35e4b57f-ac30-4bdd-b0c8-0745b6237469",
   "title": "Policy Renewal Meeting",
   "description": "Discuss renewal options",
   "appointmentDate": "2025-08-10",
-  "startTime": "10:00:00",
-  "endTime": "11:00:00",
+  "startTime": "7:00:00",
+  "endTime": "8:00:00",
   "location": "Office",
   "type": "Meeting",
   "status": "Scheduled",
@@ -20,7 +20,7 @@ Content-Type: application/json
 }
 
 ### 2. Update Appointment
-PUT {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
+PUT {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/22222222-2222-2222-2222-222222222222
 Content-Type: application/json
 
 {
@@ -30,40 +30,40 @@ Content-Type: application/json
 }
 
 ### 3. Get Appointment By ID
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/d58963f5-ef90-4154-ae3e-372d9b7f4994
 
 ### 4. Delete Appointment
 DELETE {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
 
 ### 5. Get All Appointments (with filters)
-GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?pageSize=10&pageNumber=1&status=Scheduled&type=Meeting&priority=High
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c?pageSize=10&pageNumber=1&status=Scheduled&type=Meeting&priority=High
 
 ### 6. Get All Appointments (with date range)
-GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?startDate=2025-08-01&endDate=2025-08-31
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c?startDate=2025-08-01&endDate=2025-08-31
 
 ### 7. Get All Appointments (with search)
-GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?searchTerm=Policy&pageSize=20
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c?searchTerm=Policy&pageSize=20
 
 ### 8. Get Today's Appointments
 GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1/today
 
 ### 9. Get Appointments For Specific Date
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/date?appointmentDate=2025-08-10
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/date?appointmentDate=2025-08-10
 
 ### 10. Get Week View
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/week
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/week
 
 ### 11. Get Week View (with specific start date)
 GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/week?weekStartDate=2025-08-04
 
 ### 12. Get Calendar View
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/calendar?month=8&year=2025
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/calendar?month=8&year=2025
 
 ### 13. Search Appointments
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/search?searchTerm=Policy
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/search?searchTerm=Policy
 
 ### 14. Update Appointment Status
-PUT {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222/status
+PUT {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/22222222-2222-2222-2222-222222222222/status
 Content-Type: application/json
 
 {
@@ -71,10 +71,10 @@ Content-Type: application/json
 }
 
 ### 15. Get Appointment Statistics
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/statistics
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/statistics
 
 ### 16. Check Time Conflicts
-POST {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/check-conflicts
+POST {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/check-conflicts
 Content-Type: application/json
 
 {
@@ -84,7 +84,7 @@ Content-Type: application/json
 }
 
 ### 17. Check Time Conflicts (with exclusion)
-POST {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/check-conflicts
+POST {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/check-conflicts
 Content-Type: application/json
 
 {
@@ -95,16 +95,16 @@ Content-Type: application/json
 }
 
 ### 18. Search Clients for Autocomplete
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=john
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/clients/search?q=vict
 
 ### 19. Search Clients (partial name)
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=jo
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/clients/search?q=jo
 
 ### 20. Search Clients (by phone)
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=0701
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/clients/search?q=0701
 
 ### 21. Search Clients (by email)
-GET {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/clients/search?q=@gmail
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/clients/search?q=@gmail
 
 ### 22. Create Appointment (minimal required fields)
 POST {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c
@@ -121,13 +121,13 @@ Content-Type: application/json
 }
 
 ### 23. Get All Appointments (filter by client)
-GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?clientId=ba849305-c1d6-49b6-8494-6666d732e70a
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c?clientId=ba849305-c1d6-49b6-8494-6666d732e70a
 
 ### 24. Get All Appointments (filter by status and type)
-GET {{baseUrl}}/CBA1BBFD-2FDF-4D4D-BE1C-3487CFAA3AD1?status=Scheduled&type=Meeting
+GET {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c?status=Scheduled&type=Meeting
 
 ### 25. Update Appointment (comprehensive update)
-PUT {{baseUrl}}/730080DD-742C-4934-8974-30AC3495E468/22222222-2222-2222-2222-222222222222
+PUT {{baseUrl}}/7b407c2d-3145-40b0-8c47-1d6f62351b2c/22222222-2222-2222-2222-222222222222
 Content-Type: application/json
 
 {

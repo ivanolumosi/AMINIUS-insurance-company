@@ -91,38 +91,45 @@ export class AppointmentController {
         };
     }
 
-    /** Search clients for autocomplete */
-    public async searchClients(req: Request, res: Response) {
-        console.log('🔍 SEARCH CLIENTS - Controller method started');
-        
-        const agentId = this.validateAgentId(req, res);
-        if (!agentId) return;
+/** Search clients for autocomplete */
+public async searchClients(req: Request, res: Response) {
+    console.log('🔍 SEARCH CLIENTS - Controller method started');
+    
+    const agentId = this.validateAgentId(req, res);
+    if (!agentId) return;
 
-        const { q } = req.query;
-        if (!q || typeof q !== 'string' || q.trim().length < 1) {
-            return res.status(400).json({ 
-                success: false,
-                message: 'Search term (q) is required and must be at least 1 character' 
-            });
-        }
-
-        try {
-            console.log('🔍 Searching for clients with term:', q.trim());
-            const clients = await this.appointmentService.searchClientsForAutocomplete(q.trim(), agentId);
-            
-            console.log('✅ SEARCH CLIENTS - Found clients:', clients.length);
-            res.status(200).json({
-                success: true,
-                data: clients,
-                message: "Clients retrieved successfully",
-                count: clients.length
-            });
-        } catch (error: any) {
-            console.error('❌ SEARCH CLIENTS - Error:', error);
-            const errorResponse = this.handlePostgreSQLError(error, 'Error searching clients');
-            res.status(errorResponse.statusCode).json(errorResponse.response);
-        }
+    const { q } = req.query;
+    if (!q || typeof q !== 'string' || q.trim().length < 1) {
+        return res.status(400).json({ 
+            success: false,
+            message: 'Search term (q) is required and must be at least 1 character' 
+        });
     }
+
+    try {
+        console.log('🔍 Searching for clients with term:', q.trim());
+        const clients = await this.appointmentService.searchClientsForAutocomplete(q.trim(), agentId);
+        
+        console.log('✅ SEARCH CLIENTS - Found clients:', clients.length);
+
+        // ✅ Transform database response to match frontend expectations
+        const transformedClients = clients.map(client => ({
+            ClientId: client.clientId,
+            FullName: client.clientName,
+            PhoneNumber: client.phone || '',
+            Email: client.email || ''
+        }));
+
+        // Return the transformed array to match frontend interface
+        res.status(200).json(transformedClients);
+
+    } catch (error: any) {
+        console.error('❌ SEARCH CLIENTS - Error:', error);
+        const errorResponse = this.handlePostgreSQLError(error, 'Error searching clients');
+        res.status(errorResponse.statusCode).json(errorResponse.response);
+    }
+}
+
 
     /** Create appointment */
     public async create(req: Request, res: Response) {

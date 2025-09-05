@@ -56,6 +56,8 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Get All Appointments with Filters
 -- ===========================================================
+DROP FUNCTION IF EXISTS sp_get_all_appointments(UUID, DATE, DATE, VARCHAR(20), VARCHAR(50), VARCHAR(10), UUID, VARCHAR(200), INTEGER, INTEGER);
+
 CREATE OR REPLACE FUNCTION sp_get_all_appointments(
     p_agent_id UUID,
     p_start_date DATE DEFAULT NULL,
@@ -87,7 +89,7 @@ RETURNS TABLE(
     created_date TIMESTAMPTZ,
     modified_date TIMESTAMPTZ,
     client_email VARCHAR(100),
-    client_address TEXT,
+    client_address VARCHAR(500),  -- CHANGED: TEXT to VARCHAR(500)
     total_records BIGINT
 ) AS $$
 DECLARE
@@ -132,7 +134,7 @@ BEGIN
         a.created_date,
         a.modified_date,
         c.email AS client_email,
-        c.address AS client_address,
+        c.address AS client_address,  -- This will now match VARCHAR(500)
         v_total_records
     FROM appointments a
     LEFT JOIN clients c ON a.client_id = c.client_id
@@ -159,6 +161,8 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================
 -- Get Appointment By ID
 -- ===========================================================
+DROP FUNCTION IF EXISTS sp_get_appointment_by_id(UUID, UUID);
+
 CREATE OR REPLACE FUNCTION sp_get_appointment_by_id(
     p_appointment_id UUID,
     p_agent_id UUID
@@ -182,7 +186,7 @@ RETURNS TABLE(
     created_date TIMESTAMPTZ,
     modified_date TIMESTAMPTZ,
     client_email VARCHAR(100),
-    client_address TEXT,
+    client_address VARCHAR(500),  -- CHANGED: TEXT to VARCHAR(500)
     first_name VARCHAR(50),
     surname VARCHAR(50),
     last_name VARCHAR(50)
@@ -208,7 +212,7 @@ BEGIN
         a.created_date,
         a.modified_date,
         c.email AS client_email,
-        c.address AS client_address,
+        c.address AS client_address,  -- This will now match VARCHAR(500)
         c.first_name,
         c.surname,
         c.last_name
@@ -219,7 +223,6 @@ BEGIN
         AND a.is_active = TRUE;
 END;
 $$ LANGUAGE plpgsql;
-
 
 -- ===========================================================
 -- Create Appointment

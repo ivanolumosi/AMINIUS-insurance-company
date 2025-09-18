@@ -10,8 +10,8 @@ const dbConfig = {
     host: process.env.DB_SERVER as string,
     database: process.env.DB_DATABASE as string,
     port: 5432,
-    max: 10, // max number of clients in the pool
-    min: 0,  // min number of clients in the pool
+    max: 10, 
+        min: 0,  // min number of clients in the pool
     idleTimeoutMillis: 30000,
     ssl: {
         require: true,

@@ -21,10 +21,19 @@ const PORT = process.env.PORT || 3000;
 /* ------------------  Middleware ------------------ */
 
 app.use(cors({
-  origin: 'https://aminius-app.netlify.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: (origin, callback) => {
+    const allowed = [
+      'https://aminius-app.netlify.app',
+      'http://localhost:4200'
+    ];
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
 }));
+
 
 
 app.use(express.json({ limit: '10mb' }));

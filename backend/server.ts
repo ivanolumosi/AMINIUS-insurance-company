@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 3000;
 /* ------------------  Middleware ------------------ */
 
 app.use(cors({
-  origin: 'https://aminius-app.netlify.app/',
+  origin: 'https://aminius-app.netlify.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

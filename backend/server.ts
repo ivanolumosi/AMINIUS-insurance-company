@@ -12,13 +12,13 @@ import searchRoutes from './src/routes/search.routes';
 import utilityRoutes from './src/routes/utility.routes';
 import autocompleteRoutes from './src/routes/autocomplete.routes';
 import "./src/cronjobs/cronjobs"; 
+import prospectRoutes from './src/routes/prospect.routes';
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* ------------------  Middleware ------------------ */
-// Allow requests from Angular dev server
 
 app.use(cors({
   origin: 'https://aminius.netlify.app',
@@ -27,7 +27,6 @@ app.use(cors({
 }));
 
 
-// ✅ Parse JSON and URL-encoded data (with size limit)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -42,13 +41,14 @@ app.use('/api/notes', notesRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/utility', utilityRoutes);
 app.use('/api/autocomplete', autocompleteRoutes);
+app.use('/api', prospectRoutes);
 
-// // ✅ Root Route
+
+//  Root Route
 app.get('/', (_req: Request, res: Response) => {
   res.send('🚀 Welcome to the API!');
 });
 
-// Catch all unhandled routes
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: 'Route not found' });
 });
@@ -62,7 +62,6 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-/* ------------------  Start Server ------------------ */
 app.listen(PORT, () => {
   console.log(`🚀 Server running at port`);
 });

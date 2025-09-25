@@ -1,7 +1,7 @@
 [build]
-  base = "."
-  command = "ng build --configuration production"
-  publish = "dist/frontend/browser"
+  base = "frontend"                     
+  command = "npm install && ng build --configuration production"
+  publish = "dist/frontend"   
 
 [build.environment]
   NODE_VERSION = "18"

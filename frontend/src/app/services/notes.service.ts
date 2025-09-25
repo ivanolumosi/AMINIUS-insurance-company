@@ -12,7 +12,7 @@ import {
   providedIn: 'root'
 })
 export class NotesService {
-  private baseUrl = 'https://aminius-backend.onrender.com/api/notes';
+  private baseUrl = 'https://aminius-insurance-company.onrender.com/api/notes';
 
   constructor(private http: HttpClient) {}
 

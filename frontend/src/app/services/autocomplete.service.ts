@@ -42,9 +42,9 @@ export interface ClientPolicy {
   providedIn: 'root'
 })
 export class AutocompleteService {
-  private readonly baseUrl = 'https://aminius-backend.onrender.com/api/policies/autocomplete';
+  private readonly baseUrl = 'https://aminius-insurance-company.onrender.com/api/policies/autocomplete';
   
-  private readonly ApiUrl = 'https://aminius-backend.onrender.com/api/appointments';
+  private readonly ApiUrl = 'https://aminius-insurance-company.onrender.com/api/appointments';
 
   constructor(private http: HttpClient) {}
 

@@ -15,6 +15,9 @@ const api = axios.create({
 });
 
 export class SearchService {
+
+
+
   static async globalSearch(agentId: string, searchTerm: string) {
     const { data } = await api.get<GlobalSearchResult[]>(
       `/${agentId}/global`,

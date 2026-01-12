@@ -15,7 +15,7 @@ import {
   ReminderStatistics
 } from '../interfaces/Reminder';
 
-const API_BASE = `https://aminius-insurance-company.onrender.com/api/reminders`;
+const API_BASE = `https://aminuus-backend.onrender.com/api/reminders`;
 
 @Injectable({
   providedIn: 'root'

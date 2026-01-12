@@ -64,9 +64,9 @@ import { ClientWithPolicies, ClientWithPoliciesFilter } from '../interfaces/CLIE
 })
 export class PolicyService {
 
-  private readonly baseUrl = 'https://aminius-insurance-company.onrender.com/api/policies';
-  private readonly autocompeteUrl = 'https://aminius-insurance-company.onrender.com/api/policies/autocomplete';
-  private readonly ApiUrl = 'https://aminius-insurance-company.onrender.com/api/clients';
+  private readonly baseUrl = 'https://aminuus-backend.onrender.com/api/policies';
+  private readonly autocompeteUrl = 'https://aminuus-backend.onrender.com/api/policies/autocomplete';
+  private readonly ApiUrl = 'https://aminuus-backend.onrender.com/api/clients';
     
   // Reactive state subjects
   private policiesSubject = new BehaviorSubject<ClientPolicy[]>([]);

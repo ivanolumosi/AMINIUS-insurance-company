@@ -16,7 +16,7 @@ import {
   DataIntegrityIssue
 } from '../interfaces/utility';
 
-const API_URL = 'https://aminius-insurance-company.onrender.com/api/utility'; 
+const API_URL = 'https://aminuus-backend.onrender.com/api/utility'; 
 
 @Injectable({
   providedIn: 'root'

@@ -29,7 +29,7 @@ export interface NavbarBadgeCounts {
 })
 export class AgentService {
                     
-  private baseUrl = 'https://aminius-insurance-company.onrender.com/api'; 
+  private baseUrl = 'https://aminuus-backend.onrender.com/api'; 
 
   constructor(private http: HttpClient) {
     console.log('AgentService initialized with baseUrl:', this.baseUrl);

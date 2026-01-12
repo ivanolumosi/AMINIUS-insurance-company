@@ -15,7 +15,7 @@ import {
   providedIn: 'root'
 })
 export class ClientsService {
-  private baseUrl = 'https://aminius-insurance-company.onrender.com/api/clients';
+  private baseUrl = 'https://aminuus-backend.onrender.com/api/clients';
 
   constructor(private http: HttpClient) {}
 
